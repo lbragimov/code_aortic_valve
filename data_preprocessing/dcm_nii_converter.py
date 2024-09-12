@@ -4,7 +4,8 @@ import SimpleITK as sitk
 import numpy as np
 import nibabel as nib
 
-def convert_from_dicom_to_nifti(dicom_directory: str):
+
+def convert_dcm_to_nii(dicom_case_path: str, dir_to_save):
     # dir_name = Path(dicom_directory).parts[-1]
     # output_folder = Path(dicom_directory).parent
     # output_file = str(output_folder) + '\\' + dir_name + '.nii.gz'
@@ -13,8 +14,10 @@ def convert_from_dicom_to_nifti(dicom_directory: str):
     # series_reader.SetFileNames(series_dicom_names)
     # image3d = series_reader.Execute()
 
-    directory_name = Path(dicom_directory).parts[-1]
-    output_folder = Path(dicom_directory).parent
+    case_name = Path(dicom_case_path).parts[-1]
+    # output_folder = Path(dicom_directory).parent
+
+
 
     if directory_name.startswith('RTG-LAT-preop'):
         # axes = [['L', 'R'], ['S', 'I'], ['A', 'P']]
@@ -75,3 +78,8 @@ def convert_from_dicom_to_nifti(dicom_directory: str):
             nib.save(new_nifti, output_file)
     else:
         pass
+
+
+if __name__ == "__main__":
+    convert_dcm_nii("C:/Users/Kamil/Aortic_valve/data/Homburg pathology DICOM/HOM_M19_H217_W96_YA_MJ")
+                    #"o_HOM_M19_H217_W96_YA.txt")
