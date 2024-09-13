@@ -2,84 +2,65 @@ from pathlib import Path
 
 import SimpleITK as sitk
 import numpy as np
-import nibabel as nib
 
 
-def convert_dcm_to_nii(dicom_case_path: str, dir_to_save):
-    # dir_name = Path(dicom_directory).parts[-1]
-    # output_folder = Path(dicom_directory).parent
-    # output_file = str(output_folder) + '\\' + dir_name + '.nii.gz'
-    # series_reader = sitk.ImageSeriesReader()
-    # series_dicom_names = series_reader.GetGDCMSeriesFileNames(dicom_directory)
-    # series_reader.SetFileNames(series_dicom_names)
-    # image3d = series_reader.Execute()
+def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
 
-    case_name = Path(dicom_case_path).parts[-1]
-    # output_folder = Path(dicom_directory).parent
-
-
-
-    if directory_name.startswith('RTG-LAT-preop'):
-        # axes = [['L', 'R'], ['S', 'I'], ['A', 'P']]
-        # # Получение всех возможных комбинаций
-        # axis = list(itertools.product(*axes))
-        # result_list = []
-        # for pre_version in axis:
-        #     for final_version in itertools.permutations(pre_version, 3):
-        #         result_list.append((''.join(final_version)))
-        result_list = ['PSL']
-        for option in result_list:
-            series_reader = sitk.ImageSeriesReader()
-            series_dicom_names = series_reader.GetGDCMSeriesFileNames(dicom_directory)
-            series_reader.SetFileNames(series_dicom_names)
-            image = series_reader.Execute()
-
-            orientation_filter = sitk.DICOMOrientImageFilter()
-            orientation_filter.SetDesiredCoordinateOrientation(option)
-            image = orientation_filter.Execute(image)
-
-            image.SetOrigin((0, 0, 0))
-
-            # Get original image spacing
-            original_spacing = image.GetSpacing()
-
-            # Define the new spacing (isotropic)
-            new_spacing = [1, 1, 1]
-
-            # Compute new image size
-            original_size = np.array(image.GetSize(), dtype=np.int)
-            new_size = original_size * (original_spacing / np.array(new_spacing))
-            new_size = np.ceil(new_size).astype(np.int)  # Image dimensions are in integers
-            new_size = [int(s) for s in new_size]  # SimpleITK expects lists, not ndarrays
-
-            # Set up the resampler
-            resampler = sitk.ResampleImageFilter()
-            resampler.SetOutputSpacing(new_spacing)
-            resampler.SetSize(new_size)
-            resampler.SetOutputDirection(image.GetDirection())
-            resampler.SetOutputOrigin(image.GetOrigin())
-            resampler.SetTransform(sitk.Transform())
-            resampler.SetDefaultPixelValue(image.GetPixelIDValue())
-            resampler.SetInterpolator(sitk.sitkBSpline)
-
-            # Apply the resampling
-            reoriented = resampler.Execute(image)
-
-            # Write the transformed image back to a file
-            output_file = str(output_folder) + '\\' + directory_name + '_' + option + '.nii.gz'
-            # reoriented = reoriented[::-1, ::-1, ::-1]
-            sitk.WriteImage(reoriented, output_file)
-
-            image_nii_before = nib.load(output_file)
-            array_before = image_nii_before.get_fdata()
-            array = nib.orientations.flip_axis(array_before, axis=0)
-            array = nib.orientations.flip_axis(array, axis=1)
-            new_nifti = nib.Nifti1Image(array, image_nii_before.affine)
-            nib.save(new_nifti, output_file)
+    case_name = Path(dicom_folder).parts[-1]
+    if zip:
+        output_nii_file = nii_folder + "/" + case_name + ".nii.gz"
     else:
-        pass
+        output_nii_file = nii_folder + "/" + case_name + ".nii"
+
+    # Reading a series of DICOM files
+    reader = sitk.ImageSeriesReader()
+
+    # Getting a list of DICOM files in the specified folder
+    dicom_series = reader.GetGDCMSeriesFileNames(dicom_folder)
+
+    # Installing files in the reader
+    reader.SetFileNames(dicom_series)
+
+    # Reading images
+    image = reader.Execute()
+
+    # Create a resampling filter
+    resampler = sitk.ResampleImageFilter()
+
+    # Set new voxel sizes (e.g. 1x1x1 mm)
+    new_spacing = [1.0, 1.0, 1.0]
+    original_spacing = image.GetSpacing()
+    original_size = image.GetSize()
+
+    # Calculate the new image size in voxels
+    new_size = [
+        int(original_size[0] * (original_spacing[0] / new_spacing[0])),
+        int(original_size[1] * (original_spacing[1] / new_spacing[1])),
+        int(original_size[2] * (original_spacing[2] / new_spacing[2]))
+    ]
+
+    # Set parameters resampling
+    resampler.SetOutputSpacing(new_spacing)
+    resampler.SetSize(new_size)
+    resampler.SetOutputOrigin(image.GetOrigin())  # Initial origin point
+    resampler.SetOutputDirection(image.GetDirection())  # Keep the same orientation
+
+    # Interpolation: linear, Nearest-neighbor, B-Spline of order 3 interpolation
+    # resampler.SetInterpolator(sitk.sitkLinear)
+    resampler.SetInterpolator(sitk.sitkBSpline)
+    # resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+
+    # Set the value for pixels that will be outside the image (for example, 0)
+    resampler.SetDefaultPixelValue(0)
+
+    # Apply the resampling filter
+    resampled_image = resampler.Execute(image)
+
+    # Saving an image in NIfTI format
+    sitk.WriteImage(resampled_image, output_nii_file)
 
 
 if __name__ == "__main__":
-    convert_dcm_nii("C:/Users/Kamil/Aortic_valve/data/Homburg pathology DICOM/HOM_M19_H217_W96_YA_MJ")
+    convert_dcm_to_nii("C:/Users/Kamil/Aortic_valve/data/Homburg pathology DICOM/HOM_M19_H217_W96_YA_MJ",
+                       "C:/Users/Kamil/Aortic_valve/data/Homburg pathology nii")
                     #"o_HOM_M19_H217_W96_YA.txt")
