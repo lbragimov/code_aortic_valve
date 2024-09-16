@@ -6,11 +6,10 @@ import numpy as np
 
 def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
 
-    case_name = Path(dicom_folder).parts[-1]
     if zip:
-        output_nii_file = nii_folder + "/" + case_name + ".nii.gz"
+        output_nii_file = nii_folder + ".nii.gz"
     else:
-        output_nii_file = nii_folder + "/" + case_name + ".nii"
+        output_nii_file = nii_folder + ".nii"
 
     # Reading a series of DICOM files
     reader = sitk.ImageSeriesReader()
@@ -24,11 +23,29 @@ def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
     # Reading images
     image = reader.Execute()
 
+    img_size = image.GetSize()
+    img_origin = image.GetOrigin()
+    img_spacing = image.GetSpacing()
+    img_direction = image.GetDirection()
+
+    # Saving an image in NIfTI format
+    sitk.WriteImage(image, output_nii_file)
+
+    return img_size, img_origin, img_spacing, img_direction
+
+
+def resample_nii(nii_original_path: str, nii_resample_folder: str, new_spacing: list[float, float, float]):
+    original_file_name = Path(nii_original_path).parts[-1]
+
+    output_nii_file = nii_resample_folder + "/" + original_file_name
+
+    # Loading the original image
+    image = sitk.ReadImage(nii_original_path)
+
     # Create a resampling filter
     resampler = sitk.ResampleImageFilter()
 
     # Set new voxel sizes (e.g. 1x1x1 mm)
-    new_spacing = [1.0, 1.0, 1.0]
     original_spacing = image.GetSpacing()
     original_size = image.GetSize()
 

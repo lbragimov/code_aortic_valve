@@ -28,6 +28,7 @@ def txt_json_convert(dir: str, f_name: str):
     json_data = json.dumps(data, indent=4)
     print("hi")
 
+
 if __name__ == "__main__":
     txt_json_convert("C:/Users/Kamil/Aortic_valve/data/Homburg pathology txt files",
                     "o_HOM_M19_H217_W96_YA.txt")
