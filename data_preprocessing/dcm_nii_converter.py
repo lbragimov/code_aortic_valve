@@ -34,10 +34,9 @@ def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
     return img_size, img_origin, img_spacing, img_direction
 
 
-def resample_nii(nii_original_path: str, nii_resample_folder: str, new_spacing: list[float, float, float]):
-    original_file_name = Path(nii_original_path).parts[-1]
-
-    output_nii_file = nii_resample_folder + "/" + original_file_name
+def resample_nii(nii_original_path: str,
+                 nii_resample_path: str,
+                 new_spacing: list[float, float, float] = [1.0, 1.0, 1.0]):
 
     # Loading the original image
     image = sitk.ReadImage(nii_original_path)
@@ -74,7 +73,7 @@ def resample_nii(nii_original_path: str, nii_resample_folder: str, new_spacing: 
     resampled_image = resampler.Execute(image)
 
     # Saving an image in NIfTI format
-    sitk.WriteImage(resampled_image, output_nii_file)
+    sitk.WriteImage(resampled_image, nii_resample_path)
 
 
 if __name__ == "__main__":
