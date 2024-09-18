@@ -1,8 +1,10 @@
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
+
 def load_image(image_path):
     return sitk.ReadImage(image_path)
+
 
 def load_landmarks(file_path):
     landmarks = []
@@ -12,8 +14,10 @@ def load_landmarks(file_path):
             landmarks.append((x, y, z))
     return landmarks
 
+
 def world_to_voxel_coords(image, world_coords):
     return [image.TransformPhysicalPointToIndex(point) for point in world_coords]
+
 
 def extract_and_plot_slices(image, voxel_coords):
     for idx, (x, y, z) in enumerate(voxel_coords):
@@ -53,7 +57,6 @@ voxel_landmarks = world_to_voxel_coords(image, landmarks)
 
 # Extract slices and plot
 extract_and_plot_slices(image, voxel_landmarks)
-
 
 
 def extract_and_save_slices(image, voxel_coords):

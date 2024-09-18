@@ -1,3 +1,4 @@
 SimpleITK
 nibabel
 numpy
+matplotlib

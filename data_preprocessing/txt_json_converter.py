@@ -19,6 +19,9 @@ def txt_json_convert(txt_file_path: str, json_file_path: str):
                 continue  # Skip empty lines
             elif line in original_file_name:
                 continue
+            elif "Failed" in line:
+                data[current_key] = []
+                continue
 
             # If the line contains the section name
             if line.isalpha() or "closed" in line:
@@ -38,7 +41,7 @@ def txt_json_convert(txt_file_path: str, json_file_path: str):
     # Save the result to a .json file
     with open(json_file_path, 'w') as json_file:
         json.dump(data, json_file, indent=4)
-    print("hi")
+    return data
 
 
 if __name__ == "__main__":

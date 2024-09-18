@@ -34,9 +34,31 @@ def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
     return img_size, img_origin, img_spacing, img_direction
 
 
+def reader_dcm(dicom_folder: str):
+
+    # Reading a series of DICOM files
+    reader = sitk.ImageSeriesReader()
+
+    # Getting a list of DICOM files in the specified folder
+    dicom_series = reader.GetGDCMSeriesFileNames(dicom_folder)
+
+    # Installing files in the reader
+    reader.SetFileNames(dicom_series)
+
+    # Reading images
+    image = reader.Execute()
+
+    img_size = image.GetSize()
+    img_origin = image.GetOrigin()
+    img_spacing = image.GetSpacing()
+    img_direction = image.GetDirection()
+
+    return img_size, img_origin, img_spacing, img_direction
+
+
 def resample_nii(nii_original_path: str,
                  nii_resample_path: str,
-                 new_spacing: list[float, float, float] = [1.0, 1.0, 1.0]):
+                 new_spacing: list[float] = [1.0, 1.0, 1.0]):
 
     # Loading the original image
     image = sitk.ReadImage(nii_original_path)
