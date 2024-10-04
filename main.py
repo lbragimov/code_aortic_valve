@@ -5,6 +5,7 @@ from statistics import mode
 
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
 from data_preprocessing.txt_json_converter import txt_json_convert
+from data_visualization.markers import slices_with_markers
 
 
 def controller(data_path):
@@ -110,10 +111,10 @@ def controller(data_path):
         with open(controller_path, 'w') as json_file:
             json.dump(controller_dump, json_file)
 
-    if not "marker_info" in controller_dump.keys() or not controller_dump["marker_info"]:
-        txt_marker_path = data_path + "marker_info/"
-        json_marker_path = data_path + "json_marker_info/"
-        for sub_dir in list(dir_structure["marker_info"]):
+    if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
+        txt_marker_path = data_path + "markers_info/"
+        json_marker_path = data_path + "json_markers_info/"
+        for sub_dir in list(dir_structure["markers_info"]):
             for case in os.listdir(txt_marker_path + sub_dir):
                 txt_marker_case_file = txt_marker_path + sub_dir + "/" + case
                 case = case[2:-4]
@@ -134,6 +135,12 @@ def controller(data_path):
             json.dump(controller_dump, json_file)
         with open(dict_all_case_path, 'w') as json_file:
             json.dump(dict_all_case, json_file)
+
+    test_case_name = list(dict_all_case.keys())[0]
+
+    slices_with_markers(data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
+                        dict_all_case[test_case_name],
+                        data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
     print('hi')
 
 

@@ -2,11 +2,11 @@ import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
 
-def load_image(image_path):
+def _load_image(image_path):
     return sitk.ReadImage(image_path)
 
 
-def load_landmarks(file_path):
+def _load_landmarks(file_path):
     landmarks = []
     with open(file_path, 'r') as file:
         for line in file:
@@ -15,11 +15,11 @@ def load_landmarks(file_path):
     return landmarks
 
 
-def world_to_voxel_coords(image, world_coords):
+def _world_to_voxel_coords(image, world_coords):
     return [image.TransformPhysicalPointToIndex(point) for point in world_coords]
 
 
-def extract_and_plot_slices(image, voxel_coords):
+def _extract_and_plot_slices(image, voxel_coords):
     for idx, (x, y, z) in enumerate(voxel_coords):
         # Extracting the slices
         axial_slice = sitk.GetArrayFromImage(image[:, :, z])
@@ -43,23 +43,8 @@ def extract_and_plot_slices(image, voxel_coords):
         plt.suptitle(f'Landmark {idx + 1}')
         plt.show()
 
-# Path to your NIFTI file
-nii_path = 'path_to_your_nii_file.nii.gz'
-# Path to your landmarks file
-landmarks_path = 'path_to_your_landmarks_file.txt'
 
-# Load the image and landmarks
-image = load_image(nii_path)
-landmarks = load_landmarks(landmarks_path)
-
-# Convert landmarks to voxel coordinates
-voxel_landmarks = world_to_voxel_coords(image, landmarks)
-
-# Extract slices and plot
-extract_and_plot_slices(image, voxel_landmarks)
-
-
-def extract_and_save_slices(image, voxel_coords):
+def _extract_and_save_slices(image, voxel_coords):
     for idx, (x, y, z) in enumerate(voxel_coords):
         # Extracting the slices
         axial_slice = sitk.GetArrayFromImage(image[:, :, z])
@@ -84,4 +69,16 @@ def extract_and_save_slices(image, voxel_coords):
         plt.suptitle(f'Landmark {idx + 1}')
         plt.savefig(f'Landmark_{idx + 1}_slices.png')
         plt.close()
+
+
+def slices_with_markers(nii_path: str, case_info: dict, save_path):
+    # Path to your NIFTI file
+    # Path to your landmarks file
+    # Load the image and landmarks
+    image = _load_image(nii_path)
+    landmarks = _load_landmarks(case_info)
+    # Convert landmarks to voxel coordinates
+    voxel_landmarks = _world_to_voxel_coords(image, landmarks)
+    # Extract slices and plot
+    _extract_and_plot_slices(image, voxel_landmarks, save_path)
 
