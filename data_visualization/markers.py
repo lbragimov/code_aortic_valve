@@ -1,17 +1,17 @@
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 def _load_image(image_path):
     return sitk.ReadImage(image_path)
 
 
-def _load_landmarks(file_path):
+def _load_landmarks(dict_landmarks):
     landmarks = []
-    with open(file_path, 'r') as file:
-        for line in file:
-            x, y, z = map(float, line.strip().split())
-            landmarks.append((x, y, z))
+    list_landmarks_name = ['R', 'L', 'N', 'RLC', 'RNC', 'LNC']
+    for current_landmarks in list_landmarks_name:
+        landmarks.append(tuple(dict_landmarks[current_landmarks]))
     return landmarks
 
 
@@ -28,6 +28,7 @@ def _extract_and_plot_slices(image, voxel_coords):
 
         # Plotting
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
         axes[0].imshow(axial_slice, cmap='gray')
         axes[0].plot(x, y, 'ro')  # Plotting the landmark
         axes[0].set_title('Axial Slice')
@@ -42,9 +43,10 @@ def _extract_and_plot_slices(image, voxel_coords):
 
         plt.suptitle(f'Landmark {idx + 1}')
         plt.show()
+        print('hi')
 
 
-def _extract_and_save_slices(image, voxel_coords):
+def _extract_and_save_slices(image, voxel_coords, save_path):
     for idx, (x, y, z) in enumerate(voxel_coords):
         # Extracting the slices
         axial_slice = sitk.GetArrayFromImage(image[:, :, z])
@@ -67,7 +69,13 @@ def _extract_and_save_slices(image, voxel_coords):
 
         # Save the figure
         plt.suptitle(f'Landmark {idx + 1}')
-        plt.savefig(f'Landmark_{idx + 1}_slices.png')
+
+        folder_path = Path(save_path)
+        if folder_path.is_dir():
+            plt.savefig(save_path + f'/Landmark_{idx + 1}_slices.png')
+        else:
+            folder_path.mkdir(parents=True, exist_ok=True)
+            plt.savefig(save_path + f'Landmark_{idx + 1}_slices.png')
         plt.close()
 
 
@@ -80,5 +88,6 @@ def slices_with_markers(nii_path: str, case_info: dict, save_path):
     # Convert landmarks to voxel coordinates
     voxel_landmarks = _world_to_voxel_coords(image, landmarks)
     # Extract slices and plot
-    _extract_and_plot_slices(image, voxel_landmarks, save_path)
+    # _extract_and_plot_slices(image, voxel_landmarks)
+    _extract_and_save_slices(image, voxel_landmarks, save_path)
 
