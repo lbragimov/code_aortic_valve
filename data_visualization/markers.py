@@ -9,14 +9,18 @@ def _load_image(image_path):
 
 def _load_landmarks(dict_landmarks):
     landmarks = []
-    list_landmarks_name = ['R', 'L', 'N', 'RLC', 'RNC', 'LNC']
-    for current_landmarks in list_landmarks_name:
-        landmarks.append(tuple(dict_landmarks[current_landmarks]))
-    return landmarks
+    keys_to_keep = ['R', 'L', 'N', 'RLC', 'RNC', 'LNC']
+    filtered_dict = dict(filter(lambda item: item[0] in keys_to_keep, dict_landmarks.items()))
+    # for current_landmarks in keys_to_keep:
+    #     landmarks.append(tuple(dict_landmarks[current_landmarks]))
+    return filtered_dict
 
 
 def _world_to_voxel_coords(image, world_coords):
-    return [image.TransformPhysicalPointToIndex(point) for point in world_coords]
+    for name_point, point in world_coords.items():
+        world_coords[name_point] = image.TransformPhysicalPointToIndex(point)
+    # return [image.TransformPhysicalPointToIndex(point) for point in world_coords]
+    return world_coords
 
 
 def _extract_and_plot_slices(image, voxel_coords):
@@ -47,7 +51,10 @@ def _extract_and_plot_slices(image, voxel_coords):
 
 
 def _extract_and_save_slices(image, voxel_coords, save_path):
-    for idx, (x, y, z) in enumerate(voxel_coords):
+    for name_point, point in voxel_coords.items():
+        x = point[0]
+        y = point[1]
+        z = point[2]
         # Extracting the slices
         axial_slice = sitk.GetArrayFromImage(image[:, :, z])
         coronal_slice = sitk.GetArrayFromImage(image[:, y, :])
@@ -68,14 +75,14 @@ def _extract_and_save_slices(image, voxel_coords, save_path):
         axes[2].set_title('Sagittal Slice')
 
         # Save the figure
-        plt.suptitle(f'Landmark {idx + 1}')
+        plt.suptitle(f'Landmark {name_point}')
 
         folder_path = Path(save_path)
         if folder_path.is_dir():
-            plt.savefig(save_path + f'/Landmark_{idx + 1}_slices.png')
+            plt.savefig(save_path + f'/Landmark_{name_point}_slices.png')
         else:
             folder_path.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path + f'Landmark_{idx + 1}_slices.png')
+            plt.savefig(save_path + f'/Landmark_{name_point}_slices.png')
         plt.close()
 
 
