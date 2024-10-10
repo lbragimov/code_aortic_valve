@@ -3,6 +3,9 @@ import os
 
 from statistics import mode
 
+import nibabel as nib
+from totalsegmentator.python_api import totalsegmentator
+
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
 from data_preprocessing.txt_json_converter import txt_json_convert
 from data_visualization.markers import slices_with_markers
@@ -138,10 +141,20 @@ def controller(data_path):
 
     test_case_name = list(dict_all_case.keys())[0]
 
-    slices_with_markers(data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
-                        dict_all_case[test_case_name],
-                        data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
+    slices_with_markers(
+        nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
+        case_info=dict_all_case[test_case_name],
+        save_path=data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
+
+    totalsegmentator(
+        input=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
+        output=data_path + 'totalsegmentator_result/' + dir_structure['totalsegmentator_result'][0] + '/' + test_case_name,
+        task="class_map_part_cardiac")
+
+
     print('hi')
+
+
 
 
 if __name__ == "__main__":
