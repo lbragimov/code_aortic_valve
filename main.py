@@ -8,13 +8,13 @@ from totalsegmentator.python_api import totalsegmentator
 
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
 from data_preprocessing.txt_json_converter import txt_json_convert
-from data_preprocessing.stl_nii_converter import convert_stl_to_nii
+from data_preprocessing.stl_nii_converter import convert_stl_to_nii, stl_to_mask, stl_resample
 from data_visualization.markers import slices_with_markers
 
 
 def controller(data_path):
 
-    dict_all_case_path = data_path + "/dict_all_case.json"
+    dict_all_case_path = data_path + "dict_all_case.json"
     dict_all_case = {}
 
     controller_path = data_path + "controller.json"
@@ -140,18 +140,44 @@ def controller(data_path):
         with open(dict_all_case_path, 'w') as json_file:
             json.dump(dict_all_case, json_file)
 
-    if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
+    if (not "stl_aorta_segment_resample" in controller_dump.keys()
+            or not controller_dump["stl_aorta_segment_resample"]):
         stl_aorta_segment_path = data_path + "stl_aorta_segment/"
+        stl_aorta_segment_resample_path = data_path + "stl_aorta_segment_resample/"
+        for sub_dir in list(dir_structure["stl_aorta_segment_resample"]):
+            for case in os.listdir(stl_aorta_segment_path + sub_dir):
+                stl_aorta_segment_file =stl_aorta_segment_path + sub_dir + "/" + case
+                stl_aorta_segment_resample_file = stl_aorta_segment_resample_path + sub_dir + "/" + case
+
+                stl_resample(stl_aorta_segment_file,
+                             stl_aorta_segment_resample_file,
+                             3000)
+
+
+        controller_dump["stl_aorta_segment_resample"] = True
+        with open(controller_path, 'w') as json_file:
+            json.dump(controller_dump, json_file)
+
+
+    if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
+        stl_aorta_segment_path = data_path + "stl_aorta_segment_resample/"
         mask_aorta_segment_path = data_path + "mask_aorta_segment/"
-        for sub_dir in list(dir_structure["stl_aorta_segment"]):
+        nii_resample_path = data_path + "nii_resample/"
+        for sub_dir in list(dir_structure["stl_aorta_segment_resample"]):
             for case in os.listdir(stl_aorta_segment_path + sub_dir):
                 stl_aorta_segment_file =stl_aorta_segment_path + sub_dir + "/" + case
                 case_name = case[:-4]
                 mask_aorta_segment_file = mask_aorta_segment_path + sub_dir + "/" + case_name + ".nii"
+                nii_resample_file = nii_resample_path + sub_dir + "/" + case_name + ".nii"
 
-                convert_stl_to_nii(stl_aorta_segment_file,
-                                   mask_aorta_segment_file,
-                                   tuple(dict_all_case[case_name]['img_size']))
+                # convert_stl_to_nii(stl_aorta_segment_file,
+                #                    mask_aorta_segment_file,
+                #                    tuple(dict_all_case[case_name]['img_size']))
+
+                stl_to_mask(stl_aorta_segment_file,
+                            nii_resample_file,
+                            mask_aorta_segment_file)
+
 
         controller_dump["mask_aorta_segment"] = True
         with open(controller_path, 'w') as json_file:
@@ -176,6 +202,7 @@ def controller(data_path):
 
 
 if __name__ == "__main__":
-    data_path = "C:/Users/Kamil/Aortic_valve/data/"
+    # data_path = "C:/Users/Kamil/Aortic_valve/data/"
+    data_path = "D:/science/Aortic_valve/data_short/"
     controller(data_path)
 

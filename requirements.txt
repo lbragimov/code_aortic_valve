@@ -3,3 +3,6 @@ nibabel
 numpy
 matplotlib
 totalsegmentator
+trimesh
+rtree
+numpy-stl
