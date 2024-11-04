@@ -5,6 +5,12 @@ import SimpleITK as sitk
 # from stl import mesh
 from stl import mesh
 from sklearn.neighbors import NearestNeighbors
+import open3d as o3d
+import vtk
+from vtk.util.numpy_support import vtk_to_numpy
+import os
+import glob
+import random
 
 
 
@@ -146,14 +152,14 @@ def convert_stl_to_nii(input_stl_file: str, output_nii_file: str, volume_shape: 
 
 
 
-def define_plane(point1, point2, point3):
-    # Create vectors from the points
-    vector1 = point2 - point1
-    vector2 = point3 - point1
-    # Calculate the normal vector to the plane
-    normal = np.cross(vector1, vector2)
-    d = -np.dot(normal, point1)  # d in the plane equation Ax + By + Cz + D = 0
-    return normal, d
+# def define_plane(point1, point2, point3):
+#     # Create vectors from the points
+#     vector1 = point2 - point1
+#     vector2 = point3 - point1
+#     # Calculate the normal vector to the plane
+#     normal = np.cross(vector1, vector2)
+#     d = -np.dot(normal, point1)  # d in the plane equation Ax + By + Cz + D = 0
+#     return normal, d
 
 
 # def cut_mask_with_plane(mask, point1, point2, point3):
@@ -246,59 +252,364 @@ def stl_to_mask(stl_path, reference_nii_path, output_nii_path):
 
 
 
-def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
-    def load_stl(file_path):
-        return mesh.Mesh.from_file(file_path)
+# def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
+#     def load_stl(file_path):
+#         return mesh.Mesh.from_file(file_path)
+#
+#
+#     def reduce_vertices(original_mesh, target_vertex_count):
+#         # Flatten the vertex array
+#         vertices = original_mesh.vectors.reshape(-1, 3)
+#
+#         # Use k-NN to cluster vertices and reduce
+#         nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(vertices)
+#         distances, indices = nbrs.kneighbors(vertices)
+#
+#         # Simplify by averaging neighbors
+#         new_vertices = []
+#         unique_indices = set()
+#
+#         for idx in range(len(vertices)):
+#             if idx in unique_indices:
+#                 continue
+#             neighbor_indices = indices[idx]
+#             neighbor_indices = [i for i in neighbor_indices if i not in unique_indices]
+#
+#             # Calculate the average position
+#             new_vertex = np.mean(vertices[neighbor_indices], axis=0)
+#             new_vertices.append(new_vertex)
+#
+#             unique_indices.update(neighbor_indices)
+#
+#         new_vertices = np.array(new_vertices)
+#
+#         # Create new faces based on the reduced vertices
+#         vertex_map = {tuple(v): i for i, v in enumerate(new_vertices)}
+#         new_faces = []
+#
+#         for face in original_mesh.vectors:
+#             new_face = [vertex_map[tuple(vertex)] for vertex in face]
+#             new_faces.append(new_face)
+#
+#         new_faces = np.array(new_faces)
+#
+#         # Create a new mesh
+#         new_mesh = mesh.Mesh(np.zeros(new_faces.shape[0], dtype=mesh.Mesh.dtype))
+#         for i, face in enumerate(new_faces):
+#             for j in range(3):
+#                 new_mesh.vectors[i][j] = new_vertices[face[j]]
+#
+#         return new_mesh
+#
+#
+#     def save_stl(mesh, file_path):
+#         mesh.save(file_path)
+#
+#     original_mesh = load_stl(input_stl_path)
+#     reduced_mesh = reduce_vertices(original_mesh, target_vertex_count)
+#     save_stl(reduced_mesh, output_stl_path)
 
 
-    def reduce_vertices(original_mesh, target_vertex_count):
-        # Flatten the vertex array
-        vertices = original_mesh.vectors.reshape(-1, 3)
-
-        # Use k-NN to cluster vertices and reduce
-        nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(vertices)
-        distances, indices = nbrs.kneighbors(vertices)
-
-        # Simplify by averaging neighbors
-        new_vertices = []
-        unique_indices = set()
-
-        for idx in range(len(vertices)):
-            if idx in unique_indices:
-                continue
-            neighbor_indices = indices[idx]
-            neighbor_indices = [i for i in neighbor_indices if i not in unique_indices]
-
-            # Calculate the average position
-            new_vertex = np.mean(vertices[neighbor_indices], axis=0)
-            new_vertices.append(new_vertex)
-
-            unique_indices.update(neighbor_indices)
-
-        new_vertices = np.array(new_vertices)
-
-        # Create new faces based on the reduced vertices
-        vertex_map = {tuple(v): i for i, v in enumerate(new_vertices)}
-        new_faces = []
-
-        for face in original_mesh.vectors:
-            new_face = [vertex_map[tuple(vertex)] for vertex in face]
-            new_faces.append(new_face)
-
-        new_faces = np.array(new_faces)
-
-        # Create a new mesh
-        new_mesh = mesh.Mesh(np.zeros(new_faces.shape[0], dtype=mesh.Mesh.dtype))
-        for i, face in enumerate(new_faces):
-            for j in range(3):
-                new_mesh.vectors[i][j] = new_vertices[face[j]]
-
-        return new_mesh
+# def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
+#     # Загрузить STL файл
+#     mesh = o3d.io.read_triangle_mesh(input_stl_path)
+#
+#     # Упрощение модели до нужного количества вершин
+#     simplified_mesh = mesh.simplify_vertex_clustering(
+#         voxel_size=mesh.get_max_bound().max() / (target_vertex_count ** (1/3))
+#     )
+#
+#     # Убедимся, что мы достигли нужного количества вершин
+#     while len(simplified_mesh.vertices) > target_vertex_count:
+#         simplified_mesh = simplified_mesh.simplify_quadric_decimation(target_vertex_count)
+#
+#     # Сохранить упрощенную модель
+#     o3d.io.write_triangle_mesh(output_stl_path, simplified_mesh)
 
 
-    def save_stl(mesh, file_path):
-        mesh.save(file_path)
+# def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
+#     # Загрузка STL файла
+#     mesh = o3d.io.read_triangle_mesh(input_stl_path)
+#
+#     # Проверка успешной загрузки
+#     if len(mesh.vertices) == 0 or len(mesh.triangles) == 0:
+#         print("Ошибка: файл пустой или не содержит валидных данных.")
+#         return
+#
+#     # Начальный размер вокселя - меньшая доля от общего размера модели
+#     initial_voxel_size = (mesh.get_max_bound() - mesh.get_min_bound()).max() / 1000
+#     voxel_size = initial_voxel_size  # начнем с малого значения
+#     print(f"Начальный размер вокселя: {voxel_size}")
+#
+#     # Итеративное упрощение с кластеризацией вершин
+#     simplified_mesh = mesh
+#     while len(simplified_mesh.vertices) > target_vertex_count and voxel_size < (
+#             mesh.get_max_bound() - mesh.get_min_bound()).max():
+#         simplified_mesh = mesh.simplify_vertex_clustering(voxel_size=voxel_size)
+#         voxel_size *= 1.1  # поэтапно увеличиваем размер вокселя
+#
+#     print(f"Окончательный размер вокселя: {voxel_size}")
+#
+#     # Проверка после кластеризации
+#     if len(simplified_mesh.vertices) == 0 or len(simplified_mesh.triangles) == 0:
+#         print("Ошибка: упрощенная модель пуста после кластеризации.")
+#         return
+#
+#     # Если все еще больше целевого количества, применяем квадратичное упрощение
+#     if len(simplified_mesh.vertices) > target_vertex_count:
+#         simplified_mesh = simplified_mesh.simplify_quadric_decimation(target_vertex_count)
+#
+#     # Вычисление нормалей перед сохранением в STL
+#     simplified_mesh.compute_triangle_normals()
+#     simplified_mesh.compute_vertex_normals()
+#
+#     # Сохранение упрощенной модели
+#     success = o3d.io.write_triangle_mesh(output_stl_path, simplified_mesh)
+#     if success:
+#         print("Файл успешно сохранен:", output_stl_path)
+#     else:
+#         print("Ошибка при сохранении STL-файла.")
 
-    original_mesh = load_stl(input_stl_path)
-    reduced_mesh = reduce_vertices(original_mesh, target_vertex_count)
-    save_stl(reduced_mesh, output_stl_path)
+
+# def __vtk_image_to_sitk(vtk_image):
+#     """Convert vtkImageData to SimpleITK Image."""
+#     # Step 1: Extract VTK image dimensions, spacing, and origin
+#     dimensions = vtk_image.GetDimensions()
+#     spacing = vtk_image.GetSpacing()
+#     origin = vtk_image.GetOrigin()
+#     np.bool = np.bool_
+#     # Step 2: Get VTK image data as a NumPy array
+#     vtk_array = vtk_image.GetPointData().GetScalars()  # Get the VTK data array
+#     np_array = vtk_to_numpy(vtk_array).astype(np.uint8)  # Convert VTK array to NumPy array
+#     np_array = np_array.reshape(dimensions[::-1])  # Reshape to match SimpleITK's z, y, x order
+#
+#     # Step 3: Convert NumPy array to SimpleITK image
+#     sitk_image = sitk.GetImageFromArray(np_array)
+#     sitk_image.SetSpacing(spacing)
+#     sitk_image.SetOrigin(origin)
+#
+#     # Step 4: Set Direction (assuming identity if not available)
+#     # VTK doesn't provide direction, so we often assume identity, or you can define it as needed.
+#     sitk_image.SetDirection([1, 0, 0, 0, 1, 0, 0, 0, 1])
+#
+#     return sitk_image
+#
+# def convert_STL_to_mask(stl_file, reference_image_file, destination_mask_file):
+#     """Convert an STL file to a binary mask that matches the reference image grid."""
+#     # Step 1: Load the STL file using VTK
+#     reader = vtk.vtkSTLReader()
+#     reader.SetFileName(stl_file)
+#     reader.Update()
+#     poly_data = reader.GetOutput()
+#
+#     # Step 2: Get the reference image properties
+#     reference_image = sitk.ReadImage(reference_image_file)
+#     ref_spacing = reference_image.GetSpacing()
+#     ref_origin = reference_image.GetOrigin()
+#     ref_direction = reference_image.GetDirection()
+#     ref_size = reference_image.GetSize()
+#
+#     # Step 3: Set up VTK to match the reference image grid
+#     # Define VTK image with the same dimensions and spacing
+#     vtk_image = vtk.vtkImageData()
+#     vtk_image.SetDimensions(ref_size)
+#     vtk_image.SetSpacing(ref_spacing)
+#     vtk_image.SetOrigin(ref_origin)
+#
+#     # Step 4: Use VTK's PolyDataToImageStencil to convert STL to a mask
+#     # Create a stencil from the STL poly data
+#     stencil = vtk.vtkPolyDataToImageStencil()
+#     stencil.SetInputData(poly_data)
+#     stencil.SetOutputOrigin(vtk_image.GetOrigin())
+#     stencil.SetOutputSpacing(vtk_image.GetSpacing())
+#     stencil.SetOutputWholeExtent(vtk_image.GetExtent())
+#     stencil.Update()
+#
+#     # Step 5: Convert stencil to binary mask in VTK
+#     # Initialize an empty binary mask in VTK and apply stencil to it
+#     stencil_to_image = vtk.vtkImageStencilToImage()
+#     stencil_to_image.SetInputConnection(stencil.GetOutputPort())
+#     stencil_to_image.SetInsideValue(1)  # Set voxel value inside the STL surface
+#     stencil_to_image.SetOutsideValue(0)  # Set voxel value outside the STL surface
+#     stencil_to_image.Update()
+#
+#     # Step 6: Convert VTK image to SimpleITK image
+#     # Get the numpy array from the VTK image
+#     #vtk_to_numpy = vtk.util.numpy_support.vtk_to_numpy
+#     #mask_array = vtk_to_numpy(stencil_to_image.GetOutput().GetPointData().GetScalars())
+#     #mask_array = mask_array.reshape(ref_size[::-1])  # Reshape to match SimpleITK
+#
+#     # Convert numpy array to SimpleITK image
+#     #mask_image = sitk.GetImageFromArray(mask_array.astype(np.uint8))
+#     #mask_image.SetSpacing(ref_spacing)
+#     #mask_image.SetOrigin(ref_origin)
+#     #mask_image.SetDirection(ref_direction)
+#     res_image = DataProcessing_VS.__vtk_image_to_sitk(stencil_to_image.GetOutput())
+#     sitk.WriteImage(res_image, destination_mask_file)
+#     pass
+
+
+def convert_STL_to_mask(stl_file, reference_image_file, destination_mask_file):
+    """Convert an STL file to a binary mask that matches the reference image grid."""
+
+    def vtk_image_to_sitk(vtk_image):
+        """Convert vtkImageData to SimpleITK Image."""
+        # Step 1: Extract VTK image dimensions, spacing, and origin
+        dimensions = vtk_image.GetDimensions()
+        spacing = vtk_image.GetSpacing()
+        origin = vtk_image.GetOrigin()
+        np.bool = np.bool_
+        # Step 2: Get VTK image data as a NumPy array
+        vtk_array = vtk_image.GetPointData().GetScalars()  # Get the VTK data array
+        np_array = vtk_to_numpy(vtk_array).astype(np.uint8)  # Convert VTK array to NumPy array
+        np_array = np_array.reshape(dimensions[::-1])  # Reshape to match SimpleITK's z, y, x order
+
+        # Step 3: Convert NumPy array to SimpleITK image
+        sitk_image = sitk.GetImageFromArray(np_array)
+        sitk_image.SetSpacing(spacing)
+        sitk_image.SetOrigin(origin)
+
+        # Step 4: Set Direction (assuming identity if not available)
+        # VTK doesn't provide direction, so we often assume identity, or you can define it as needed.
+        sitk_image.SetDirection([1, 0, 0, 0, 1, 0, 0, 0, 1])
+
+        return sitk_image
+
+    # Step 1: Load the STL file using VTK
+    reader = vtk.vtkSTLReader()
+    reader.SetFileName(stl_file)
+    reader.Update()
+    poly_data = reader.GetOutput()
+
+    # Step 2: Get the reference image properties
+    reference_image = sitk.ReadImage(reference_image_file)
+    ref_spacing = reference_image.GetSpacing()
+    ref_origin = reference_image.GetOrigin()
+    ref_direction = reference_image.GetDirection()
+    ref_size = reference_image.GetSize()
+
+    # Step 3: Set up VTK to match the reference image grid
+    # Define VTK image with the same dimensions and spacing
+    vtk_image = vtk.vtkImageData()
+    vtk_image.SetDimensions(ref_size)
+    vtk_image.SetSpacing(ref_spacing)
+    vtk_image.SetOrigin(ref_origin)
+
+    # Step 4: Use VTK's PolyDataToImageStencil to convert STL to a mask
+    # Create a stencil from the STL poly data
+    stencil = vtk.vtkPolyDataToImageStencil()
+    stencil.SetInputData(poly_data)
+    stencil.SetOutputOrigin(vtk_image.GetOrigin())
+    stencil.SetOutputSpacing(vtk_image.GetSpacing())
+    stencil.SetOutputWholeExtent(vtk_image.GetExtent())
+    stencil.Update()
+
+    # Step 5: Convert stencil to binary mask in VTK
+    # Initialize an empty binary mask in VTK and apply stencil to it
+    stencil_to_image = vtk.vtkImageStencilToImage()
+    stencil_to_image.SetInputConnection(stencil.GetOutputPort())
+    stencil_to_image.SetInsideValue(1)  # Set voxel value inside the STL surface
+    stencil_to_image.SetOutsideValue(0)  # Set voxel value outside the STL surface
+    stencil_to_image.Update()
+
+    # Step 6: Convert VTK image to SimpleITK image
+    # Get the numpy array from the VTK image
+    # vtk_to_numpy = vtk.util.numpy_support.vtk_to_numpy
+    # mask_array = vtk_to_numpy(stencil_to_image.GetOutput().GetPointData().GetScalars())
+    # mask_array = mask_array.reshape(ref_size[::-1])  # Reshape to match SimpleITK
+
+    # Convert numpy array to SimpleITK image
+    # mask_image = sitk.GetImageFromArray(mask_array.astype(np.uint8))
+    # mask_image.SetSpacing(ref_spacing)
+    # mask_image.SetOrigin(ref_origin)
+    # mask_image.SetDirection(ref_direction)
+    res_image = vtk_image_to_sitk(stencil_to_image.GetOutput())
+    sitk.WriteImage(res_image, destination_mask_file)
+
+
+def cut_mask_using_points(source_mask_file, updated_mask_file, margin=5):
+    def find_plane_coefficients(p1, p2, p3):
+        """Calculate the coefficients (a, b, c, d) of the plane passing through points p1, p2, p3."""
+        # Create vectors from the points
+        v1 = np.array(p2) - np.array(p1)
+        v2 = np.array(p3) - np.array(p1)
+
+        # Compute the cross product to find the normal vector
+        normal = np.cross(v1, v2)
+        a, b, c = normal
+
+        # Calculate d using point p1
+        d = -np.dot(normal, p1)
+
+        return a, b, c, d, normal
+
+    def add_safety_margin_to_plane(a, b, c, d, normal, margin):
+        """Add a safety margin to the plane by shifting it by `margin` along the normal direction."""
+        # Normalize the normal vector
+        normal_length = np.linalg.norm(normal)
+        if normal_length == 0:
+            raise ValueError("The normal vector is zero; the points may be collinear.")
+
+        # Adjust d to move the plane by `margin` along the normal direction
+        d_with_margin = d + (margin * normal_length)
+        return a, b, c, d_with_margin
+
+    def cut_mask_above_planes(binary_mask, lower_plane, upper_plane):
+        """Set voxels above the plane ax + by + cz + d > 0 to zero in the binary mask."""
+        # Get the size and spacing of the mask
+        size = binary_mask.GetSize()
+        spacing = binary_mask.GetSpacing()
+        origin = binary_mask.GetOrigin()
+        direction = binary_mask.GetDirection()
+
+        # Convert the SimpleITK image to a NumPy array for easy manipulation
+        mask_array = sitk.GetArrayFromImage(binary_mask)
+
+        non_zero_indices = np.nonzero(mask_array)
+        # Combine indices into a list of (z, y, x) coordinates
+        non_zero_coordinates = list(zip(non_zero_indices[0], non_zero_indices[1], non_zero_indices[2]))
+
+        # Iterate over each voxel and calculate its world coordinates
+        for t in range(len(non_zero_coordinates)):
+            x = non_zero_coordinates[t][2]
+            y = non_zero_coordinates[t][1]
+            z = non_zero_coordinates[t][0]
+            # Compute the world coordinates of the voxel
+            world_x = origin[0] + x * spacing[0]
+            world_y = origin[1] + y * spacing[1]
+            world_z = origin[2] + z * spacing[2]
+
+            # Check if the point is above the plane
+            if lower_plane[0] * world_x + lower_plane[1] * world_y + lower_plane[2] * world_z + lower_plane[3] < 5:
+                mask_array[z, y, x] = 0  # Set the voxel to 0
+            if upper_plane[0] * world_x + upper_plane[1] * world_y + upper_plane[2] * world_z + upper_plane[3] < 5:
+                mask_array[z, y, x] = 0  # Set the voxel to 0
+
+        # Convert the modified array back to a SimpleITK image
+        cut_mask = sitk.GetImageFromArray(mask_array)
+        cut_mask.CopyInformation(binary_mask)
+
+        return cut_mask
+
+    point1 = [31.9427, -198.292, 1024.31]
+    point2 = [41.7214, -180.463, 1030.47]
+    point3 = [21.4352, -176.357, 1014.15]
+    a, b, c, d, normal = find_plane_coefficients(point1, point2, point3)
+    a, b, c, d = add_safety_margin_to_plane(a, b, c, d, normal, margin)
+    lower_plane = [a, b, c, d]
+    point1 = [31.1604, -194.273, 1054.71]
+    point2 = [0.8937, -192.13, 1032.05]
+    point3 = [15.2392, -163.103, 1041.24]
+    a, b, c, d, normal = find_plane_coefficients(point1, point2, point3)
+    a, b, c, d = add_safety_margin_to_plane(a, b, c, d, normal, margin)
+    upper_plane = [a, b, c, d]
+
+    binary_mask = sitk.ReadImage(source_mask_file)
+
+    # Find the plane coefficients
+
+    # Cut the mask above the plane
+    cut_mask = cut_mask_above_planes(binary_mask, lower_plane, upper_plane)
+
+    # Save the modified mask
+    sitk.WriteImage(cut_mask, updated_mask_file)

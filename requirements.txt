@@ -6,3 +6,5 @@ totalsegmentator
 trimesh
 rtree
 numpy-stl
+open3d
+vtk

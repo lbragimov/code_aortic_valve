@@ -151,7 +151,7 @@ def controller(data_path):
 
                 stl_resample(stl_aorta_segment_file,
                              stl_aorta_segment_resample_file,
-                             3000)
+                             5000)
 
 
         controller_dump["stl_aorta_segment_resample"] = True
@@ -203,6 +203,7 @@ def controller(data_path):
 
 if __name__ == "__main__":
     # data_path = "C:/Users/Kamil/Aortic_valve/data/"
-    data_path = "D:/science/Aortic_valve/data_short/"
+    data_path = "C:/Users/Kamil/Aortic_valve/data_short/"
+    # data_path = "D:/science/Aortic_valve/data_short/"
     controller(data_path)
 
