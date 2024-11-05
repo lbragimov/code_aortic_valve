@@ -14,23 +14,23 @@ import random
 
 
 
-def convert_stl_to_nii(input_stl_file: str, output_nii_file: str, volume_shape: tuple[int]):
-    # Load STL file
-    mesh = trimesh.load_mesh(input_stl_file)
-
-    # Create empty volume (e.g. 128x128x128)
-    volume = np.zeros(volume_shape)
-
-    # Convert STL coordinates to voxels
-    for vertex in mesh.vertices:
-        x, y, z = (
-                (vertex - mesh.bounds[0]) / (mesh.bounds[1] - mesh.bounds[0]) * np.array(volume_shape)
-        ).astype(int)
-        volume[x-1, y-1, z-1] = 1  # Mark voxel as "occupied"
-
-    # Save in NIfTI format
-    nii_img = nib.Nifti1Image(volume, affine=np.eye(4))
-    nib.save(nii_img, output_nii_file)
+# def convert_stl_to_nii(input_stl_file: str, output_nii_file: str, volume_shape: tuple[int]):
+#     # Load STL file
+#     mesh = trimesh.load_mesh(input_stl_file)
+#
+#     # Create empty volume (e.g. 128x128x128)
+#     volume = np.zeros(volume_shape)
+#
+#     # Convert STL coordinates to voxels
+#     for vertex in mesh.vertices:
+#         x, y, z = (
+#                 (vertex - mesh.bounds[0]) / (mesh.bounds[1] - mesh.bounds[0]) * np.array(volume_shape)
+#         ).astype(int)
+#         volume[x-1, y-1, z-1] = 1  # Mark voxel as "occupied"
+#
+#     # Save in NIfTI format
+#     nii_img = nib.Nifti1Image(volume, affine=np.eye(4))
+#     nib.save(nii_img, output_nii_file)
 
 
 
@@ -212,43 +212,43 @@ def convert_stl_to_nii(input_stl_file: str, output_nii_file: str, volume_shape: 
 
 
 
-def stl_to_mask(stl_path, reference_nii_path, output_nii_path):
-    # Загрузка исходного nii файла для получения параметров изображения
-    reference_image = sitk.ReadImage(reference_nii_path)
-    image_size = reference_image.GetSize()           # Размеры изображения
-    image_spacing = reference_image.GetSpacing()     # Размеры пикселей (вокселей)
-    image_origin = reference_image.GetOrigin()       # Начало координат
-    image_direction = reference_image.GetDirection() # Ориентация
-
-    # Создаем пустое изображение для маски с такими же параметрами, как у исходного файла
-    mask_image = sitk.Image(image_size, sitk.sitkUInt8)
-    mask_image.SetSpacing(image_spacing)
-    mask_image.SetOrigin(image_origin)
-    mask_image.SetDirection(image_direction)
-
-    # Загрузка STL файла
-    mesh = trimesh.load_mesh(stl_path)
-
-    # Создаем сетку координат для размещения маски в пространстве исходного изображения
-    x = np.arange(0, image_size[0]) * image_spacing[0] + image_origin[0]
-    y = np.arange(0, image_size[1]) * image_spacing[1] + image_origin[1]
-    z = np.arange(0, image_size[2]) * image_spacing[2] + image_origin[2]
-    xv, yv, zv = np.meshgrid(x, y, z, indexing='ij')
-    coords = np.vstack((xv.ravel(), yv.ravel(), zv.ravel())).T
-
-    # Определяем, какие из этих точек находятся внутри STL-модели
-    points_inside = mesh.contains(coords).reshape(image_size)
-
-    # Преобразуем массив точек в изображение маски
-    mask_image_np = sitk.GetArrayFromImage(mask_image)
-    mask_image_np[points_inside] = 1
-
-    # Конвертируем массив обратно в SimpleITK изображение и сохраняем как NIfTI
-    mask_image = sitk.GetImageFromArray(mask_image_np.astype(np.uint8))
-    mask_image.SetSpacing(image_spacing)
-    mask_image.SetOrigin(image_origin)
-    mask_image.SetDirection(image_direction)
-    sitk.WriteImage(mask_image, output_nii_path)
+# def stl_to_mask(stl_path, reference_nii_path, output_nii_path):
+#     # Загрузка исходного nii файла для получения параметров изображения
+#     reference_image = sitk.ReadImage(reference_nii_path)
+#     image_size = reference_image.GetSize()           # Размеры изображения
+#     image_spacing = reference_image.GetSpacing()     # Размеры пикселей (вокселей)
+#     image_origin = reference_image.GetOrigin()       # Начало координат
+#     image_direction = reference_image.GetDirection() # Ориентация
+#
+#     # Создаем пустое изображение для маски с такими же параметрами, как у исходного файла
+#     mask_image = sitk.Image(image_size, sitk.sitkUInt8)
+#     mask_image.SetSpacing(image_spacing)
+#     mask_image.SetOrigin(image_origin)
+#     mask_image.SetDirection(image_direction)
+#
+#     # Загрузка STL файла
+#     mesh = trimesh.load_mesh(stl_path)
+#
+#     # Создаем сетку координат для размещения маски в пространстве исходного изображения
+#     x = np.arange(0, image_size[0]) * image_spacing[0] + image_origin[0]
+#     y = np.arange(0, image_size[1]) * image_spacing[1] + image_origin[1]
+#     z = np.arange(0, image_size[2]) * image_spacing[2] + image_origin[2]
+#     xv, yv, zv = np.meshgrid(x, y, z, indexing='ij')
+#     coords = np.vstack((xv.ravel(), yv.ravel(), zv.ravel())).T
+#
+#     # Определяем, какие из этих точек находятся внутри STL-модели
+#     points_inside = mesh.contains(coords).reshape(image_size)
+#
+#     # Преобразуем массив точек в изображение маски
+#     mask_image_np = sitk.GetArrayFromImage(mask_image)
+#     mask_image_np[points_inside] = 1
+#
+#     # Конвертируем массив обратно в SimpleITK изображение и сохраняем как NIfTI
+#     mask_image = sitk.GetImageFromArray(mask_image_np.astype(np.uint8))
+#     mask_image.SetSpacing(image_spacing)
+#     mask_image.SetOrigin(image_origin)
+#     mask_image.SetDirection(image_direction)
+#     sitk.WriteImage(mask_image, output_nii_path)
 
 
 
@@ -327,48 +327,48 @@ def stl_to_mask(stl_path, reference_nii_path, output_nii_path):
 #     o3d.io.write_triangle_mesh(output_stl_path, simplified_mesh)
 
 
-# def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
-#     # Загрузка STL файла
-#     mesh = o3d.io.read_triangle_mesh(input_stl_path)
-#
-#     # Проверка успешной загрузки
-#     if len(mesh.vertices) == 0 or len(mesh.triangles) == 0:
-#         print("Ошибка: файл пустой или не содержит валидных данных.")
-#         return
-#
-#     # Начальный размер вокселя - меньшая доля от общего размера модели
-#     initial_voxel_size = (mesh.get_max_bound() - mesh.get_min_bound()).max() / 1000
-#     voxel_size = initial_voxel_size  # начнем с малого значения
-#     print(f"Начальный размер вокселя: {voxel_size}")
-#
-#     # Итеративное упрощение с кластеризацией вершин
-#     simplified_mesh = mesh
-#     while len(simplified_mesh.vertices) > target_vertex_count and voxel_size < (
-#             mesh.get_max_bound() - mesh.get_min_bound()).max():
-#         simplified_mesh = mesh.simplify_vertex_clustering(voxel_size=voxel_size)
-#         voxel_size *= 1.1  # поэтапно увеличиваем размер вокселя
-#
-#     print(f"Окончательный размер вокселя: {voxel_size}")
-#
-#     # Проверка после кластеризации
-#     if len(simplified_mesh.vertices) == 0 or len(simplified_mesh.triangles) == 0:
-#         print("Ошибка: упрощенная модель пуста после кластеризации.")
-#         return
-#
-#     # Если все еще больше целевого количества, применяем квадратичное упрощение
-#     if len(simplified_mesh.vertices) > target_vertex_count:
-#         simplified_mesh = simplified_mesh.simplify_quadric_decimation(target_vertex_count)
-#
-#     # Вычисление нормалей перед сохранением в STL
-#     simplified_mesh.compute_triangle_normals()
-#     simplified_mesh.compute_vertex_normals()
-#
-#     # Сохранение упрощенной модели
-#     success = o3d.io.write_triangle_mesh(output_stl_path, simplified_mesh)
-#     if success:
-#         print("Файл успешно сохранен:", output_stl_path)
-#     else:
-#         print("Ошибка при сохранении STL-файла.")
+def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
+    # Загрузка STL файла
+    mesh = o3d.io.read_triangle_mesh(input_stl_path)
+
+    # Проверка успешной загрузки
+    if len(mesh.vertices) == 0 or len(mesh.triangles) == 0:
+        print("Ошибка: файл пустой или не содержит валидных данных.")
+        return
+
+    # Начальный размер вокселя - меньшая доля от общего размера модели
+    initial_voxel_size = (mesh.get_max_bound() - mesh.get_min_bound()).max() / 1000
+    voxel_size = initial_voxel_size  # начнем с малого значения
+    print(f"Начальный размер вокселя: {voxel_size}")
+
+    # Итеративное упрощение с кластеризацией вершин
+    simplified_mesh = mesh
+    while len(simplified_mesh.vertices) > target_vertex_count and voxel_size < (
+            mesh.get_max_bound() - mesh.get_min_bound()).max():
+        simplified_mesh = mesh.simplify_vertex_clustering(voxel_size=voxel_size)
+        voxel_size *= 1.1  # поэтапно увеличиваем размер вокселя
+
+    print(f"Окончательный размер вокселя: {voxel_size}")
+
+    # Проверка после кластеризации
+    if len(simplified_mesh.vertices) == 0 or len(simplified_mesh.triangles) == 0:
+        print("Ошибка: упрощенная модель пуста после кластеризации.")
+        return
+
+    # Если все еще больше целевого количества, применяем квадратичное упрощение
+    if len(simplified_mesh.vertices) > target_vertex_count:
+        simplified_mesh = simplified_mesh.simplify_quadric_decimation(target_vertex_count)
+
+    # Вычисление нормалей перед сохранением в STL
+    simplified_mesh.compute_triangle_normals()
+    simplified_mesh.compute_vertex_normals()
+
+    # Сохранение упрощенной модели
+    success = o3d.io.write_triangle_mesh(output_stl_path, simplified_mesh)
+    if success:
+        print("Файл успешно сохранен:", output_stl_path)
+    else:
+        print("Ошибка при сохранении STL-файла.")
 
 
 # def __vtk_image_to_sitk(vtk_image):
@@ -449,7 +449,7 @@ def stl_to_mask(stl_path, reference_nii_path, output_nii_path):
 #     pass
 
 
-def convert_STL_to_mask(stl_file, reference_image_file, destination_mask_file):
+def convert_stl_to_mask_nii(stl_file, reference_image_file, destination_mask_file):
     """Convert an STL file to a binary mask that matches the reference image grid."""
 
     def vtk_image_to_sitk(vtk_image):
@@ -527,7 +527,7 @@ def convert_STL_to_mask(stl_file, reference_image_file, destination_mask_file):
     sitk.WriteImage(res_image, destination_mask_file)
 
 
-def cut_mask_using_points(source_mask_file, updated_mask_file, margin=5):
+def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, bottom_points, margin=5):
     def find_plane_coefficients(p1, p2, p3):
         """Calculate the coefficients (a, b, c, d) of the plane passing through points p1, p2, p3."""
         # Create vectors from the points
@@ -545,10 +545,32 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, margin=5):
 
     def add_safety_margin_to_plane(a, b, c, d, normal, margin):
         """Add a safety margin to the plane by shifting it by `margin` along the normal direction."""
+        def calculate_max_margin(normal, d, binary_mask):
+            # Get the bounding box of the mask in world coordinates
+            size = binary_mask.GetSize()
+            spacing = binary_mask.GetSpacing()
+            origin = binary_mask.GetOrigin()
+
+            # Compute the max and min corners of the bounding box
+            max_corner = np.array(origin) + np.array(size) * np.array(spacing)
+            min_corner = np.array(origin)
+
+            # Project corners onto the normal to find the maximum possible margin
+            distances = []
+            for corner in [min_corner, max_corner]:
+                distance = abs(np.dot(normal, corner) + d) / np.linalg.norm(normal)
+                distances.append(distance)
+
+            return min(distances)
+
         # Normalize the normal vector
         normal_length = np.linalg.norm(normal)
         if normal_length == 0:
             raise ValueError("The normal vector is zero; the points may be collinear.")
+
+        max_margin = calculate_max_margin(normal, d, binary_mask)
+        effective_margin = min(margin, max_margin)  # Use the smaller of the desired or maximum possible margin
+        print(f"Using effective margin: {effective_margin} (requested: {margin}, max possible: {max_margin})")
 
         # Adjust d to move the plane by `margin` along the normal direction
         d_with_margin = d + (margin * normal_length)
@@ -571,9 +593,7 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, margin=5):
 
         # Iterate over each voxel and calculate its world coordinates
         for t in range(len(non_zero_coordinates)):
-            x = non_zero_coordinates[t][2]
-            y = non_zero_coordinates[t][1]
-            z = non_zero_coordinates[t][0]
+            x, y, z = non_zero_coordinates[t][2], non_zero_coordinates[t][1], non_zero_coordinates[t][0]
             # Compute the world coordinates of the voxel
             world_x = origin[0] + x * spacing[0]
             world_y = origin[1] + y * spacing[1]
@@ -588,23 +608,17 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, margin=5):
         # Convert the modified array back to a SimpleITK image
         cut_mask = sitk.GetImageFromArray(mask_array)
         cut_mask.CopyInformation(binary_mask)
-
         return cut_mask
 
-    point1 = [31.9427, -198.292, 1024.31]
-    point2 = [41.7214, -180.463, 1030.47]
-    point3 = [21.4352, -176.357, 1014.15]
-    a, b, c, d, normal = find_plane_coefficients(point1, point2, point3)
-    a, b, c, d = add_safety_margin_to_plane(a, b, c, d, normal, margin)
-    lower_plane = [a, b, c, d]
-    point1 = [31.1604, -194.273, 1054.71]
-    point2 = [0.8937, -192.13, 1032.05]
-    point3 = [15.2392, -163.103, 1041.24]
-    a, b, c, d, normal = find_plane_coefficients(point1, point2, point3)
-    a, b, c, d = add_safety_margin_to_plane(a, b, c, d, normal, margin)
-    upper_plane = [a, b, c, d]
-
     binary_mask = sitk.ReadImage(source_mask_file)
+
+    a1, b1, c1, d1, normal1 = find_plane_coefficients(top_points[0], top_points[1], top_points[2])
+    a1, b1, c1, d1 = add_safety_margin_to_plane(a1, b1, c1, d1, normal1, margin)
+    lower_plane = [a1, b1, c1, d1]
+
+    a2, b2, c2, d2, normal2 = find_plane_coefficients(bottom_points[0], bottom_points[1], bottom_points[2])
+    a2, b2, c2, d2 = add_safety_margin_to_plane(a2, b2, c2, d2, normal2, margin)
+    upper_plane = [a2, b2, c2, d2]
 
     # Find the plane coefficients
 
