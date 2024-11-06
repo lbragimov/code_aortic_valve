@@ -187,6 +187,7 @@ def controller(data_path):
         mask_aorta_segment_cut_path = data_path + "mask_aorta_segment_cut/"
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
             for case in os.listdir(mask_aorta_segment_path + sub_dir):
+                log_file.write(sub_dir + "  |  " + case)
                 mask_aorta_segment_file = mask_aorta_segment_path + sub_dir + "/" + case
                 mask_aorta_segment_cut_file = mask_aorta_segment_cut_path + sub_dir + "/" + case
                 case_name = case[:-4]
@@ -197,7 +198,7 @@ def controller(data_path):
                                  dict_all_case[case_name]['RNC'],
                                  dict_all_case[case_name]['LNC']]
 
-                cut_mask_using_points(mask_aorta_segment_file,
+                cut_mask_using_points(log_file, mask_aorta_segment_file,
                                       mask_aorta_segment_cut_file,
                                       top_points, bottom_points, margin=5)
 
@@ -221,8 +222,10 @@ def controller(data_path):
 
 
 if __name__ == "__main__":
-    # data_path = "C:/Users/Kamil/Aortic_valve/data/"
-    data_path = "C:/Users/Kamil/Aortic_valve/data_short/"
+    data_path = "C:/Users/Kamil/Aortic_valve/data/"
+    # data_path = "C:/Users/Kamil/Aortic_valve/data_short/"
     # data_path = "D:/science/Aortic_valve/data_short/"
-    controller(data_path)
+    log_path = data_path + "log.txt"
+    with open(log_path, "w") as log_file:
+        controller(data_path)
 

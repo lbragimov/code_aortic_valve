@@ -527,7 +527,7 @@ def convert_stl_to_mask_nii(stl_file, reference_image_file, destination_mask_fil
     sitk.WriteImage(res_image, destination_mask_file)
 
 
-def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, bottom_points, margin=5):
+def cut_mask_using_points(log_file, source_mask_file, updated_mask_file, top_points, bottom_points, margin=5):
     def find_plane_coefficients(p1, p2, p3):
         """Calculate the coefficients (a, b, c, d) of the plane passing through points p1, p2, p3."""
         # Create vectors from the points
@@ -566,11 +566,12 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, botto
         # Normalize the normal vector
         normal_length = np.linalg.norm(normal)
         if normal_length == 0:
+            log_file.write("The normal vector is zero; the points may be collinear.")
             raise ValueError("The normal vector is zero; the points may be collinear.")
 
         max_margin = calculate_max_margin(normal, d, binary_mask)
         effective_margin = min(margin, max_margin)  # Use the smaller of the desired or maximum possible margin
-        print(f"Using effective margin: {effective_margin} (requested: {margin}, max possible: {max_margin})")
+        log_file.write(f"Using effective margin: {effective_margin} (requested: {margin}, max possible: {max_margin})")
 
         # Adjust d to move the plane by `margin` along the normal direction
         d_with_margin = d + (margin * normal_length)
@@ -610,7 +611,40 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, botto
         cut_mask.CopyInformation(binary_mask)
         return cut_mask
 
+    def check_points_within_mask(points, binary_mask):
+        """Check if all given points are within the binary mask."""
+        spacing = binary_mask.GetSpacing()
+        origin = binary_mask.GetOrigin()
+        size = binary_mask.GetSize()
+
+        mask_array = sitk.GetArrayFromImage(binary_mask)
+
+        for point in points:
+            # Convert world coordinates to index coordinates
+            index = [
+                int(round((point[0] - origin[0]) / spacing[0])),
+                int(round((point[1] - origin[1]) / spacing[1])),
+                int(round((point[2] - origin[2]) / spacing[2]))
+            ]
+
+            # Check if index is within bounds
+            if not (0 <= index[0] < size[0] and 0 <= index[1] < size[1] and 0 <= index[2] < size[2]):
+                log_file.write(f"Point {point} is out of the bounds of the mask.")
+                return False
+
+            # Check if the point is inside the mask (non-zero in mask array)
+            if mask_array[index[2], index[1], index[0]] == 0:
+                log_file.write(f"Point {point} is outside the mask region (zero in mask).")
+                return False
+
+        return True
+
     binary_mask = sitk.ReadImage(source_mask_file)
+
+    # Checking that all points are inside the mask
+    if not check_points_within_mask(top_points + bottom_points, binary_mask):
+        log_file.write("Some points are outside the bounds of the mask. Please adjust the points.")
+        raise ValueError("Some points are outside the bounds of the mask. Please adjust the points.")
 
     a1, b1, c1, d1, normal1 = find_plane_coefficients(top_points[0], top_points[1], top_points[2])
     a1, b1, c1, d1 = add_safety_margin_to_plane(a1, b1, c1, d1, normal1, margin)
