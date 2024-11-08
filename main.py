@@ -1,7 +1,9 @@
 import json
 import os
+import logging
 
 from statistics import mode
+from datetime import datetime
 
 import nibabel as nib
 from totalsegmentator.python_api import totalsegmentator
@@ -73,6 +75,24 @@ def controller(data_path):
                         "img_spacing": img_spacing,
                         "img_direction": img_direction
                     }
+
+            json_marker_path = data_path + "json_markers_info/"
+            if os.path.exists(json_marker_path):
+                for sub_dir in list(dir_structure["json_markers_info"]):
+                    for case in os.listdir(json_marker_path + sub_dir):
+                        json_marker_case_file = json_marker_path + sub_dir + "/" + case
+                        case_name = case[:-5]
+                        with open(json_marker_case_file, "r") as file:
+                            data = json.load(file)
+
+                        dict_all_case[case_name] |= {
+                            "R": data["R"],
+                            "L": data["L"],
+                            "N": data["N"],
+                            "RLC": data["RLC"],
+                            "RNC": data["RNC"],
+                            "LNC": data["LNC"]
+                        }
 
             with open(dict_all_case_path, 'w') as json_file:
                 json.dump(dict_all_case, json_file)
@@ -187,7 +207,7 @@ def controller(data_path):
         mask_aorta_segment_cut_path = data_path + "mask_aorta_segment_cut/"
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
             for case in os.listdir(mask_aorta_segment_path + sub_dir):
-                log_file.write(sub_dir + "  |  " + case)
+                logging.info(f"{sub_dir} + {case}")
                 mask_aorta_segment_file = mask_aorta_segment_path + sub_dir + "/" + case
                 mask_aorta_segment_cut_file = mask_aorta_segment_cut_path + sub_dir + "/" + case
                 case_name = case[:-4]
@@ -198,7 +218,7 @@ def controller(data_path):
                                  dict_all_case[case_name]['RNC'],
                                  dict_all_case[case_name]['LNC']]
 
-                cut_mask_using_points(log_file, mask_aorta_segment_file,
+                cut_mask_using_points(mask_aorta_segment_file,
                                       mask_aorta_segment_cut_file,
                                       top_points, bottom_points, margin=5)
 
@@ -225,7 +245,9 @@ if __name__ == "__main__":
     data_path = "C:/Users/Kamil/Aortic_valve/data/"
     # data_path = "C:/Users/Kamil/Aortic_valve/data_short/"
     # data_path = "D:/science/Aortic_valve/data_short/"
-    log_path = data_path + "log.txt"
-    with open(log_path, "w") as log_file:
-        controller(data_path)
+    current_time = datetime.now()
+    filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
+    log_path = data_path + filename
+    logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
+    controller(data_path)
 

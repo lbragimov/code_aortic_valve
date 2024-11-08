@@ -1,3 +1,4 @@
+import logging
 import trimesh
 import nibabel as nib
 import numpy as np
@@ -527,7 +528,7 @@ def convert_stl_to_mask_nii(stl_file, reference_image_file, destination_mask_fil
     sitk.WriteImage(res_image, destination_mask_file)
 
 
-def cut_mask_using_points(log_file, source_mask_file, updated_mask_file, top_points, bottom_points, margin=5):
+def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, bottom_points, margin=5):
     def find_plane_coefficients(p1, p2, p3):
         """Calculate the coefficients (a, b, c, d) of the plane passing through points p1, p2, p3."""
         # Create vectors from the points
@@ -566,12 +567,14 @@ def cut_mask_using_points(log_file, source_mask_file, updated_mask_file, top_poi
         # Normalize the normal vector
         normal_length = np.linalg.norm(normal)
         if normal_length == 0:
-            log_file.write("The normal vector is zero; the points may be collinear.")
-            raise ValueError("The normal vector is zero; the points may be collinear.")
+            logging.info("The normal vector is zero; the points may be collinear.")
+            # raise ValueError("The normal vector is zero; the points may be collinear.")
 
         max_margin = calculate_max_margin(normal, d, binary_mask)
         effective_margin = min(margin, max_margin)  # Use the smaller of the desired or maximum possible margin
-        log_file.write(f"Using effective margin: {effective_margin} (requested: {margin}, max possible: {max_margin})")
+        if margin > effective_margin:
+            logging.info(f"Using effective margin: {effective_margin} (requested: {margin}, max possible: {max_margin})")
+            # log_file.write(f"Using effective margin: {effective_margin} (requested: {margin}, max possible: {max_margin})")
 
         # Adjust d to move the plane by `margin` along the normal direction
         d_with_margin = d + (margin * normal_length)
@@ -629,22 +632,25 @@ def cut_mask_using_points(log_file, source_mask_file, updated_mask_file, top_poi
 
             # Check if index is within bounds
             if not (0 <= index[0] < size[0] and 0 <= index[1] < size[1] and 0 <= index[2] < size[2]):
-                log_file.write(f"Point {point} is out of the bounds of the mask.")
-                return False
+                logging.info(f"Point {point} is out of the bounds of the mask.")
+                # log_file.write(f"Point {point} is out of the bounds of the mask.")
+                # return False
 
             # Check if the point is inside the mask (non-zero in mask array)
             if mask_array[index[2], index[1], index[0]] == 0:
-                log_file.write(f"Point {point} is outside the mask region (zero in mask).")
-                return False
+                logging.info(f"Point {point} is outside the mask region (zero in mask).")
+                # log_file.write(f"Point {point} is outside the mask region (zero in mask).")
+                # return False
 
-        return True
+        # return True
 
     binary_mask = sitk.ReadImage(source_mask_file)
 
     # Checking that all points are inside the mask
-    if not check_points_within_mask(top_points + bottom_points, binary_mask):
-        log_file.write("Some points are outside the bounds of the mask. Please adjust the points.")
-        raise ValueError("Some points are outside the bounds of the mask. Please adjust the points.")
+    # check_points_within_mask(top_points + bottom_points, binary_mask)
+        # logging.info("")
+        # logging.info("Some points are outside the bounds of the mask. Please adjust the points.")
+        # raise ValueError("Some points are outside the bounds of the mask. Please adjust the points.")
 
     a1, b1, c1, d1, normal1 = find_plane_coefficients(top_points[0], top_points[1], top_points[2])
     a1, b1, c1, d1 = add_safety_margin_to_plane(a1, b1, c1, d1, normal1, margin)
@@ -660,4 +666,4 @@ def cut_mask_using_points(log_file, source_mask_file, updated_mask_file, top_poi
     cut_mask = cut_mask_above_planes(binary_mask, lower_plane, upper_plane)
 
     # Save the modified mask
-    sitk.WriteImage(cut_mask, updated_mask_file)
+    # sitk.WriteImage(cut_mask, updated_mask_file)
