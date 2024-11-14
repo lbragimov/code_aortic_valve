@@ -647,16 +647,22 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, botto
     binary_mask = sitk.ReadImage(source_mask_file)
 
     # Checking that all points are inside the mask
-    # check_points_within_mask(top_points + bottom_points, binary_mask)
+    # logging.info("top")
+    # check_points_within_mask(top_points, binary_mask)
+    # logging.info("bottom")
+    # check_points_within_mask(bottom_points, binary_mask)
         # logging.info("")
         # logging.info("Some points are outside the bounds of the mask. Please adjust the points.")
         # raise ValueError("Some points are outside the bounds of the mask. Please adjust the points.")
 
     a1, b1, c1, d1, normal1 = find_plane_coefficients(top_points[0], top_points[1], top_points[2])
+    logging.info("top")
     a1, b1, c1, d1 = add_safety_margin_to_plane(a1, b1, c1, d1, normal1, margin)
+
     lower_plane = [a1, b1, c1, d1]
 
     a2, b2, c2, d2, normal2 = find_plane_coefficients(bottom_points[0], bottom_points[1], bottom_points[2])
+    logging.info("bottom")
     a2, b2, c2, d2 = add_safety_margin_to_plane(a2, b2, c2, d2, normal2, margin)
     upper_plane = [a2, b2, c2, d2]
 

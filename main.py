@@ -220,7 +220,7 @@ def controller(data_path):
 
                 cut_mask_using_points(mask_aorta_segment_file,
                                       mask_aorta_segment_cut_file,
-                                      top_points, bottom_points, margin=5)
+                                      top_points, bottom_points, margin=2)
 
         controller_dump["mask_aorta_segment_cut"] = True
         with open(controller_path, 'w') as json_file:
