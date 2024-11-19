@@ -1,6 +1,8 @@
 import json
 import os
 import logging
+import shutil
+from pathlib import Path
 
 from statistics import mode
 from datetime import datetime
@@ -12,6 +14,8 @@ from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_ni
 from data_preprocessing.txt_json_converter import txt_json_convert
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_visualization.markers import slices_with_markers
+
+from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 
 def controller(data_path):
@@ -226,6 +230,50 @@ def controller(data_path):
         with open(controller_path, 'w') as json_file:
             json.dump(controller_dump, json_file)
 
+    if (not "create_nnU_Net_data_base" in controller_dump.keys()
+            or not controller_dump["create_nnU_Net_data_base"]):
+
+        nnUNet_folder = data_path + dir_structure['nnUNet_folder']
+        mask_aorta_segment_cut_path = data_path + "mask_aorta_segment_cut/"
+        nii_resample_path = data_path + "nii_resample/"
+
+        for sub_dir in list(dir_structure["nii_resample"]):
+            file_count = len([f for f in os.listdir(nii_resample_path + sub_dir)])
+            n = 0
+            for case in os.listdir(nii_resample_path + sub_dir):
+                case_name = case[:-4]
+                if int(file_count*0.8) >= n:
+                    shutil.copy(nii_resample_path + sub_dir + "/" + case,
+                                nnUNet_folder + "imagesTr/" + case_name + "_0000.nii.gz")
+                    shutil.copy(mask_aorta_segment_cut_path + sub_dir + "/" + case,
+                                nnUNet_folder + "labelsTr/" + case + ".gz")
+                else:
+                    shutil.copy(nii_resample_path + sub_dir + "/" + case,
+                                nnUNet_folder + "imagesTs/" + case_name + "_0000.nii.gz")
+                n += 1
+
+        controller_dump["create_nnU_Net_data_base"] = True
+        with open(controller_path, 'w') as json_file:
+            json.dump(controller_dump, json_file)
+
+    if (not "create_nnU_Net_dataset_json" in controller_dump.keys()
+            or not controller_dump["create_nnU_Net_dataset_json"]):
+
+        nnUNet_folder = data_path + dir_structure['nnUNet_folder']
+
+        file_count = len([f for f in os.listdir(nnUNet_folder + "imagesTr/")])
+
+        generate_dataset_json(data_path + dir_structure['nnUNet_folder'],
+                              channel_names={0: 'CT'},
+                              labels={'background': 0, 'aortic_valve': 1},
+                              num_training_cases=file_count,
+                              file_ending='.nii.gz')
+
+        controller_dump["create_nnU_Net_dataset_json"] = True
+        with open(controller_path, 'w') as json_file:
+            json.dump(controller_dump, json_file)
+
+
     test_case_name = list(dict_all_case.keys())[0]
 
     # slices_with_markers(
@@ -249,5 +297,9 @@ if __name__ == "__main__":
     filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
     log_path = data_path + filename
     logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
+    nnUNet_folder = data_path + "nnUNet_folder/"
+    os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
+    os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
+    os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
     controller(data_path)
 
