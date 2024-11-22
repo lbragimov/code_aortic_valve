@@ -1,42 +1,4 @@
-import os
-from nnunet.inference.predict import predict_from_folder
-from nnunet.run.default_configuration import get_default_configuration
-from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
-from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
-from nnunetv2.inference.predict_from_raw_data import predict
 
-# Обучение модели
-def train_model():
-
-    task_id = int(task_name.split("_")[0][4:])
-    fold = 0  # Определите fold (0-4 для 5-fold cross-validation)
-
-    plans_file, output_folder_name, dataset_directory, batch_dice, stage = get_default_configuration(
-        "3d_fullres", task_id, "nnUNetTrainerV2", fold
-    )
-    trainer = nnUNetTrainerV2(plans_file, fold, output_folder_name, dataset_directory, stage, batch_dice)
-    trainer.initialize()
-    trainer.run_training()
-
-# Предсказание
-def predict_images(input_folder, output_folder):
-    model = "3d_fullres"
-    folds = [0]  # Определите, какие folds использовать
-    predict_from_folder(
-        input_folder=input_folder,
-        output_folder=output_folder,
-        model=model,
-        folds=folds,
-        save_npz=True,
-        num_threads_preprocessing=4,
-        num_threads_nifti_save=2,
-    )
-
-import subprocess
-from nnunetv2.experiment_planning.utils import preprocess_dataset
-from nnunetv2.training.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.paths import nnUNet_results
-from nnunetv2.inference.predict_from_raw_data import predict_from_raw_data
 
 # Пути
 # dataset_name = "Dataset001_MyTask"
@@ -44,61 +6,16 @@ from nnunetv2.inference.predict_from_raw_data import predict_from_raw_data
 # preprocessed_dir = "/path/to/nnUNet_preprocessed"
 
 # Запуск предобработки
-preprocess_dataset(dataset_name, raw_data_dir, preprocessed_dir)
+# preprocess_dataset(dataset_name, raw_data_dir, preprocessed_dir)
 
 # Название задачи
 dataset_name = "Dataset001_MyTask"
 
-def preprocess_nnUnet():
-    # Запуск предобработки
-    subprocess.run([
-        "nnUNetv2_plan_and_preprocess",
-        "--dataset_name", dataset_name,
-        "--verify_integrity"
-    ])
-
-
-# Конфигурация
-config_name = "3d_fullres"
-trainer_name = "nnUNetTrainer"
-plans_identifier = "nnUNetPlans"
-fold = 0
-dataset_name = "Dataset001_MyTask"
-
-# Инициализация тренера
-trainer = nnUNetTrainer(config_name=config_name,
-                        trainer_name=trainer_name,
-                        plans_identifier=plans_identifier,
-                        dataset_name=dataset_name,
-                        fold=fold,
-                        results_folder=nnUNet_results)
-
-# Обучение
-trainer.run_training()
-
-# Параметры
-config_name = "3d_fullres"
-trainer_name = "nnUNetTrainer"
-plans_identifier = "nnUNetPlans"
-fold = 0
-input_folder = "/path/to/test/images"
-output_folder = "/path/to/output"
-dataset_name = "Dataset001_MyTask"
-
-# Запуск предсказания
-predict_from_raw_data(
-    input_folder=input_folder,
-    output_folder=output_folder,
-    config_name=config_name,
-    trainer_name=trainer_name,
-    plans_identifier=plans_identifier,
-    dataset_name=dataset_name,
-    fold=fold,
-)
-
-
 import os
 from subprocess import call
+import logging
+
+from datetime import datetime
 
 
 class nnUnet_trainer:
@@ -115,12 +32,16 @@ class nnUnet_trainer:
 
         command = [
             "nnUNetv2_plan_and_preprocess",
-            '-d ' + task_id,
+            '-d ' + str(task_id),
             "--verify_dataset_integrity",  # Optional: Save softmax predictions
+            # "-np " + str(1),
         ]
 
         # Execute preprocessing
         try:
+            current_time = datetime.now()
+            str_time = current_time.strftime("%d:%H:%M")
+            logging.info(f"time: {str_time}")
             print("Starting nnU-Net preprocessing...")
             call(command)
             print("Preprocessing completed successfully.")
@@ -128,12 +49,18 @@ class nnUnet_trainer:
             print(f"An error occurred during preprocessing: {e}")
         pass
 
+        # subprocess.run([
+        #     "nnUNetv2_plan_and_preprocess",
+        #     "--dataset_name", dataset_name,# task_id
+        #     "--verify_integrity"
+        # ])
+
         # Set the configuration for the training
         # trainer = "nnUNetTrainerV2"  # Replace if using a custom trainer
 
         command = [
             "nnUNetv2_train",
-            task_id,
+            str(task_id),
             # trainer,
             network,
             # f"Task{task_id}",
@@ -143,9 +70,70 @@ class nnUnet_trainer:
 
         # Execute the training
         try:
+            current_time = datetime.now()
+            str_time = current_time.strftime("%d:%H:%M")
+            logging.info(f"time: {str_time}")
             print("Starting nnU-Net training...")
             call(command)
             print("Training completed successfully.")
         except Exception as e:
             print(f"An error occurred during training: {e}")
-        pass
+
+
+        command = [
+            "nnUNetv2_predict",
+            "-i" + "C:/Users/Kamil/Aortic_valve/data/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/imagesTs/",
+            "-o" + "C:/Users/Kamil/Aortic_valve/data/nnUNet_folder/nnUNet_test/",
+            "-d" + str(task_id),
+            "-c" + network,
+            "-f" + str(fold),
+        ]
+
+        # Execute the training
+        try:
+            current_time = datetime.now()
+            str_time = current_time.strftime("%d:%H:%M")
+            logging.info(f"time: {str_time}")
+            print("Starting nnU-Net predict...")
+            call(command)
+            print("Predicting completed successfully.")
+        except Exception as e:
+            print(f"An error occurred during predicting: {e}")
+
+        # # Конфигурация
+        # config_name = "3d_fullres"
+        # trainer_name = "nnUNetTrainer"
+        # plans_identifier = "nnUNetPlans"
+        # fold = 0
+        # dataset_name = "Dataset001_MyTask"
+        #
+        # # Инициализация тренера
+        # trainer = nnUNetTrainer(config_name=config_name,
+        #                         trainer_name=trainer_name,
+        #                         plans_identifier=plans_identifier,
+        #                         dataset_name=dataset_name,
+        #                         fold=fold,
+        #                         results_folder=nnUNet_results)
+        #
+        # # Обучение
+        # trainer.run_training()
+
+        # # Параметры
+        # config_name = "3d_fullres"
+        # trainer_name = "nnUNetTrainer"
+        # plans_identifier = "nnUNetPlans"
+        # fold = 0
+        # input_folder = "/path/to/test/images"
+        # output_folder = "/path/to/output"
+        # dataset_name = "Dataset001_MyTask"
+        #
+        # # Запуск предсказания
+        # predict_from_raw_data(
+        #     input_folder=input_folder,
+        #     output_folder=output_folder,
+        #     config_name=config_name,
+        #     trainer_name=trainer_name,
+        #     plans_identifier=plans_identifier,
+        #     dataset_name=dataset_name,
+        #     fold=fold,
+        # )

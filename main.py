@@ -13,12 +13,13 @@ from totalsegmentator.python_api import totalsegmentator
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
 from data_preprocessing.txt_json_converter import txt_json_convert
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
+from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers
 
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 
-def controller(data_path):
+def controller(data_path, nnUNet_folder):
 
     dict_all_case_path = data_path + "dict_all_case.json"
     dict_all_case = {}
@@ -276,6 +277,9 @@ def controller(data_path):
 
     test_case_name = list(dict_all_case.keys())[0]
 
+    model_nnUnet = nnUnet_trainer(data_path + nnUNet_folder)
+    model_nnUnet.train_nnUnet(task_id=401)
+
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
     #     case_info=dict_all_case[test_case_name],
@@ -297,9 +301,9 @@ if __name__ == "__main__":
     filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
     log_path = data_path + filename
     logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
-    nnUNet_folder = data_path + "nnUNet_folder/"
-    os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
-    os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
-    os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
-    controller(data_path)
+    nnUNet_folder = "nnUNet_folder/"
+    # os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
+    # os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
+    # os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
+    controller(data_path, nnUNet_folder)
 
