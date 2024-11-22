@@ -22,32 +22,32 @@ class nnUnet_trainer:
 
     def __init__(self, nnUnet_path):
         # Set paths for nnUNet environment variables
-        os.environ["nnUNet_raw"] = nnUnet_path + '/nnUNet_raw'
-        os.environ["nnUNet_preprocessed"] = nnUnet_path + '/nnUNet_preprocessed'
-        os.environ["nnUNet_results"] = nnUnet_path + '/nnUNet_results'
+        os.environ["nnUNet_raw"] = nnUnet_path + r'\nnUNet_raw'
+        os.environ["nnUNet_preprocessed"] = nnUnet_path + r'\nnUNet_preprocessed'
+        os.environ["nnUNet_results"] = nnUnet_path + r'\nnUNet_results'
         pass
 
     def train_nnUnet(self, task_id, fold=0, network="3d_fullres"):
         # Define the task ID and fold
 
-        command = [
-            "nnUNetv2_plan_and_preprocess",
-            '-d ' + str(task_id),
-            "--verify_dataset_integrity",  # Optional: Save softmax predictions
-            # "-np " + str(1),
-        ]
-
-        # Execute preprocessing
-        try:
-            current_time = datetime.now()
-            str_time = current_time.strftime("%d:%H:%M")
-            logging.info(f"time: {str_time}")
-            print("Starting nnU-Net preprocessing...")
-            call(command)
-            print("Preprocessing completed successfully.")
-        except Exception as e:
-            print(f"An error occurred during preprocessing: {e}")
-        pass
+        # command = [
+        #     "nnUNetv2_plan_and_preprocess",
+        #     '-d ' + str(task_id),
+        #     "--verify_dataset_integrity",  # Optional: Save softmax predictions
+        #     # "-np " + str(1),
+        # ]
+        #
+        # # Execute preprocessing
+        # try:
+        #     current_time = datetime.now()
+        #     str_time = current_time.strftime("%d:%H:%M")
+        #     logging.info(f"time: {str_time}")
+        #     print("Starting nnU-Net preprocessing...")
+        #     call(command)
+        #     print("Preprocessing completed successfully.")
+        # except Exception as e:
+        #     print(f"An error occurred during preprocessing: {e}")
+        # pass
 
         # subprocess.run([
         #     "nnUNetv2_plan_and_preprocess",

@@ -21,17 +21,17 @@ from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_j
 
 def controller(data_path, nnUNet_folder):
 
-    dict_all_case_path = data_path + "dict_all_case.json"
+    dict_all_case_path = data_path + r"\dict_all_case.json"
     dict_all_case = {}
 
-    controller_path = data_path + "controller.json"
+    controller_path = data_path + r"\controller.json"
     if os.path.isfile(controller_path):
         with open(controller_path, 'r') as read_file:
             controller_dump = json.load(read_file)
     else:
         controller_dump = {}
 
-    data_structure_path = data_path + "dir_structure.json"
+    data_structure_path = data_path + r"\dir_structure.json"
 
     with open(data_structure_path, 'r') as read_file:
         dir_structure = json.load(read_file)
@@ -294,14 +294,14 @@ def controller(data_path, nnUNet_folder):
 
 
 if __name__ == "__main__":
-    data_path = "C:/Users/Kamil/Aortic_valve/data/"
+    data_path = r"C:\Users\Kamil\Aortic_valve\data"
     # data_path = "C:/Users/Kamil/Aortic_valve/data_short/"
     # data_path = "D:/science/Aortic_valve/data_short/"
     current_time = datetime.now()
     filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
     log_path = data_path + filename
     logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
-    nnUNet_folder = "nnUNet_folder/"
+    nnUNet_folder = r"\nnUNet_folder"
     # os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
     # os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
     # os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
