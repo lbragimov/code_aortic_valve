@@ -13,6 +13,7 @@ from totalsegmentator.python_api import totalsegmentator
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
 from data_preprocessing.txt_json_converter import txt_json_convert
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
+from data_preprocessing.check_structure import create_directory_structure
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers
 
@@ -35,6 +36,8 @@ def controller(data_path, nnUNet_folder):
 
     with open(data_structure_path, 'r') as read_file:
         dir_structure = json.load(read_file)
+
+    create_directory_structure(data_path + r"\temp", dir_structure)
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         dicom_path = data_path + "dicom/"

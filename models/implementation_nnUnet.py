@@ -30,24 +30,23 @@ class nnUnet_trainer:
     def train_nnUnet(self, task_id, fold=0, network="3d_fullres"):
         # Define the task ID and fold
 
-        # command = [
-        #     "nnUNetv2_plan_and_preprocess",
-        #     '-d ' + str(task_id),
-        #     "--verify_dataset_integrity",  # Optional: Save softmax predictions
-        #     # "-np " + str(1),
-        # ]
-        #
-        # # Execute preprocessing
-        # try:
-        #     current_time = datetime.now()
-        #     str_time = current_time.strftime("%d:%H:%M")
-        #     logging.info(f"time: {str_time}")
-        #     print("Starting nnU-Net preprocessing...")
-        #     call(command)
-        #     print("Preprocessing completed successfully.")
-        # except Exception as e:
-        #     print(f"An error occurred during preprocessing: {e}")
-        # pass
+        command = [
+            "nnUNetv2_plan_and_preprocess",
+            '-d ' + str(task_id),
+            "--verify_dataset_integrity",  # Optional: Save softmax predictions
+            # "-np " + str(1),
+        ]
+
+        # Execute preprocessing
+        try:
+            current_time = datetime.now()
+            str_time = current_time.strftime("%d:%H:%M")
+            logging.info(f"time: {str_time}")
+            print("Starting nnU-Net preprocessing...")
+            call(command)
+            print("Preprocessing completed successfully.")
+        except Exception as e:
+            print(f"An error occurred during preprocessing: {e}")
 
         # subprocess.run([
         #     "nnUNetv2_plan_and_preprocess",
@@ -66,6 +65,7 @@ class nnUnet_trainer:
             # f"Task{task_id}",
             str(fold),
             # "--npz",  # Optional: Save softmax predictions
+            "-device torch.device('cpu')"
         ]
 
         # Execute the training
