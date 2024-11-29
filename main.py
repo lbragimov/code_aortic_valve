@@ -3,6 +3,7 @@ import os
 import logging
 import shutil
 from pathlib import Path
+import platform
 
 from statistics import mode
 from datetime import datetime
@@ -37,7 +38,28 @@ def controller(data_path, nnUNet_folder):
     with open(data_structure_path, 'r') as read_file:
         dir_structure = json.load(read_file)
 
-    create_directory_structure(data_path + r"\temp", dir_structure)
+    create_directory_structure(data_path, dir_structure)
+    if os.path.exists(data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/"):
+        json_file_path = data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/dataset.json"
+        if not os.path.isfile(json_file_path):
+            data = {
+                "channel_names": {
+                    "0": "CT"
+                },
+                "labels": {
+                    "background": 0,
+                    "aortic_valve": 1
+                },
+                "numTraining": 225,
+                "file_ending": ".nii.gz"
+            }
+            with open(json_file_path, 'w', encoding='utf-8') as json_file:
+                json.dump(data, json_file, indent=4, ensure_ascii=False)
+    else:
+        current_time = datetime.now()
+        str_time = current_time.strftime("%d:%H:%M")
+        logging.info(f"time:  {str_time} No folder to save to dataset.json")
+        return
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         dicom_path = data_path + "dicom/"
@@ -198,10 +220,6 @@ def controller(data_path, nnUNet_folder):
                 mask_aorta_segment_file = mask_aorta_segment_path + sub_dir + "/" + case_name + ".nii"
                 nii_resample_file = nii_resample_path + sub_dir + "/" + case_name + ".nii"
 
-                # convert_stl_to_nii(stl_aorta_segment_file,
-                #                    mask_aorta_segment_file,
-                #                    tuple(dict_all_case[case_name]['img_size']))
-
                 convert_stl_to_mask_nii(stl_aorta_segment_file,
                                         nii_resample_file,
                                         mask_aorta_segment_file)
@@ -262,26 +280,31 @@ def controller(data_path, nnUNet_folder):
 
     if (not "create_nnU_Net_dataset_json" in controller_dump.keys()
             or not controller_dump["create_nnU_Net_dataset_json"]):
+        if os.path.exists(data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/"):
+            if not os.path.isfile(data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/dataset.json"):
+                nnUNet_folder = data_path + dir_structure['nnUNet_folder']
 
-        nnUNet_folder = data_path + dir_structure['nnUNet_folder']
+                file_count = len([f for f in os.listdir(nnUNet_folder + "imagesTr/")])
 
-        file_count = len([f for f in os.listdir(nnUNet_folder + "imagesTr/")])
+                generate_dataset_json(data_path + dir_structure['nnUNet_folder'],
+                                      channel_names={0: 'CT'},
+                                      labels={'background': 0, 'aortic_valve': 1},
+                                      num_training_cases=file_count,
+                                      file_ending='.nii.gz')
 
-        generate_dataset_json(data_path + dir_structure['nnUNet_folder'],
-                              channel_names={0: 'CT'},
-                              labels={'background': 0, 'aortic_valve': 1},
-                              num_training_cases=file_count,
-                              file_ending='.nii.gz')
+                controller_dump["create_nnU_Net_dataset_json"] = True
+                with open(controller_path, 'w') as json_file:
+                    json.dump(controller_dump, json_file)
+        else:
+            current_time = datetime.now()
+            str_time = current_time.strftime("%d:%H:%M")
+            logging.info(f"time:  {str_time} No folder to save to dataset.json")
+            return
 
-        controller_dump["create_nnU_Net_dataset_json"] = True
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
-
-
-    test_case_name = list(dict_all_case.keys())[0]
+    # test_case_name = list(dict_all_case.keys())[0]
 
     model_nnUnet = nnUnet_trainer(data_path + nnUNet_folder)
-    model_nnUnet.train_nnUnet(task_id=401)
+    model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=data_path + nnUNet_folder)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
@@ -297,14 +320,20 @@ def controller(data_path, nnUNet_folder):
 
 
 if __name__ == "__main__":
-    data_path = r"C:\Users\Kamil\Aortic_valve\data"
-    # data_path = "C:/Users/Kamil/Aortic_valve/data_short/"
-    # data_path = "D:/science/Aortic_valve/data_short/"
+    current_os = platform.system()
+
+    if current_os == "Windows":
+        data_path = "C:/Users/Kamil/Aortic_valve/data"
+        # data_path = "C:/Users/Kamil/Aortic_valve/data_short"
+        # data_path = "D:/science/Aortic_valve/data_short"
+    elif current_os == "Linux":
+        data_path = "/data/data_aortic_valve"
+
     current_time = datetime.now()
     filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
     log_path = data_path + filename
     logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
-    nnUNet_folder = r"\nnUNet_folder"
+    nnUNet_folder = "/nnUNet_folder"
     # os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
     # os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
     # os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
