@@ -21,7 +21,7 @@ from data_visualization.markers import slices_with_markers
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 
-def controller(data_path, nnUNet_folder):
+def controller(data_path, nnUNet_folder_name):
 
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
     dict_all_case = {}
@@ -232,7 +232,8 @@ def controller(data_path, nnUNet_folder):
         with open(controller_path, 'w') as json_file:
             json.dump(controller_dump, json_file)
 
-    nnUNet_folder = os.path.join(data_path, dir_structure['nnUNet_folder'])
+    nnUNet_folder = os.path.join(data_path, nnUNet_folder_name)
+    current_dataset_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
     if (not "create_nnU_Net_data_base" in controller_dump.keys()
             or not controller_dump["create_nnU_Net_data_base"]):
 
@@ -246,19 +247,18 @@ def controller(data_path, nnUNet_folder):
                 case_name = case[:-4]
                 if int(file_count*0.8) >= n:
                     shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_folder, "imagesTr", f"{case_name}_0000.nii.gz")))
+                                str(os.path.join(current_dataset_path, "imagesTr", f"{case_name}_0000.nii.gz")))
                     shutil.copy(str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_folder, "labelsTr", f"{case}.gz")))
+                                str(os.path.join(current_dataset_path, "labelsTr", f"{case}.gz")))
                 else:
                     shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_folder, "imagesTs", f"{case_name}_0000.nii.gz")))
+                                str(os.path.join(current_dataset_path, "imagesTs", f"{case_name}_0000.nii.gz")))
                 n += 1
 
         controller_dump["create_nnU_Net_data_base"] = True
         with open(controller_path, 'w') as json_file:
             json.dump(controller_dump, json_file)
 
-    current_dataset_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
     if os.path.exists(current_dataset_path):
         if not os.path.isfile(os.path.join(current_dataset_path, "dataset.json")):
 
@@ -281,8 +281,8 @@ def controller(data_path, nnUNet_folder):
 
     # test_case_name = list(dict_all_case.keys())[0]
 
-    model_nnUnet = nnUnet_trainer(data_path + nnUNet_folder)
-    model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=data_path + nnUNet_folder)
+    model_nnUnet = nnUnet_trainer(nnUNet_folder)
+    model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=nnUNet_folder)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
