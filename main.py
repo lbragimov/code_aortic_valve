@@ -23,24 +23,24 @@ from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_j
 
 def controller(data_path, nnUNet_folder):
 
-    dict_all_case_path = data_path + r"\dict_all_case.json"
+    dict_all_case_path = data_path + "dict_all_case.json"
     dict_all_case = {}
 
-    controller_path = data_path + r"\controller.json"
+    controller_path = data_path + "controller.json"
     if os.path.isfile(controller_path):
         with open(controller_path, 'r') as read_file:
             controller_dump = json.load(read_file)
     else:
         controller_dump = {}
 
-    data_structure_path = data_path + r"\dir_structure.json"
+    data_structure_path = data_path + "dir_structure.json"
 
     with open(data_structure_path, 'r') as read_file:
         dir_structure = json.load(read_file)
 
     create_directory_structure(data_path, dir_structure)
-    if os.path.exists(data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/"):
-        json_file_path = data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/dataset.json"
+    if os.path.exists(data_path + "nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/"):
+        json_file_path = data_path + "nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/dataset.json"
         if not os.path.isfile(json_file_path):
             data = {
                 "channel_names": {
@@ -280,8 +280,8 @@ def controller(data_path, nnUNet_folder):
 
     if (not "create_nnU_Net_dataset_json" in controller_dump.keys()
             or not controller_dump["create_nnU_Net_dataset_json"]):
-        if os.path.exists(data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/"):
-            if not os.path.isfile(data_path + "/nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/dataset.json"):
+        if os.path.exists(data_path + "nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/"):
+            if not os.path.isfile(data_path + "nnUNet_folder/nnUNet_raw/Dataset401_AorticValve/dataset.json"):
                 nnUNet_folder = data_path + dir_structure['nnUNet_folder']
 
                 file_count = len([f for f in os.listdir(nnUNet_folder + "imagesTr/")])
@@ -327,13 +327,13 @@ if __name__ == "__main__":
         # data_path = "C:/Users/Kamil/Aortic_valve/data_short"
         # data_path = "D:/science/Aortic_valve/data_short"
     elif current_os == "Linux":
-        data_path = "/data/data_aortic_valve"
+        data_path = "/home/kamili/data/data_aortic_valve/"
 
-    current_time = datetime.now()
+        current_time = datetime.now()
     filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
-    log_path = data_path + filename
+    log_path = data_path + "/" + filename
     logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
-    nnUNet_folder = "/nnUNet_folder"
+    nnUNet_folder = "nnUNet_folder"
     # os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
     # os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
     # os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"

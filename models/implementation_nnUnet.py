@@ -1,7 +1,7 @@
 import os
 from subprocess import call
 import logging
-import platform
+# import platform
 
 from datetime import datetime
 
@@ -44,7 +44,8 @@ class nnUnet_trainer:
             # f"Task{task_id}",
             str(fold),
             # "--npz",  # Optional: Save softmax predictions
-            "-device torch.device('cpu')"
+            #"-device cpu"
+            "--device cuda:2"
         ]
 
         # Execute the training

@@ -8,7 +8,7 @@ from stl import mesh
 from sklearn.neighbors import NearestNeighbors
 import open3d as o3d
 import vtk
-from vtk.util.numpy_support import vtk_to_numpy
+from vtkmodules.util.numpy_support import vtk_to_numpy
 import os
 import glob
 import random
