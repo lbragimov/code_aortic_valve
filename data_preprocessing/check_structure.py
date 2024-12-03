@@ -15,8 +15,7 @@ def create_directory_structure(base_path, structure):
         current_path = os.path.join(base_path, folder)
 
         # Create current folder if it does not exist
-        if not os.path.exists(current_path):
-            os.makedirs(current_path)
+        os.makedirs(current_path, exist_ok=True)
 
         # If the value is a dictionary, we process nested folders
         if isinstance(substructure, dict):
@@ -26,7 +25,6 @@ def create_directory_structure(base_path, structure):
             for subfolder in substructure:
                 if isinstance(subfolder, str):
                     subfolder_path = os.path.join(current_path, subfolder)
-                    if not os.path.exists(subfolder_path):
-                        os.makedirs(subfolder_path)
+                    os.makedirs(subfolder_path, exist_ok=True)
                 elif isinstance(subfolder, dict):
                     create_directory_structure(current_path, subfolder)
