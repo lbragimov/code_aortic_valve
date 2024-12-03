@@ -44,7 +44,7 @@ def controller(data_path, nnUNet_folder_name):
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         dicom_path = os.path.join(data_path, "dicom")
         for sub_dir in list(dir_structure['dicom']):
-            for case in os.listdir(dicom_path + sub_dir):
+            for case in os.listdir(os.path.join(dicom_path, sub_dir)):
                 dcm_case_path = os.path.join(data_path, "dicom", sub_dir, case)
                 if sub_dir == "Homburg pathology":
                     case = case[:-3]
@@ -73,7 +73,7 @@ def controller(data_path, nnUNet_folder_name):
         else:
             dicom_path = os.path.join(data_path, "dicom")
             for sub_dir in list(dir_structure['dicom']):
-                for case in os.listdir(dicom_path + sub_dir):
+                for case in os.listdir(os.path.join(dicom_path, sub_dir)):
                     dcm_case_path = os.path.join(data_path, "dicom", sub_dir, case)
                     if sub_dir == "Homburg pathology":
                         case = case[:-3]
@@ -89,7 +89,7 @@ def controller(data_path, nnUNet_folder_name):
             json_marker_path = os.path.join(data_path, "json_markers_info")
             if os.path.exists(json_marker_path):
                 for sub_dir in list(dir_structure["json_markers_info"]):
-                    for case in os.listdir(json_marker_path + sub_dir):
+                    for case in os.listdir(os.path.join(json_marker_path, sub_dir)):
                         json_marker_case_file = os.path.join(json_marker_path, sub_dir, case)
                         case_name = case[:-5]
                         with open(json_marker_case_file, "r") as file:
@@ -133,9 +133,9 @@ def controller(data_path, nnUNet_folder_name):
         avg_img_spac_2 = sum(img_spac_2) / len(img_spac_2)
         most_img_spac_2 = float(mode(img_spac_2))
 
-        nii_convert_path = data_path + "nii_convert/"
+        nii_convert_path = os.path.join(data_path, "nii_convert")
         for sub_dir in list(dir_structure["nii_convert"]):
-            for case in os.listdir(nii_convert_path + sub_dir):
+            for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                 nii_convert_case_file_path = os.path.join(data_path, "nii_convert", sub_dir, case)
                 nii_resample_case_file_path = os.path.join(data_path, "nii_resample", sub_dir, case)
                 resample_nii(nii_convert_case_file_path,
@@ -149,7 +149,7 @@ def controller(data_path, nnUNet_folder_name):
         txt_marker_path = os.path.join(data_path, "markers_info")
         json_marker_path = os.path.join(data_path, "json_markers_info")
         for sub_dir in list(dir_structure["markers_info"]):
-            for case in os.listdir(txt_marker_path + sub_dir):
+            for case in os.listdir(os.path.join(txt_marker_path, sub_dir)):
                 txt_marker_case_file = os.path.join(txt_marker_path, sub_dir, case)
                 case = case[2:-4]
                 json_marker_case_file = os.path.join(json_marker_path, sub_dir, f"{case}.json")
@@ -194,7 +194,7 @@ def controller(data_path, nnUNet_folder_name):
         mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
         nii_resample_path = os.path.join(data_path, "nii_resample")
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
-            for case in os.listdir(stl_aorta_segment_path + sub_dir):
+            for case in os.listdir(os.path.join(stl_aorta_segment_path, sub_dir)):
                 stl_aorta_segment_file = os.path.join(stl_aorta_segment_path, sub_dir, case)
                 case_name = case[:-4]
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, f"{case_name}.nii")
@@ -212,8 +212,8 @@ def controller(data_path, nnUNet_folder_name):
         mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
         mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
-            for case in os.listdir(mask_aorta_segment_path + sub_dir):
-                logging.info(f"{sub_dir} + {case}")
+            for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
+                logging.info(f"{sub_dir} / {case}")
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, case)
                 mask_aorta_segment_cut_file = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
                 case_name = case[:-4]
@@ -241,9 +241,9 @@ def controller(data_path, nnUNet_folder_name):
         nii_resample_path = os.path.join(data_path, "nii_resample")
 
         for sub_dir in list(dir_structure["nii_resample"]):
-            file_count = len([f for f in os.listdir(nii_resample_path + sub_dir)])
+            file_count = len([f for f in os.listdir(os.path.join(nii_resample_path, sub_dir))])
             n = 0
-            for case in os.listdir(nii_resample_path + sub_dir):
+            for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
                 case_name = case[:-4]
                 if int(file_count*0.8) >= n:
                     shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
