@@ -16,69 +16,86 @@ class nnUnet_trainer:
         pass
 
     def train_nnUnet(self, task_id, nnUnet_path, fold=0, network="3d_fullres"):
+
+        preprocessing = False
+        training = False
+        predicting = True
+
         # Define the task ID and fold
 
-        command = [
-            "nnUNetv2_plan_and_preprocess",
-            '-d ' + str(task_id),
-            "--verify_dataset_integrity",  # Optional: Save softmax predictions
-            # "-np " + str(1),
-        ]
+        if preprocessing:
+            command = [
+                "nnUNetv2_plan_and_preprocess",
+                '-d ' + str(task_id),
+                "--verify_dataset_integrity",  # Optional: Save softmax predictions
+                # "-np " + str(1),
+            ]
 
-        # Execute preprocessing
-        try:
-            current_time = datetime.now()
-            str_time = current_time.strftime("%d:%H:%M")
-            logging.info(f"time: {str_time}")
-            print("Starting nnU-Net preprocessing...")
-            call(command)
-            print("Preprocessing completed successfully.")
-        except Exception as e:
-            print(f"An error occurred during preprocessing: {e}")
+            # Execute preprocessing
+            try:
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"Starting nnU-Net preprocessing: {str_time}")
+                call(command)
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"Preprocessing completed successfully: {str_time}")
+            except Exception as e:
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"An error occurred during preprocessing: {str_time}: {e}")
 
-        command = [
-            "nnUNetv2_train",
-            str(task_id),
-            # trainer,
-            network,
-            # f"Task{task_id}",
-            str(fold),
-            # "--npz",  # Optional: Save softmax predictions
-            #"-device cpu"
-            "--device cuda:2"
-        ]
+        if training:
+            command = [
+                "nnUNetv2_train",
+                str(task_id),
+                # trainer,
+                network,
+                # f"Task{task_id}",
+                str(fold),
+                # "--npz",  # Optional: Save softmax predictions
+                #"-device cpu"
+                "--device cuda:2"
+            ]
 
-        # Execute the training
-        try:
-            current_time = datetime.now()
-            str_time = current_time.strftime("%d:%H:%M")
-            logging.info(f"time: {str_time}")
-            print("Starting nnU-Net training...")
-            call(command)
-            print("Training completed successfully.")
-        except Exception as e:
-            print(f"An error occurred during training: {e}")
+            # Execute the training
+            try:
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"Starting nnU-Net training: {str_time}")
+                call(command)
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"Training completed successfully: {str_time}")
+            except Exception as e:
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"An error occurred during training: {str_time}: {e}")
 
-        # input_folder = nnUnet_path + "/nnUNet_raw/Dataset401_AorticValve/imagesTs/"
-        # output_folder = nnUnet_path + "/nnUNet_test/"
-        #
-        # command = [
-        #     "nnUNetv2_predict",
-        #     "-i" + input_folder,
-        #     "-o" + output_folder,
-        #     "-d" + str(task_id),
-        #     "-c" + network,
-        #     "-f" + str(fold),
-        # ]
-        #
-        # # Execute the predicting
-        # try:
-        #     current_time = datetime.now()
-        #     str_time = current_time.strftime("%d:%H:%M")
-        #     logging.info(f"time: {str_time}")
-        #     print("Starting nnU-Net predict...")
-        #     call(command)
-        #     print("Predicting completed successfully.")
-        # except Exception as e:
-        #     print(f"An error occurred during predicting: {e}")
+        if predicting:
+            input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
+            output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
+
+            command = [
+                "nnUNetv2_predict",
+                "-i" + input_folder,
+                "-o" + output_folder,
+                "-d" + str(task_id),
+                "-c" + network,
+                "-f" + str(fold),
+            ]
+
+            # Execute the predicting
+            try:
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"Starting nnU-Net predict: {str_time}")
+                call(command)
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"Predicting completed successfully: {str_time}")
+            except Exception as e:
+                current_time = datetime.now()
+                str_time = current_time.strftime("%d:%H:%M")
+                logging.info(f"An error occurred during predicting: {str_time}: {e}")
 
