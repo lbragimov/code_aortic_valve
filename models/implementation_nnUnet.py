@@ -2,6 +2,7 @@ import os
 from subprocess import call
 import logging
 # import platform
+import torch
 
 from datetime import datetime
 
@@ -10,16 +11,17 @@ class nnUnet_trainer:
 
     def __init__(self, nnUnet_path):
         # Set paths for nnUNet environment variables
-        os.environ["nnUNet_raw"] = nnUnet_path + '/nnUNet_raw'
-        os.environ["nnUNet_preprocessed"] = nnUnet_path + '/nnUNet_preprocessed'
-        os.environ["nnUNet_results"] = nnUnet_path + '/nnUNet_results'
-        pass
+        os.environ["nnUNet_raw"] = os.path.join(nnUnet_path, "nnUNet_raw")
+        os.environ["nnUNet_preprocessed"] = os.path.join(nnUnet_path, "nnUNet_preprocessed")
+        os.environ["nnUNet_results"] = os.path.join(nnUnet_path, "nnUNet_results")
+        os.environ["nnUNet_compile"] = "f"
 
     def train_nnUnet(self, task_id, nnUnet_path, fold=0, network="3d_fullres"):
 
-        preprocessing = False
-        training = False
+        preprocessing = True
+        training = True
         predicting = True
+        print(torch.device(type='cuda', index=2))
 
         # Define the task ID and fold
 
@@ -28,7 +30,7 @@ class nnUnet_trainer:
                 "nnUNetv2_plan_and_preprocess",
                 '-d ' + str(task_id),
                 "--verify_dataset_integrity",  # Optional: Save softmax predictions
-                # "-np " + str(1),
+                "-np", "1",
             ]
 
             # Execute preprocessing
@@ -47,15 +49,17 @@ class nnUnet_trainer:
 
         if training:
             command = [
+                # "CUDA_VISIBLE_DEVICES=2",
                 "nnUNetv2_train",
                 str(task_id),
                 # trainer,
                 network,
                 # f"Task{task_id}",
                 str(fold),
-                # "--npz",  # Optional: Save softmax predictions
+                "--npz",  # Optional: Save softmax predictions
                 #"-device cpu"
-                "--device cuda:2"
+                "-device", "cuda",
+                "-num_gpus", "0"
             ]
 
             # Execute the training

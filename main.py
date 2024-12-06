@@ -263,12 +263,15 @@ def controller(data_path, nnUNet_folder_name):
         if not os.path.isfile(os.path.join(current_dataset_path, "dataset.json")):
 
             file_count = len([f for f in os.listdir(os.path.join(current_dataset_path, "imagesTr"))])
+            print("start generate_dataset_json")
 
             generate_dataset_json(current_dataset_path,
                                   channel_names={0: 'CT'},
                                   labels={'background': 0, 'aortic_valve': 1},
                                   num_training_cases=file_count,
                                   file_ending='.nii.gz')
+            
+            print("finish generate_dataset_json")
 
             controller_dump["create_nnU_Net_dataset_json"] = True
             with open(controller_path, 'w') as json_file:

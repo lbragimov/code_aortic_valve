@@ -672,4 +672,4 @@ def cut_mask_using_points(source_mask_file, updated_mask_file, top_points, botto
     cut_mask = cut_mask_above_planes(binary_mask, lower_plane, upper_plane)
 
     # Save the modified mask
-    # sitk.WriteImage(cut_mask, updated_mask_file)
+    sitk.WriteImage(cut_mask, updated_mask_file)
