@@ -1,4 +1,3 @@
-import json
 import os
 import logging
 import shutil
@@ -15,6 +14,8 @@ from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_ni
 from data_preprocessing.txt_json_converter import txt_json_convert
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_preprocessing.check_structure import create_directory_structure
+from data_preprocessing.json_worker import json_reader, json_save
+from data_preprocessing.log_worker import add_info_logging
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers
 
@@ -23,26 +24,30 @@ from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_j
 
 def controller(data_path, nnUNet_folder_name):
 
-    dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
-    dict_all_case = {}
+    dicom_path = os.path.join(data_path, "dicom")
+    json_marker_path = os.path.join(data_path, "json_markers_info")
+    txt_marker_path = os.path.join(data_path, "markers_info")
+    stl_aorta_segment_path = os.path.join(data_path, "stl_aorta_segment")
+    mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
+    nii_resample_path = os.path.join(data_path, "nii_resample")
+    mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
+    mask_markers_visual_path = os.path.join(data_path, "markers_visual")
+    nnUNet_folder = os.path.join(data_path, nnUNet_folder_name)
+    current_dataset_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
 
     controller_path = os.path.join(data_path, "controller.json")
+    data_structure_path = os.path.join(data_path, "dir_structure.json")
+    dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
+
+    dict_all_case = {}
     if os.path.isfile(controller_path):
-        with open(controller_path, 'r') as read_file:
-            controller_dump = json.load(read_file)
+        controller_dump = json_reader(controller_path)
     else:
         controller_dump = {}
-
-    data_structure_path = os.path.join(data_path, "dir_structure.json")
-
-    with open(data_structure_path, 'r') as read_file:
-        dir_structure = json.load(read_file)
-
+    dir_structure = json_reader(data_structure_path)
     create_directory_structure(data_path, dir_structure)
 
-
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
-        dicom_path = os.path.join(data_path, "dicom")
         for sub_dir in list(dir_structure['dicom']):
             for case in os.listdir(os.path.join(dicom_path, sub_dir)):
                 dcm_case_path = os.path.join(data_path, "dicom", sub_dir, case)
@@ -57,44 +62,33 @@ def controller(data_path, nnUNet_folder_name):
                     "img_spacing": img_spacing,
                     "img_direction": img_direction
                 }
-
-        with open(dict_all_case_path, 'w') as json_file:
-            json.dump(dict_all_case, json_file)
-
+        json_save(dict_all_case, dict_all_case_path)
         controller_dump["convert"] = True
         controller_dump["resample"] = False
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
+        json_save(controller_dump, controller_path)
 
     if not dict_all_case:
         if os.path.isfile(dict_all_case_path):
-            with open(dict_all_case_path, 'r') as read_file:
-                dict_all_case = json.load(read_file)
+            dict_all_case = json_reader(dict_all_case_path)
         else:
-            dicom_path = os.path.join(data_path, "dicom")
             for sub_dir in list(dir_structure['dicom']):
                 for case in os.listdir(os.path.join(dicom_path, sub_dir)):
-                    dcm_case_path = os.path.join(data_path, "dicom", sub_dir, case)
+                    dcm_case_path = os.path.join(dicom_path, sub_dir, case)
                     if sub_dir == "Homburg pathology":
                         case = case[:-3]
                     img_size, img_origin, img_spacing, img_direction = reader_dcm(dcm_case_path)
-
                     dict_all_case[case] = {
                         "img_size": img_size,
                         "img_origin": img_origin,
                         "img_spacing": img_spacing,
                         "img_direction": img_direction
                     }
-
-            json_marker_path = os.path.join(data_path, "json_markers_info")
             if os.path.exists(json_marker_path):
                 for sub_dir in list(dir_structure["json_markers_info"]):
                     for case in os.listdir(os.path.join(json_marker_path, sub_dir)):
                         json_marker_case_file = os.path.join(json_marker_path, sub_dir, case)
                         case_name = case[:-5]
-                        with open(json_marker_case_file, "r") as file:
-                            data = json.load(file)
-
+                        data = json_reader(json_marker_case_file)
                         dict_all_case[case_name] |= {
                             "R": data["R"],
                             "L": data["L"],
@@ -103,9 +97,7 @@ def controller(data_path, nnUNet_folder_name):
                             "RNC": data["RNC"],
                             "LNC": data["LNC"]
                         }
-
-            with open(dict_all_case_path, 'w') as json_file:
-                json.dump(dict_all_case, json_file)
+            json_save(dict_all_case, dict_all_case_path)
 
     if not "resample" in controller_dump.keys() or not controller_dump["resample"]:
 
@@ -142,19 +134,15 @@ def controller(data_path, nnUNet_folder_name):
                              nii_resample_case_file_path,
                              [most_img_spac_0, most_img_spac_1, most_img_spac_2])
         controller_dump["resample"] = True
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
+        json_save(controller_dump, controller_path)
 
     if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
-        txt_marker_path = os.path.join(data_path, "markers_info")
-        json_marker_path = os.path.join(data_path, "json_markers_info")
         for sub_dir in list(dir_structure["markers_info"]):
             for case in os.listdir(os.path.join(txt_marker_path, sub_dir)):
                 txt_marker_case_file = os.path.join(txt_marker_path, sub_dir, case)
                 case = case[2:-4]
                 json_marker_case_file = os.path.join(json_marker_path, sub_dir, f"{case}.json")
                 data = txt_json_convert(txt_marker_case_file, json_marker_case_file)
-
                 dict_all_case[case] |= {
                     "R": data["R"],
                     "L": data["L"],
@@ -163,57 +151,26 @@ def controller(data_path, nnUNet_folder_name):
                     "RNC": data["RNC"],
                     "LNC": data["LNC"]
                 }
-
         controller_dump["markers_info"] = True
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
-        with open(dict_all_case_path, 'w') as json_file:
-            json.dump(dict_all_case, json_file)
-
-    # if (not "stl_aorta_segment_resample" in controller_dump.keys()
-    #         or not controller_dump["stl_aorta_segment_resample"]):
-    #     stl_aorta_segment_path = data_path + "stl_aorta_segment/"
-    #     stl_aorta_segment_resample_path = data_path + "stl_aorta_segment_resample/"
-    #     for sub_dir in list(dir_structure["stl_aorta_segment_resample"]):
-    #         for case in os.listdir(stl_aorta_segment_path + sub_dir):
-    #             stl_aorta_segment_file =stl_aorta_segment_path + sub_dir + "/" + case
-    #             stl_aorta_segment_resample_file = stl_aorta_segment_resample_path + sub_dir + "/" + case
-    #
-    #             stl_resample(stl_aorta_segment_file,
-    #                          stl_aorta_segment_resample_file,
-    #                          5000)
-    #
-    #
-    #     controller_dump["stl_aorta_segment_resample"] = True
-    #     with open(controller_path, 'w') as json_file:
-    #         json.dump(controller_dump, json_file)
+        json_save(controller_dump, controller_path)
+        json_save(dict_all_case, dict_all_case_path)
 
     if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
-        # stl_aorta_segment_path = data_path + "stl_aorta_segment_resample/"
-        stl_aorta_segment_path = os.path.join(data_path, "stl_aorta_segment")
-        mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
-        nii_resample_path = os.path.join(data_path, "nii_resample")
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
             for case in os.listdir(os.path.join(stl_aorta_segment_path, sub_dir)):
                 stl_aorta_segment_file = os.path.join(stl_aorta_segment_path, sub_dir, case)
                 case_name = case[:-4]
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, f"{case_name}.nii")
                 nii_resample_file = os.path.join(nii_resample_path, sub_dir, f"{case_name}.nii")
-
                 convert_stl_to_mask_nii(stl_aorta_segment_file,
                                         nii_resample_file,
                                         mask_aorta_segment_file)
-
         controller_dump["mask_aorta_segment"] = True
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
+        json_save(controller_dump, controller_path)
 
     if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
-        mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
-        mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
             for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
-                logging.info(f"{sub_dir} / {case}")
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, case)
                 mask_aorta_segment_cut_file = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
                 case_name = case[:-4]
@@ -223,23 +180,27 @@ def controller(data_path, nnUNet_folder_name):
                 bottom_points = [dict_all_case[case_name]['RLC'],
                                  dict_all_case[case_name]['RNC'],
                                  dict_all_case[case_name]['LNC']]
-
                 cut_mask_using_points(mask_aorta_segment_file,
                                       mask_aorta_segment_cut_file,
                                       top_points, bottom_points, margin=2)
-
         controller_dump["mask_aorta_segment_cut"] = True
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
+        json_save(controller_dump, controller_path)
 
-    nnUNet_folder = os.path.join(data_path, nnUNet_folder_name)
-    current_dataset_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
+    if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
+        for sub_dir in list(dir_structure["nii_resample"]):
+            for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+                radius = 3
+                nii_resample_case_file_path = os.path.join(data_path, "nii_resample", sub_dir, case)
+                mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, case)
+                process_pair(nii_resample_case_file_path,
+                             dict_all_case[case_name],
+                             mask_markers_img_path,
+                             radius)
+        controller_dump["mask_markers_create"] = True
+        json_save(controller_dump, controller_path)
+
     if (not "create_nnU_Net_data_base" in controller_dump.keys()
             or not controller_dump["create_nnU_Net_data_base"]):
-
-        mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
-        nii_resample_path = os.path.join(data_path, "nii_resample")
-
         for sub_dir in list(dir_structure["nii_resample"]):
             file_count = len([f for f in os.listdir(os.path.join(nii_resample_path, sub_dir))])
             n = 0
@@ -254,43 +215,32 @@ def controller(data_path, nnUNet_folder_name):
                     shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
                                 str(os.path.join(current_dataset_path, "imagesTs", f"{case_name}_0000.nii.gz")))
                 n += 1
-
         controller_dump["create_nnU_Net_data_base"] = True
-        with open(controller_path, 'w') as json_file:
-            json.dump(controller_dump, json_file)
+        json_save(controller_dump, controller_path)
 
     if os.path.exists(current_dataset_path):
         if not os.path.isfile(os.path.join(current_dataset_path, "dataset.json")):
-
             file_count = len([f for f in os.listdir(os.path.join(current_dataset_path, "imagesTr"))])
-            print("start generate_dataset_json")
-
             generate_dataset_json(current_dataset_path,
                                   channel_names={0: 'CT'},
                                   labels={'background': 0, 'aortic_valve': 1},
                                   num_training_cases=file_count,
                                   file_ending='.nii.gz')
-            
-            print("finish generate_dataset_json")
-
             controller_dump["create_nnU_Net_dataset_json"] = True
-            with open(controller_path, 'w') as json_file:
-                json.dump(controller_dump, json_file)
+            json_save(controller_dump, controller_path)
     else:
-        current_time = datetime.now()
-        str_time = current_time.strftime("%d:%H:%M")
-        logging.info(f"time:  {str_time} No folder to save to dataset.json")
+        add_info_logging("No folder to save to dataset.json")
         return
 
-    # test_case_name = list(dict_all_case.keys())[0]
+    test_case_name = list(dict_all_case.keys())[0]
 
-    model_nnUnet = nnUnet_trainer(nnUNet_folder)
-    model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=nnUNet_folder)
+    # model_nnUnet = nnUnet_trainer(nnUNet_folder)
+    # model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=nnUNet_folder)
 
-    # slices_with_markers(
-    #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
-    #     case_info=dict_all_case[test_case_name],
-    #     save_path=data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
+    slices_with_markers(
+        nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
+        case_info=dict_all_case[test_case_name],
+        save_path=data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
     #
     # totalsegmentator(
     #     input=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',

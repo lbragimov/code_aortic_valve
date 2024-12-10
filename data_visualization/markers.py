@@ -1,3 +1,4 @@
+import numpy as np
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -5,6 +6,70 @@ from pathlib import Path
 
 def _load_image(image_path):
     return sitk.ReadImage(image_path)
+
+
+def _save_image(image, output_path):
+    """Saves the image to a file."""
+    sitk.WriteImage(image, output_path)
+
+
+def _create_sphere_mask(shape, center, radius, spacing):
+    """
+    Creates a sphere at the given point with the given radius.
+    :param shape: Mask dimensions (voxels).
+    :param center: Center coordinates (voxels).
+    :param radius: Sphere radius (in millimeters).
+    :param spacing: Voxel dimensions (image spacing).
+    :return: SimpleITK image with mask.
+    """
+    mask = sitk.Image(shape, sitk.sitkUInt8)
+    mask.SetSpacing(spacing)
+
+    # Creates a sphere
+    for z in range(shape[2]):
+        for y in range(shape[1]):
+            for x in range(shape[0]):
+                distance = np.sqrt(
+                    ((z - center[2]) * spacing[2]) ** 2 +
+                    ((y - center[1]) * spacing[1]) ** 2 +
+                    ((x - center[0]) * spacing[0]) ** 2
+                )
+                if distance <= radius:
+                    mask[x, y, z] = 1
+    return mask
+
+
+def process_pair(image_path, json_path, output_path, radius):
+    """
+    Обрабатывает одну пару (изображение и таблица координат).
+    Создаёт маску и сохраняет её.
+    """
+    # Загрузка изображения
+    image = _load_image(image_path)
+    spacing = image.GetSpacing()
+    shape = image.GetSize()
+
+    # Загрузка координат из JSON
+    with open(json_path, 'r') as json_file:
+        coords = json.load(json_file)
+
+    # Создаём пустую маску
+    mask = sitk.Image(shape, sitk.sitkUInt8)
+    mask.SetSpacing(spacing)
+
+    # Обрабатываем первые шесть точек
+    for i, (key, coord) in enumerate(coords.items()):
+        if i >= 6:  # Только первые 6 точек
+            break
+
+        # Создаём сферу
+        sphere = _create_sphere_mask(shape, coord, radius, spacing)
+
+        # Объединяем сферу с текущей маской
+        mask += sphere
+
+    # Сохраняем маску
+    _save_image(mask, output_path)
 
 
 def _load_landmarks(dict_landmarks):
