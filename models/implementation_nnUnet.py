@@ -6,6 +6,8 @@ import torch
 
 from datetime import datetime
 
+from data_preprocessing.log_worker import add_info_logging
+
 
 class nnUnet_trainer:
 
@@ -21,6 +23,7 @@ class nnUnet_trainer:
         preprocessing = True
         training = True
         predicting = True
+        evaluation = False
         print(torch.device(type='cuda', index=2))
 
         # Define the task ID and fold
@@ -35,17 +38,11 @@ class nnUnet_trainer:
 
             # Execute preprocessing
             try:
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"Starting nnU-Net preprocessing: {str_time}")
+                add_info_logging("Starting nnU-Net preprocessing")
                 call(command)
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"Preprocessing completed successfully: {str_time}")
+                add_info_logging("Preprocessing completed successfully")
             except Exception as e:
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"An error occurred during preprocessing: {str_time}: {e}")
+                add_info_logging(f"An error occurred during preprocessing: {e}")
 
         if training:
             command = [
@@ -64,17 +61,11 @@ class nnUnet_trainer:
 
             # Execute the training
             try:
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"Starting nnU-Net training: {str_time}")
+                add_info_logging("Starting nnU-Net training")
                 call(command)
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"Training completed successfully: {str_time}")
+                add_info_logging("Training completed successfully")
             except Exception as e:
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"An error occurred during training: {str_time}: {e}")
+                add_info_logging(f"An error occurred during training: {e}")
 
         if predicting:
             input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
@@ -91,15 +82,35 @@ class nnUnet_trainer:
 
             # Execute the predicting
             try:
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"Starting nnU-Net predict: {str_time}")
+                add_info_logging("Starting nnU-Net predict")
                 call(command)
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"Predicting completed successfully: {str_time}")
+                add_info_logging("Predicting completed successfully")
             except Exception as e:
-                current_time = datetime.now()
-                str_time = current_time.strftime("%d:%H:%M")
-                logging.info(f"An error occurred during predicting: {str_time}: {e}")
+                add_info_logging(f"An error occurred during predicting: {e}")
+
+        if evaluation:
+            input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
+            output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
+
+            command = [
+                "nnUNetv2_evaluate_folder",
+                "-i" + input_folder,
+                "-o" + output_folder,
+                "-d" + str(task_id),
+                "-c" + network,
+                "-f" + str(fold),
+            ]
+
+            # Execute the predicting
+            try:
+                add_info_logging("Starting nnU-Net predict")
+                call(command)
+                add_info_logging("Predicting completed successfully")
+            except Exception as e:
+                add_info_logging(f"An error occurred during predicting: {e}")
+
+        # nnUNetv2_evaluate_folder / nnUNet_tests / gt / / nnUNet_tests / predictions / -djfile
+        # Dataset300_Aorta / nnUNetTrainer_250epochs__nnUNetPlans__3d_fullres / dataset.json - pfile
+        # Dataset300_Aorta / nnUNetTrainer_250epochs__nnUNetPlans__3d_fullres / plans.json
+
 

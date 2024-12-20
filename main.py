@@ -17,7 +17,7 @@ from data_preprocessing.check_structure import create_directory_structure
 from data_preprocessing.json_worker import json_reader, json_save
 from data_preprocessing.log_worker import add_info_logging
 from models.implementation_nnUnet import nnUnet_trainer
-from data_visualization.markers import slices_with_markers
+from data_visualization.markers import slices_with_markers, process_markers
 
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
@@ -55,8 +55,9 @@ def controller(data_path, nnUNet_folder_name):
                     case = case[:-3]
                 nii_convert_case_file = os.path.join(data_path, "nii_convert", sub_dir, case)
                 img_size, img_origin, img_spacing, img_direction = convert_dcm_to_nii(dcm_case_path,
-                                                                                      nii_convert_case_file)
-                dict_all_case[case] = {
+                                                                                      nii_convert_case_file,
+                                                                                      zip=True)
+                dict_all_case[case] |= {
                     "img_size": img_size,
                     "img_origin": img_origin,
                     "img_spacing": img_spacing,
@@ -160,8 +161,8 @@ def controller(data_path, nnUNet_folder_name):
             for case in os.listdir(os.path.join(stl_aorta_segment_path, sub_dir)):
                 stl_aorta_segment_file = os.path.join(stl_aorta_segment_path, sub_dir, case)
                 case_name = case[:-4]
-                mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, f"{case_name}.nii")
-                nii_resample_file = os.path.join(nii_resample_path, sub_dir, f"{case_name}.nii")
+                mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, f"{case_name}.nii.gz")
+                nii_resample_file = os.path.join(nii_resample_path, sub_dir, f"{case_name}.nii.gz")
                 convert_stl_to_mask_nii(stl_aorta_segment_file,
                                         nii_resample_file,
                                         mask_aorta_segment_file)
@@ -173,7 +174,7 @@ def controller(data_path, nnUNet_folder_name):
             for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, case)
                 mask_aorta_segment_cut_file = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-                case_name = case[:-4]
+                case_name = case[:-7]
                 top_points = [dict_all_case[case_name]['R'],
                               dict_all_case[case_name]['L'],
                               dict_all_case[case_name]['N']]
@@ -189,13 +190,14 @@ def controller(data_path, nnUNet_folder_name):
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
             for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+                case_name = case[:-4]
                 radius = 3
                 nii_resample_case_file_path = os.path.join(data_path, "nii_resample", sub_dir, case)
-                mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, case)
-                process_pair(nii_resample_case_file_path,
-                             dict_all_case[case_name],
-                             mask_markers_img_path,
-                             radius)
+                mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
+                process_markers(nii_resample_case_file_path,
+                                dict_all_case[case_name],
+                                mask_markers_img_path,
+                                radius)
         controller_dump["mask_markers_create"] = True
         json_save(controller_dump, controller_path)
 
@@ -232,15 +234,15 @@ def controller(data_path, nnUNet_folder_name):
         add_info_logging("No folder to save to dataset.json")
         return
 
-    test_case_name = list(dict_all_case.keys())[0]
+    # test_case_name = list(dict_all_case.keys())[0]
 
     # model_nnUnet = nnUnet_trainer(nnUNet_folder)
     # model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=nnUNet_folder)
 
-    slices_with_markers(
-        nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
-        case_info=dict_all_case[test_case_name],
-        save_path=data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
+    # slices_with_markers(
+    #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
+    #     case_info=dict_all_case[test_case_name],
+    #     save_path=data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
     #
     # totalsegmentator(
     #     input=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
@@ -254,8 +256,8 @@ if __name__ == "__main__":
     current_os = platform.system()
 
     if current_os == "Windows":
-        # data_path = "C:/Users/Kamil/Aortic_valve/data/"
-        data_path = "C:/Users/Kamil/Aortic_valve/data/temp"
+        data_path = "C:/Users/Kamil/Aortic_valve/data/"
+        # data_path = "C:/Users/Kamil/Aortic_valve/data/temp"
         # data_path = "D:/science/Aortic_valve/data_short"
     elif current_os == "Linux":
         data_path = "/home/kamili/data/data_aortic_valve/"
