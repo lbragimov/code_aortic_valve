@@ -44,7 +44,7 @@ def _world_to_voxel(coord, image):
     return np.round(voxel_coord).astype(int)
 
 
-def process_markers(image_path, dict_case, output_path, radius):
+def process_markers(image_path, dict_case, output_path, radius, keys_to_need=None):
     """
     Processes one pair (image and coordinate table).
     Creates a mask and saves it.
