@@ -1,12 +1,17 @@
 import torch
 # import numpy as np
 import time
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OneHotEncoder
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import ToTensor
+
+from data_preprocessing.log_worker import add_info_logging
 
 global_loss_sum = [0, 0, 0, 0, 0]
 
@@ -250,7 +255,7 @@ class UNet3D(nn.Module):
         self.outc = torch.utils.checkpoint(self.outc)
 
 
-class UNetTrainer:
+class UNet3DTrainer:
 
     def __init__(self, n_classes=4, learning_rate=0.0001, weight_decay=0.01, epochs=300):
         self.eval_criterion = DiceCoefficientMetric()
@@ -259,7 +264,6 @@ class UNetTrainer:
         self.loss_criterion = DiceLoss()
         self.eval_criterion = DiceCoefficientMetric()
         self.epochs = epochs
-        pass
 
     def __move_to_device(self, input, device):
         if isinstance(input, tuple) or isinstance(input, list):
@@ -279,124 +283,117 @@ class UNetTrainer:
         return input_sitk, mask_sitk
 
     def train(self, train_dl, valid_dl, model_file):
-        self.model.load_state_dict(torch.load(model_file))
-        # print("Is CUDA enabled?",torch.cuda.is_available())
+        # Определяем устройство (GPU, если доступно)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(device)  # Перенос модели на устройство
+
         start = time.time()
-        # self.model.cuda()
         train_loss, valid_loss = [], []
-        best_acc = 0.0
-        phase = 'train'
 
         for epoch in range(self.epochs):
-            print('Epoch {}/{}'.format(epoch, self.epochs - 1))
-            print('-' * 10)
+            add_info_logging('Epoch {}/{}'.format(epoch, self.epochs - 1))
+            add_info_logging('-' * 10)
 
             for phase in ['train', 'valid']:
                 if phase == 'train':
-                    self.model.train(True)  # Set trainind mode = true
+                    self.model.train()  # Включаем режим обучения
                     dataloader = train_dl
                 else:
-                    self.model.train(False)  # Set model to evaluate mode
+                    self.model.eval()  # Включаем режим валидации
                     dataloader = valid_dl
 
                 running_loss = 0.0
                 running_acc = 0.0
 
-                step = 0
+                for step, (x, y) in enumerate(dataloader):
+                    # Перенос данных на устройство
+                    x = x.to(device)
+                    y = y.to(device)
 
-                # iterate over data
-                for x, y in dataloader:
-                    # x = x.cuda()
-                    # y = y.cuda()
-                    step += 1
-                    # forward pass
+                    # Forward pass
                     if phase == 'train':
-                        # zero the gradients
-                        self.optimizer.zero_grad()
-                        outputs = self.model(x)
-                        loss = self.loss_criterion(outputs, y)
-
-                        # the backward pass frees the graph memory, so there is no
-                        # need for torch.no_grad in this training pass
-                        loss.backward()
-                        self.optimizer.step()
-                        # scheduler.step()
-
+                        self.optimizer.zero_grad()  # Обнуляем градиенты
+                        outputs = self.model(x)  # Предсказание
+                        loss = self.loss_criterion(outputs, y)  # Вычисление потерь
+                        loss.backward()  # Backward pass
+                        self.optimizer.step()  # Обновление параметров
                     else:
-                        with torch.no_grad():
+                        with torch.no_grad():  # Отключаем вычисление градиентов
                             outputs = self.model(x)
-                            loss = self.loss_criterion(outputs, y.long())
+                            loss = self.loss_criterion(outputs, y)
 
-                    # stats - whatever is the phase
+                    # Вычисление метрик
                     acc = self.eval_criterion(outputs, y)
-
-                    running_acc += acc * dataloader.batch_size
-                    running_loss += loss * dataloader.batch_size
+                    running_loss += loss.item() * x.size(0)  # Сумма потерь за батч
+                    running_acc += acc.item() * x.size(0)  # Сумма точности за батч
 
                     if step % 5 == 0:
-                        # clear_output(wait=True)
-                        print('Current step: {}  Loss: {}  Acc: {}  AllocMem (Mb): {}'.format(step, loss, acc,
-                                                                                              torch.cuda.memory_allocated() / 1024 / 1024))
-                        # print(torch.cuda.memory_summary())
+                        add_info_logging(f'Step {step}: Loss = {loss.item():.4f}, Acc = {acc.item():.4f}')
 
+                # Усреднение статистик за эпоху
                 epoch_loss = running_loss / len(dataloader.dataset)
                 epoch_acc = running_acc / len(dataloader.dataset)
 
-                print('{} Loss: {:.4f} Acc: {}'.format(phase, epoch_loss, epoch_acc))
+                add_info_logging(f'{phase} Loss: {epoch_loss:.4f}, Acc: {epoch_acc:.4f}')
 
-                train_loss.append(epoch_loss) if phase == 'train' else valid_loss.append(epoch_loss)
-                torch.save(self.model.state_dict(), model_file)
+                # Сохранение потерь
+                if phase == 'train':
+                    train_loss.append(epoch_loss)
+                else:
+                    valid_loss.append(epoch_loss)
+
+                # Сохранение лучшей модели
+                if phase == 'valid' and epoch_acc > max(valid_loss, default=0):
+                    torch.save(self.model.state_dict(), model_file)
 
         time_elapsed = time.time() - start
-        print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-
-        torch.save(self.model.state_dict(), model_file + '.pth')
+        add_info_logging('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+        torch.save(self.model.state_dict(), model_file + '_final.pth')
 
         return train_loss, valid_loss
 
     def test(self, test_dl, case_names, model_file, results_folder):
+        # Определяем устройство (GPU, если доступно)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.load_state_dict(torch.load(model_file, map_location=device))  # Загружаем обученную модель
+        self.model.to(device)  # Перенос модели на устройство
+        self.model.eval()  # Перевод модели в режим тестирования
 
-        self.model.load_state_dict(torch.load(model_file))
-        # self.model.eval()
-        # print("Is CUDA enabled?",torch.cuda.is_available())
-        start = time.time()
-        # self.model.cuda()
+        start = time.time()  # Засекаем время выполнения
 
-        global_count = 0
-        # iterate over data
-        for x, y in test_dl:
-            # x = x.cuda()
-            # y = y.cuda()
+        global_count = 0  # Счётчик обработанных случаев
 
-            with torch.no_grad():
+        with torch.no_grad():  # Отключаем вычисление градиентов
+            for x, y in test_dl:
+                # Перенос данных на устройство
+                x = x.to(device)
+                y = y.to(device)
+
+                # Предсказание модели
                 outputs = self.model(x)
-                outputs_np = outputs.numpy()
-                x_np = x.numpy()
-                y_np = y.numpy()
+                outputs_np = outputs.cpu().numpy()  # Перевод предсказаний в NumPy
+                x_np = x.cpu().numpy()  # Перевод входных данных в NumPy
+                y_np = y.cpu().numpy()  # Перевод истинных меток в NumPy
 
-                for t in range(0, outputs_np.shape[0]):
-                    input_sitk, mask_sitk = self.__generate_result(x_np[t, 0, :, :], y_np[t, :, :, :])
-                    sitk.WriteImage(input_sitk,
-                                    results_folder + '/im_' + case_names[global_count] + '.nii.gz')
-                    sitk.WriteImage(mask_sitk,
-                                    results_folder + '/mask_' + case_names[global_count] + '.nii.gz')
-                    for k in range(0, outputs_np.shape[1]):
-                        mask_sitk_k = sitk.GetImageFromArray(outputs_np[t, k, :, :])
-                        sitk.WriteImage(mask_sitk_k,
-                                        results_folder + '/mask_' + case_names[global_count] + '_' + str(
-                                            k) + '.nii.gz')
-                    # sitk.WriteImage(mask_0,
-                    #                 results_folder + '/mask_0_' + case_names[global_count] + '.nii.gz')
-                    # sitk.WriteImage(mask_1,
-                    #                 results_folder + '/mask_1_' + case_names[global_count] + '.nii.gz')
-                    # sitk.WriteImage(mask_2,
-                    #                 results_folder + '/mask_2_' + case_names[global_count] + '.nii.gz')
-                    # sitk.WriteImage(mask_3,
-                    #                 results_folder + '/mask_3_' + case_names[global_count] + '.nii.gz')
-                    global_count += 1
-                t = 0
+                # Обработка каждого элемента в батче
+                for t in range(outputs_np.shape[0]):  # Цикл по примерам в батче
+                    # Преобразование в формат SimpleITK
+                    input_sitk, mask_sitk = self.__generate_result(x_np[t, 0, :, :, :], outputs_np[t, 0, :, :, :])
 
-        pt = 0
+                    # Сохранение входного изображения
+                    input_path = f"{results_folder}/im_{case_names[global_count]}.nii.gz"
+                    sitk.WriteImage(input_sitk, input_path)
+
+                    # Сохранение предсказанной маски
+                    mask_path = f"{results_folder}/mask_{case_names[global_count]}.nii.gz"
+                    sitk.WriteImage(mask_sitk, mask_path)
+
+                    print(f"Saved results for case: {case_names[global_count]}")  # Логирование
+
+                    global_count += 1  # Увеличиваем счётчик
+
+        time_elapsed = time.time() - start  # Засекаем время
+        print(f"Testing complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s")
 
     def test_framework(self, slices, model_file):
 
@@ -423,3 +420,82 @@ class UNetTrainer:
         # plt.imshow(output[2, 3, :, :])
         # plt.show()
         return output
+
+
+class WrapperUnet:
+
+    @staticmethod
+    def try_unet2d_training(folder):
+        loader = DataloaderSeg3D(folder)
+        loader.generate_data_loaders(0.15, 2)
+
+        trainer = UNet3DTrainer()
+        trainer.train(loader.train_dl, loader.valid_dl, folder + '/model/model_weights.pth')
+
+    @staticmethod
+    def try_unet2d_testing(folder):
+        loader = DataloaderSeg3D(folder + '/imagesTs')
+        loader.generate_data_loaders(0, 2)
+
+        trainer = UNet3DTrainer()
+        trainer.test(loader.test_dl, loader.case_names,
+                     folder + '/model/model_weights.pth', folder + '/results')
+
+
+class DataloaderSeg3D:
+
+    def __init__(self, data_folder):
+        self.database = DatabaseImIm(data_folder)
+        self.case_names = []
+        for subfolder in data_folder:
+            self.case_names.append(subfolder.split('\\')[-2])
+
+    def generate_data_loaders(self, valid_prop, batch_size, shuffle=True):
+        if valid_prop > 0:
+            valid_num = int(valid_prop * len(self.database))
+            train_ds, valid_ds = torch.utils.data.random_split(self.database, (len(self.database) - valid_num, valid_num))
+            #train_ds = torch.utils.data.Subset(self.database, range(len(self.database) - valid_num))
+            #valid_ds = torch.utils.data.Subset(self.database, range(len(self.database) - valid_num, len(self.database)))
+            self.train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)
+            self.valid_dl = DataLoader(valid_ds, batch_size=batch_size, shuffle=shuffle)
+        else:
+            # train_ds, _ = torch.utils.data.random_split(self.database, len(self.database), 0)
+            self.test_dl = DataLoader(self.database, batch_size=batch_size)
+
+
+class DatabaseImIm(Dataset):
+
+    def __init__(self, subfolders):
+        self.images = []
+        self.masks = []
+        self.transform = ToTensor()
+        for i in range(0, len(subfolders)):
+            self.images.append(np.load(subfolders[i] + '/middle_layer.npy'))
+            mask1 = np.load(subfolders[i] + '/mask_1.npy')
+            mask2 = np.load(subfolders[i] + '/mask_2.npy')
+            mask3 = np.load(subfolders[i] + '/mask_3.npy')
+            mask4 = np.load(subfolders[i] + '/mask_4.npy')
+            # mask0 = np.ones(mask1.shape)
+            # mask0[mask1 > 0] = 0
+            # mask0[mask2 > 0] = 0
+            # mask0[mask3 > 0] = 0
+            # mask0[mask4 > 0] = 0
+            self.masks.append(np.stack((mask1, mask2, mask3, mask4), axis=2))
+        if len(self.images) > 0:
+            self.normalize_images()
+
+    def normalize_images(self):
+        minF = np.amin(self.images[0])
+        maxF = np.amax(self.images[0])
+        for i in range(1, len(self.images)):
+            minF = min(minF, np.amin(self.images[0]))
+            maxF = min(maxF, np.amax(self.images[0]))
+
+        for i in range(0, len(self.images)):
+            self.images[i] = (self.images[i] - minF)/(maxF - minF)
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        return self.transform(self.images[idx]), self.transform(self.masks[idx])
