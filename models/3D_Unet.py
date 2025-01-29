@@ -1,7 +1,8 @@
 import torch
-# import numpy as np
+import glob
 import time
 import numpy as np
+from pathlib import Path
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -94,6 +95,7 @@ class DiceLoss(nn.Module):
         # input = normalization(input)
 
         # compute Dice score across all channels/classes
+        input = torch.softmax(input, dim=1)  # Применяем Softmax перед вычислением Dice
         per_channel_dice = self.dice(input, target)
         # global_loss_sum[0] += float(per_channel_dice[0].detach().numpy())
         # global_loss_sum[1] += float(per_channel_dice[1].detach().numpy())
@@ -112,8 +114,8 @@ class BCEDiceLoss(nn.Module):
     def __init__(self, alpha=0.25, beta=0.75):
         super(BCEDiceLoss, self).__init__()
         self.alpha = alpha
-        # self.bce = nn.BCEWithLogitsLoss()
-        self.bce = nn.BCELoss()
+        self.bce = nn.BCEWithLogitsLoss()
+        # self.bce = nn.BCELoss()
         self.beta = beta
         self.dice = self.DiceLoss()
         t = 0
@@ -223,7 +225,7 @@ class UNet3D(nn.Module):
         self.up4 = Up3D(8 * multiplier, 8 * multiplier, bilinear)  # Четвёртый апскейлинг
 
         self.outc = OutConv3D(8 * multiplier, n_classes)  # Финальный слой
-        self.final_activation = nn.Sigmoid()  # Сигмоида для вероятностей
+        self.final_activation = nn.Softmax(dim=1)  # Для многоклассовой задачи
 
     def forward(self, input):
         # Прямое распространение через слои
@@ -258,7 +260,6 @@ class UNet3D(nn.Module):
 class UNet3DTrainer:
 
     def __init__(self, n_classes=4, learning_rate=0.0001, weight_decay=0.01, epochs=300):
-        self.eval_criterion = DiceCoefficientMetric()
         self.model = UNet3D(n_channels=1, n_classes=n_classes).double()
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         self.loss_criterion = DiceLoss()
@@ -286,6 +287,8 @@ class UNet3DTrainer:
         # Определяем устройство (GPU, если доступно)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(device)  # Перенос модели на устройство
+
+        best_acc = 0.0
 
         start = time.time()
         train_loss, valid_loss = [], []
@@ -343,7 +346,10 @@ class UNet3DTrainer:
                     valid_loss.append(epoch_loss)
 
                 # Сохранение лучшей модели
-                if phase == 'valid' and epoch_acc > max(valid_loss, default=0):
+                # if phase == 'valid' and epoch_acc > max(valid_loss, default=0):
+                #     torch.save(self.model.state_dict(), model_file)
+                if phase == 'valid' and epoch_acc > best_acc:
+                    best_acc = epoch_acc
                     torch.save(self.model.state_dict(), model_file)
 
         time_elapsed = time.time() - start
@@ -445,57 +451,57 @@ class WrapperUnet:
 class DataloaderSeg3D:
 
     def __init__(self, data_folder):
-        self.database = DatabaseImIm(data_folder)
+        subfolders = glob.glob(data_folder + '/*/*')
+        self.database = DatabaseImSegNII(data_folder)
         self.case_names = []
-        for subfolder in data_folder:
-            self.case_names.append(subfolder.split('\\')[-2])
+        for subfolder in subfolders:
+            self.case_names.append(Path(subfolder).parts[-1])
 
     def generate_data_loaders(self, valid_prop, batch_size, shuffle=True):
         if valid_prop > 0:
             valid_num = int(valid_prop * len(self.database))
-            train_ds, valid_ds = torch.utils.data.random_split(self.database, (len(self.database) - valid_num, valid_num))
-            #train_ds = torch.utils.data.Subset(self.database, range(len(self.database) - valid_num))
-            #valid_ds = torch.utils.data.Subset(self.database, range(len(self.database) - valid_num, len(self.database)))
+            train_ds, valid_ds = torch.utils.data.random_split(self.database,
+                                                               (len(self.database) - valid_num, valid_num))
             self.train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)
             self.valid_dl = DataLoader(valid_ds, batch_size=batch_size, shuffle=shuffle)
         else:
-            # train_ds, _ = torch.utils.data.random_split(self.database, len(self.database), 0)
             self.test_dl = DataLoader(self.database, batch_size=batch_size)
 
 
-class DatabaseImIm(Dataset):
+class DatabaseImSegNII(Dataset):
 
     def __init__(self, subfolders):
         self.images = []
         self.masks = []
         self.transform = ToTensor()
         for i in range(0, len(subfolders)):
-            self.images.append(np.load(subfolders[i] + '/middle_layer.npy'))
-            mask1 = np.load(subfolders[i] + '/mask_1.npy')
-            mask2 = np.load(subfolders[i] + '/mask_2.npy')
-            mask3 = np.load(subfolders[i] + '/mask_3.npy')
-            mask4 = np.load(subfolders[i] + '/mask_4.npy')
-            # mask0 = np.ones(mask1.shape)
-            # mask0[mask1 > 0] = 0
-            # mask0[mask2 > 0] = 0
-            # mask0[mask3 > 0] = 0
-            # mask0[mask4 > 0] = 0
-            self.masks.append(np.stack((mask1, mask2, mask3, mask4), axis=2))
+            self.images.append(self._load_nii(subfolders[i] + '/image.nii.gz'))
+            self.masks.append(self._load_nii(subfolders[i] + '/mask.nii.gz'))
         if len(self.images) > 0:
             self.normalize_images()
 
     def normalize_images(self):
-        minF = np.amin(self.images[0])
-        maxF = np.amax(self.images[0])
-        for i in range(1, len(self.images)):
-            minF = min(minF, np.amin(self.images[0]))
-            maxF = min(maxF, np.amax(self.images[0]))
+        # minF = np.amin(self.images[0])
+        # maxF = np.amax(self.images[0])
+        # for i in range(1, len(self.images)):
+        #     minF = min(minF, np.amin(self.images[i]))
+        #     maxF = max(maxF, np.amax(self.images[i])) # min(maxF, np.amax(self.images[0]))
+        minF = np.amin(np.array(self.images))
+        maxF = np.amax(np.array(self.images))
 
         for i in range(0, len(self.images)):
             self.images[i] = (self.images[i] - minF)/(maxF - minF)
+
+    def _load_nii(self, file_path):
+        """
+        Загружает файл .nii.gz и возвращает данные в виде NumPy массива.
+        """
+        itk_image = sitk.ReadImage(file_path)  # Чтение файла с помощью SimpleITK
+        image = sitk.GetArrayFromImage(itk_image)  # Преобразование в NumPy массив
+        return image
 
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, idx):
-        return self.transform(self.images[idx]), self.transform(self.masks[idx])
+        return self.transform(self.images[idx]), torch.tensor(self.masks[idx], dtype=torch.long)

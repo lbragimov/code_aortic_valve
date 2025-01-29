@@ -81,5 +81,11 @@
 		},
 		"nnUNet_results":[],
 		"nnUNet_test":[]
+	},
+    "3DUNet_folder": {
+		"data": [],
+		"models": [],
+		"results":[],
+		"test_data":[]
 	}
 }

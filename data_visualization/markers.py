@@ -55,9 +55,13 @@ def process_markers(image_path, dict_case, output_path, radius, keys_to_need=Non
     # Создаём пустую маску
     mask = np.zeros(shape[::-1], dtype=np.uint8)  # Меняем порядок: Z, Y, X
 
-    keys_to_need = ['R', 'L', 'N', 'RLC', 'RNC', 'LNC']
+    # keys_to_need = ['R', 'L', 'N', 'RLC', 'RNC', 'LNC']
+    keys_to_need = {
+        'R': 1, 'L': 2, 'N': 3,
+        'RLC': 4, 'RNC': 5, 'LNC': 6
+    }
     for key, coord in dict_case.items():
-        if not key in keys_to_need:
+        if key not in keys_to_need:
             continue
         voxel_coord = _world_to_voxel(coord, image)
 
@@ -68,7 +72,9 @@ def process_markers(image_path, dict_case, output_path, radius, keys_to_need=Non
 
         # Создаём сферу и добавляем её в маску
         sphere = _create_sphere_mask(mask.shape, voxel_coord, radius)
-        mask = np.maximum(mask, sphere)
+        # Заполняем маску уникальным числом
+        mask[sphere > 0] = keys_to_need[key]
+        # mask = np.maximum(mask, sphere)
 
     # Преобразуем маску в SimpleITK-объект
     mask_image = sitk.GetImageFromArray(mask)
