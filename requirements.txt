@@ -8,3 +8,5 @@ rtree
 numpy-stl
 open3d
 vtk
+torchvision
+torch
