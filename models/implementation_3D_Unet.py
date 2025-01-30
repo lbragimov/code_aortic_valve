@@ -89,19 +89,27 @@ class DiceLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, input, target):
-        # get probabilities from logits
-        # normalization = nn.Sigmoid()
-        # input = normalization(input)
+    # def forward(self, input, target):
+    #     # get probabilities from logits
+    #     # normalization = nn.Sigmoid()
+    #     # input = normalization(input)
+    #
+    #     # compute Dice score across all channels/classes
+    #     input = torch.softmax(input, dim=1)  # Применяем Softmax перед вычислением Dice
+    #     per_channel_dice = self.dice(input, target)
+    #     # global_loss_sum[0] += float(per_channel_dice[0].detach().numpy())
+    #     # global_loss_sum[1] += float(per_channel_dice[1].detach().numpy())
+    #     # global_loss_sum[2] += float(per_channel_dice[2].detach().numpy())
+    #     # global_loss_sum[3] += float(per_channel_dice[3].detach().numpy())
+    #     # global_loss_sum[4] += 1
+    #     return 1. - torch.mean(per_channel_dice)
 
-        # compute Dice score across all channels/classes
-        input = torch.softmax(input, dim=1)  # Применяем Softmax перед вычислением Dice
-        per_channel_dice = self.dice(input, target)
-        # global_loss_sum[0] += float(per_channel_dice[0].detach().numpy())
-        # global_loss_sum[1] += float(per_channel_dice[1].detach().numpy())
-        # global_loss_sum[2] += float(per_channel_dice[2].detach().numpy())
-        # global_loss_sum[3] += float(per_channel_dice[3].detach().numpy())
-        # global_loss_sum[4] += 1
+    def forward(self, input, target):
+        input = torch.softmax(input, dim=1)  # Softmax для логитов
+        target_one_hot = F.one_hot(target, num_classes=input.shape[1])  # Преобразуем target в one-hot
+        target_one_hot = target_one_hot.permute(0, 4, 1, 2, 3).float()  # Приводим в нужный формат
+
+        per_channel_dice = compute_per_channel_dice_3D(input, target_one_hot)
         return 1. - torch.mean(per_channel_dice)
 
     def dice(self, input, target):
@@ -262,7 +270,8 @@ class UNet3DTrainer:
     def __init__(self, n_classes=4, learning_rate=0.0001, weight_decay=0.01, epochs=300):
         self.model = UNet3D(n_channels=1, n_classes=n_classes).double()
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-        self.loss_criterion = DiceLoss()
+        # self.loss_criterion = DiceLoss()
+        self.loss_criterion = nn.CrossEntropyLoss()
         self.eval_criterion = DiceCoefficientMetric()
         self.epochs = epochs
 
@@ -279,7 +288,7 @@ class UNet3DTrainer:
         #    mask_united[mask[t, :, :] >= 0.5] = t + 1
         # mask_united = mask[1, :, :] + mask[2, :, :] + mask[3, :, :] + mask[0, :, :]
         # Для объединения масок в 3D
-        mask_united = mask.sum(axis=0)  # Суммируем вдоль оси классов
+        mask_united = mask.argmax(axis=0)  # Суммируем вдоль оси классов
         mask_sitk = sitk.GetImageFromArray(mask_united)
         return input_sitk, mask_sitk
 
@@ -431,21 +440,21 @@ class UNet3DTrainer:
 class WrapperUnet:
 
     @staticmethod
-    def try_unet2d_training(folder):
-        loader = DataloaderSeg3D(folder)
+    def try_unet3d_training(folder):
+        loader = DataloaderSeg3D(folder + '/data')
         loader.generate_data_loaders(0.15, 2)
 
         trainer = UNet3DTrainer()
-        trainer.train(loader.train_dl, loader.valid_dl, folder + '/model/model_weights.pth')
+        trainer.train(loader.train_dl, loader.valid_dl, folder + '/models/model_weights.pth')
 
     @staticmethod
-    def try_unet2d_testing(folder):
-        loader = DataloaderSeg3D(folder + '/imagesTs')
+    def try_unet3d_testing(folder):
+        loader = DataloaderSeg3D(folder + '/test_data')
         loader.generate_data_loaders(0, 2)
 
         trainer = UNet3DTrainer()
         trainer.test(loader.test_dl, loader.case_names,
-                     folder + '/model/model_weights.pth', folder + '/results')
+                     folder + '/models/model_weights.pth', folder + '/results')
 
 
 class DataloaderSeg3D:

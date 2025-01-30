@@ -20,10 +20,13 @@ from data_preprocessing.crop_nii import calculate_new_bounds, cropped_image
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 
+from models.implementation_3D_Unet import WrapperUnet
+
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 
 def controller(data_path, nnUNet_folder_name):
+    script_dir = Path(__file__).resolve().parent
 
     dicom_path = os.path.join(data_path, "dicom")
     json_marker_path = os.path.join(data_path, "json_markers_info")
@@ -37,9 +40,10 @@ def controller(data_path, nnUNet_folder_name):
     current_dataset_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
     crop_nii_image_path = os.path.join(data_path, "crop_nii_image")
     crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
+    UNet_3D_folder = os.path.join(data_path, "3DUNet_folder")
 
-    controller_path = os.path.join(data_path, "controller.json")
-    data_structure_path = os.path.join(data_path, "dir_structure.json")
+    controller_path = os.path.join(script_dir, "controller.json")
+    data_structure_path = os.path.join(script_dir, "dir_structure.json")
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
 
     dict_all_case = {}
@@ -256,6 +260,34 @@ def controller(data_path, nnUNet_folder_name):
                               output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
                               bounds=new_bounds)
 
+    if (not "create_3D_UNet_data_base" in controller_dump.keys()
+            or not controller_dump["create_3D_UNet_data_base"]):
+        # case_names = []
+        # for subfolder in subfolders:
+        #     self.case_names.append(Path(subfolder).parts[-1])
+        for sub_dir in list(dir_structure["crop_nii_image"]):
+            file_count = len([f for f in os.listdir(os.path.join(crop_nii_image_path, sub_dir))])
+            n = 0
+            for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
+                case_name = case[:-7]
+                if int(file_count*0.8) >= n:
+                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
+                                str(os.path.join(UNet_3D_folder, "data", case_name, "image.nii.gz")))
+                    shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
+                                str(os.path.join(UNet_3D_folder, "data", case_name, "mask.nii.gz")))
+                else:
+                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
+                                str(os.path.join(UNet_3D_folder, "test_data", case_name, "image.nii.gz")))
+                    shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
+                                str(os.path.join(UNet_3D_folder, "test_data", case_name, "mask.nii.gz")))
+                n += 1
+        controller_dump["create_3D_UNet_data_base"] = True
+        json_save(controller_dump, controller_path)
+
+    model_3D_Unet = WrapperUnet()
+    model_3D_Unet.try_unet2d_training(UNet_3D_folder)
+    model_3D_Unet.try_unet3d_testing(UNet_3D_folder)
+
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
     #     case_info=dict_all_case[test_case_name],
@@ -271,6 +303,7 @@ def controller(data_path, nnUNet_folder_name):
 
 if __name__ == "__main__":
     current_os = platform.system()
+    script_dir = Path(__file__).resolve().parent
 
     if current_os == "Windows":
         data_path = "C:/Users/Kamil/Aortic_valve/data/"
