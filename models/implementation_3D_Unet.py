@@ -460,8 +460,8 @@ class WrapperUnet:
 class DataloaderSeg3D:
 
     def __init__(self, data_folder):
-        subfolders = glob.glob(data_folder + '/*/*')
-        self.database = DatabaseImSegNII(data_folder)
+        subfolders = glob.glob(data_folder + '/*')
+        self.database = DatabaseImSegNII(subfolders)
         self.case_names = []
         for subfolder in subfolders:
             self.case_names.append(Path(subfolder).parts[-1])
@@ -484,8 +484,8 @@ class DatabaseImSegNII(Dataset):
         self.masks = []
         self.transform = ToTensor()
         for i in range(0, len(subfolders)):
-            self.images.append(self._load_nii(subfolders[i] + '/image.nii.gz'))
-            self.masks.append(self._load_nii(subfolders[i] + '/mask.nii.gz'))
+            self.images.append(self._load_nii(Path(subfolders[i]) / "image.nii.gz"))
+            self.masks.append(self._load_nii(Path(subfolders[i]) / "mask.nii.gz"))
         if len(self.images) > 0:
             self.normalize_images()
 
