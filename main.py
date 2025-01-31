@@ -184,7 +184,7 @@ def controller(data_path, nnUNet_folder_name):
             clear_folder(os.path.join(mask_aorta_segment_path, sub_dir))
             for case in os.listdir(os.path.join(stl_aorta_segment_path, sub_dir)):
                 stl_aorta_segment_file = os.path.join(stl_aorta_segment_path, sub_dir, case)
-                case_name = case[:-7]
+                case_name = case[:-4]
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, f"{case_name}.nii.gz")
                 nii_resample_file = os.path.join(nii_resample_path, sub_dir, f"{case_name}.nii.gz")
                 convert_stl_to_mask_nii(stl_aorta_segment_file,
@@ -283,25 +283,29 @@ def controller(data_path, nnUNet_folder_name):
                 cropped_image(input_image_path=str(os.path.join(mask_markers_visual_path, sub_dir, case)),
                               output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
                               bounds=new_bounds)
+        controller_dump["crop_images"] = True
+        json_save(controller_dump, controller_path)
 
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):
         # case_names = []
         # for subfolder in subfolders:
         #     self.case_names.append(Path(subfolder).parts[-1])
+        clear_folder(os.path.join(UNet_3D_folder, "data"))
+        clear_folder(os.path.join(UNet_3D_folder, "test_data"))
         for sub_dir in list(dir_structure["crop_nii_image"]):
-            clear_folder(os.path.join(UNet_3D_folder, "data"))
-            clear_folder(os.path.join(UNet_3D_folder, "test_data"))
             file_count = len([f for f in os.listdir(os.path.join(crop_nii_image_path, sub_dir))])
             n = 0
             for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
                 case_name = case[:-7]
                 if int(file_count*0.8) >= n:
+                    Path(os.path.join(UNet_3D_folder, "data", case_name)).mkdir(parents=True, exist_ok=True)
                     shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
                                 str(os.path.join(UNet_3D_folder, "data", case_name, "image.nii.gz")))
                     shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
                                 str(os.path.join(UNet_3D_folder, "data", case_name, "mask.nii.gz")))
                 else:
+                    Path(os.path.join(UNet_3D_folder, "test_data", case_name)).mkdir(parents=True, exist_ok=True)
                     shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
                                 str(os.path.join(UNet_3D_folder, "test_data", case_name, "image.nii.gz")))
                     shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
