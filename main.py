@@ -64,6 +64,7 @@ def controller(data_path, nnUNet_folder_name):
                 img_size, img_origin, img_spacing, img_direction = convert_dcm_to_nii(dcm_case_path,
                                                                                       nii_convert_case_file,
                                                                                       zip=True)
+                dict_all_case.setdefault(case, {})
                 dict_all_case[case] |= {
                     "img_size": img_size,
                     "img_origin": img_origin,
