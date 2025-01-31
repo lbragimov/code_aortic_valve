@@ -490,13 +490,13 @@ class DatabaseImSegNII(Dataset):
             self.normalize_images()
 
     def normalize_images(self):
-        # minF = np.amin(self.images[0])
-        # maxF = np.amax(self.images[0])
-        # for i in range(1, len(self.images)):
-        #     minF = min(minF, np.amin(self.images[i]))
-        #     maxF = max(maxF, np.amax(self.images[i])) # min(maxF, np.amax(self.images[0]))
-        minF = np.amin(np.array(self.images))
-        maxF = np.amax(np.array(self.images))
+        minF = np.amin(self.images[0])
+        maxF = np.amax(self.images[0])
+        for i in range(1, len(self.images)):
+            minF = min(minF, np.amin(self.images[i]))
+            maxF = max(maxF, np.amax(self.images[i])) # min(maxF, np.amax(self.images[0]))
+        # minF = np.amin(np.array(self.images))
+        # maxF = np.amax(np.array(self.images))
 
         for i in range(0, len(self.images)):
             self.images[i] = (self.images[i] - minF)/(maxF - minF)
