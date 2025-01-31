@@ -26,6 +26,19 @@ from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_j
 
 
 def controller(data_path, nnUNet_folder_name):
+    def clear_folder(folder_path):
+        """Очищает папку, удаляя все файлы и подпапки"""
+        folder = Path(folder_path)
+        if not folder.exists():
+            add_info_logging(f"Папка '{folder_path}' не существует.")
+            return
+
+        for item in folder.iterdir():
+            if item.is_file() or item.is_symlink():
+                item.unlink()  # Удаляем файл или символическую ссылку
+            elif item.is_dir():
+                shutil.rmtree(item)  # Удаляем папку рекурсивно
+
     script_dir = Path(__file__).resolve().parent
 
     dicom_path = os.path.join(data_path, "dicom")
@@ -56,6 +69,7 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         for sub_dir in list(dir_structure['dicom']):
+            clear_folder(os.path.join(data_path, "nii_convert", sub_dir))
             for case in os.listdir(os.path.join(dicom_path, sub_dir)):
                 dcm_case_path = os.path.join(data_path, "dicom", sub_dir, case)
                 if sub_dir == "Homburg pathology":
@@ -136,6 +150,7 @@ def controller(data_path, nnUNet_folder_name):
 
         nii_convert_path = os.path.join(data_path, "nii_convert")
         for sub_dir in list(dir_structure["nii_convert"]):
+            clear_folder(os.path.join(data_path, "nii_resample", sub_dir))
             for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                 nii_convert_case_file_path = os.path.join(data_path, "nii_convert", sub_dir, case)
                 nii_resample_case_file_path = os.path.join(data_path, "nii_resample", sub_dir, case)
@@ -166,6 +181,7 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
+            clear_folder(os.path.join(mask_aorta_segment_path, sub_dir))
             for case in os.listdir(os.path.join(stl_aorta_segment_path, sub_dir)):
                 stl_aorta_segment_file = os.path.join(stl_aorta_segment_path, sub_dir, case)
                 case_name = case[:-7]
@@ -179,6 +195,7 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
+            clear_folder(os.path.join(mask_aorta_segment_cut_path, sub_dir))
             for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
                 mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, case)
                 mask_aorta_segment_cut_file = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
@@ -197,6 +214,7 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
+            clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
             for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
                 case_name = case[:-7]
                 radius = 10
@@ -211,6 +229,9 @@ def controller(data_path, nnUNet_folder_name):
 
     if (not "create_nnU_Net_data_base" in controller_dump.keys()
             or not controller_dump["create_nnU_Net_data_base"]):
+        clear_folder(os.path.join(current_dataset_path, "imagesTr"))
+        clear_folder(os.path.join(current_dataset_path, "labelsTr"))
+        clear_folder(os.path.join(current_dataset_path, "imagesTs"))
         for sub_dir in list(dir_structure["nii_resample"]):
             file_count = len([f for f in os.listdir(os.path.join(nii_resample_path, sub_dir))])
             n = 0
@@ -249,6 +270,8 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "crop_images" in controller_dump.keys() or not controller_dump["crop_images"]:
         for sub_dir in list(dir_structure["mask_aorta_segment_cut"]):
+            clear_folder(os.path.join(crop_nii_image_path, sub_dir))
+            clear_folder(os.path.join(crop_markers_mask_path, sub_dir))
             for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
                 padding = 16
                 new_bounds = calculate_new_bounds(
@@ -267,6 +290,8 @@ def controller(data_path, nnUNet_folder_name):
         # for subfolder in subfolders:
         #     self.case_names.append(Path(subfolder).parts[-1])
         for sub_dir in list(dir_structure["crop_nii_image"]):
+            clear_folder(os.path.join(UNet_3D_folder, "data"))
+            clear_folder(os.path.join(UNet_3D_folder, "test_data"))
             file_count = len([f for f in os.listdir(os.path.join(crop_nii_image_path, sub_dir))])
             n = 0
             for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
@@ -286,7 +311,7 @@ def controller(data_path, nnUNet_folder_name):
         json_save(controller_dump, controller_path)
 
     model_3D_Unet = WrapperUnet()
-    model_3D_Unet.try_unet2d_training(UNet_3D_folder)
+    model_3D_Unet.try_unet3d_training(UNet_3D_folder)
     model_3D_Unet.try_unet3d_testing(UNet_3D_folder)
 
     # slices_with_markers(
