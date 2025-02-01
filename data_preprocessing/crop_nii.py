@@ -2,6 +2,51 @@ import numpy as np
 import SimpleITK as sitk
 
 
+def find_global_bounds(image_paths, padding=16):
+    """
+    Находит общий bounding box для всех изображений.
+    :param image_paths: Список путей к изображениям в формате NIfTI (.nii)
+    :param padding: Дополнительный запас вокселей вокруг найденной маски
+    :return: [(z_min, z_max), (y_min, y_max), (x_min, x_max)]
+    """
+    global_z_min, global_y_min, global_x_min = float('inf'), float('inf'), float('inf')
+    global_z_max, global_y_max, global_x_max = 0, 0, 0
+
+    for image_path in image_paths:
+        image = sitk.ReadImage(image_path)
+        image_array = sitk.GetArrayFromImage(image)
+
+        nonzero_indices = np.argwhere(image_array > 0)  # Координаты всех ненулевых пикселей
+
+        if nonzero_indices.size == 0:
+            continue  # Если маска пустая, пропускаем
+
+        # Определяем min/max координаты
+        z_min, y_min, x_min = nonzero_indices.min(axis=0)
+        z_max, y_max, x_max = nonzero_indices.max(axis=0)
+
+        # Расширяем границы
+        global_z_min = min(global_z_min, z_min)
+        global_y_min = min(global_y_min, y_min)
+        global_x_min = min(global_x_min, x_min)
+
+        global_z_max = max(global_z_max, z_max)
+        global_y_max = max(global_y_max, y_max)
+        global_x_max = max(global_x_max, x_max)
+
+    # Добавляем padding и ограничиваем диапазон
+    global_z_min = max(0, global_z_min - padding)
+    global_y_min = max(0, global_y_min - padding)
+    global_x_min = max(0, global_x_min - padding)
+
+    global_z_max = global_z_max + padding
+    global_y_max = global_y_max + padding
+    global_x_max = global_x_max + padding
+
+    return [(global_z_min, global_z_max), (global_y_min, global_y_max), (global_x_min, global_x_max)]
+
+
+
 def calculate_new_bounds(image_path, padding):
     """
     Calculates the bounding box for the mask with padding.
