@@ -499,7 +499,7 @@ class DatabaseImSegNII(Dataset):
         # maxF = np.amax(np.array(self.images))
 
         for i in range(0, len(self.images)):
-            self.images[i] = (self.images[i] - minF)/(maxF - minF)
+            self.images[i] = ((self.images[i] - minF)/(maxF - minF)).astype(np.float32)
 
     def _load_nii(self, file_path):
         """
