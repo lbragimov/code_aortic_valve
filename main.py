@@ -325,9 +325,6 @@ def controller(data_path, nnUNet_folder_name):
 
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):
-        # case_names = []
-        # for subfolder in subfolders:
-        #     self.case_names.append(Path(subfolder).parts[-1])
         clear_folder(os.path.join(UNet_3D_folder, "data"))
         clear_folder(os.path.join(UNet_3D_folder, "test_data"))
         for sub_dir in list(dir_structure["crop_nii_image"]):

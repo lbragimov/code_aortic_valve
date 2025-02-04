@@ -39,11 +39,6 @@
         "Normal",
         "Pathology"
     ],
-	"stl_aorta_segment_resample": [
-        "Homburg pathology",
-        "Normal",
-        "Pathology"
-    ],
 	"mask_aorta_segment": [
         "Homburg pathology",
         "Normal",

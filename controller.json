@@ -1,1 +1,1 @@
-{"convert": true, "resample": true, "markers_info": true, "mask_aorta_segment": true, "mask_aorta_segment_cut": false, "create_nnU_Net_data_base": true, "create_nnU_Net_dataset_json": true, "mask_markers_create": false, "create_3D_UNet_data_base": false, "crop_images": false}
+{"convert": true, "resample": true, "markers_info": true, "mask_aorta_segment": true, "mask_aorta_segment_cut": true, "create_nnU_Net_data_base": true, "create_nnU_Net_dataset_json": true, "mask_markers_create": true, "create_3D_UNet_data_base": true, "crop_images": true}

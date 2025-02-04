@@ -149,6 +149,7 @@ class DoubleConv3D(nn.Module):
         )
 
     def forward(self, x):
+        add_info_logging(f"Shape of x: {x.shape}")
         return self.double_conv(x)
 
 
@@ -268,7 +269,7 @@ class UNet3D(nn.Module):
 class UNet3DTrainer:
 
     def __init__(self, n_classes=4, learning_rate=0.0001, weight_decay=0.01, epochs=300):
-        self.model = UNet3D(n_channels=1, n_classes=n_classes).double()
+        self.model = UNet3D(n_channels=1, n_classes=n_classes).float()
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         # self.loss_criterion = DiceLoss()
         self.loss_criterion = nn.CrossEntropyLoss()
@@ -318,7 +319,10 @@ class UNet3DTrainer:
                 running_acc = 0.0
 
                 for step, (x, y) in enumerate(dataloader):
+                    x = x.float()
+                    y = y.float()
                     # Перенос данных на устройство
+                    add_info_logging(f"Shape of x: {x.shape}")
                     x = x.to(device)
                     y = y.to(device)
 
@@ -380,6 +384,8 @@ class UNet3DTrainer:
 
         with torch.no_grad():  # Отключаем вычисление градиентов
             for x, y in test_dl:
+                x = x.float()
+                y = y.float()
                 # Перенос данных на устройство
                 x = x.to(device)
                 y = y.to(device)
@@ -513,8 +519,20 @@ class DatabaseImSegNII(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        # img = self.images[idx]
+        # mask = self.masks[idx]
+        #
+        # # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
+        # return self.transform(self.images[idx]), torch.tensor(self.masks[idx], dtype=torch.long)
         img = self.images[idx]
         mask = self.masks[idx]
+        add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
 
-        # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
-        return self.transform(self.images[idx]), torch.tensor(self.masks[idx], dtype=torch.long)
+        # 🔹 Если изображение имеет 3 оси (D, H, W), добавляем ось канала
+        if len(img.shape) == 3:
+            img = img[np.newaxis, :, :, :]  # Теперь (1, D, H, W)
+
+        img = torch.tensor(img, dtype=torch.float32)  # Преобразуем в PyTorch тензор
+        mask = torch.tensor(mask, dtype=torch.long)  # Маска в long (для CrossEntropyLoss)
+
+        return img, mask
