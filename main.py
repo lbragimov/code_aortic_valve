@@ -16,7 +16,7 @@ from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_ma
 from data_preprocessing.check_structure import create_directory_structure
 from data_preprocessing.json_worker import json_reader, json_save
 from data_preprocessing.log_worker import add_info_logging
-from data_preprocessing.crop_nii import cropped_image, find_global_bounds
+from data_preprocessing.crop_nii import cropped_image, find_global_bounds, find_shape, find_shape_2
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 
@@ -47,6 +47,7 @@ def controller(data_path, nnUNet_folder_name):
     stl_aorta_segment_path = os.path.join(data_path, "stl_aorta_segment")
     mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
     nii_resample_path = os.path.join(data_path, "nii_resample")
+    nii_convert_path = os.path.join(data_path, "nii_convert")
     mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
     mask_markers_visual_path = os.path.join(data_path, "markers_visual")
     nnUNet_folder = os.path.join(data_path, nnUNet_folder_name)
@@ -69,12 +70,12 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         for sub_dir in list(dir_structure['dicom']):
-            clear_folder(os.path.join(data_path, "nii_convert", sub_dir))
+            clear_folder(os.path.join(nii_convert_path, sub_dir))
             for case in os.listdir(os.path.join(dicom_path, sub_dir)):
-                dcm_case_path = os.path.join(data_path, "dicom", sub_dir, case)
+                dcm_case_path = os.path.join(dicom_path, sub_dir, case)
                 if sub_dir == "Homburg pathology":
                     case = case[:-3]
-                nii_convert_case_file = os.path.join(data_path, "nii_convert", sub_dir, case)
+                nii_convert_case_file = os.path.join(nii_convert_path, sub_dir, case)
                 img_size, img_origin, img_spacing, img_direction = convert_dcm_to_nii(dcm_case_path,
                                                                                       nii_convert_case_file,
                                                                                       zip=True)
@@ -124,8 +125,16 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "resample" in controller_dump.keys() or not controller_dump["resample"]:
 
+        all_shapes = []
+        for sub_dir in dir_structure["nii_convert"]:
+            for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
+                image_path = os.path.join(nii_convert_path, sub_dir, case)
+                all_shapes.append(find_shape(image_path))
+        # add_info_logging(f"all_shapes {set(all_shapes)}")
+
         # Extract the first elements of "img_spacing" and store them in a list
-        img_spac_0 = [case['img_spacing'][0] for case in dict_all_case.values()]
+        # img_spac_0 = [case['img_spacing'][0] for case in dict_all_case.values()]
+        img_spac_0 = [case[0] for case in all_shapes]
         # Find the minimum value and the average of the first elements
         min_img_spac_0 = min(img_spac_0)
         max_img_spac_0 = max(img_spac_0)
@@ -133,7 +142,8 @@ def controller(data_path, nnUNet_folder_name):
         most_img_spac_0 = float(mode(img_spac_0))
 
         # Extract the first elements of "img_spacing" and store them in a list
-        img_spac_1 = [case['img_spacing'][1] for case in dict_all_case.values()]
+        # img_spac_1 = [case['img_spacing'][1] for case in dict_all_case.values()]
+        img_spac_1 = [case[1] for case in all_shapes]
         # Find the minimum value and the average of the first elements
         min_img_spac_1 = min(img_spac_1)
         max_img_spac_1 = max(img_spac_1)
@@ -141,24 +151,31 @@ def controller(data_path, nnUNet_folder_name):
         most_img_spac_1 = float(mode(img_spac_1))
 
         # Extract the first elements of "img_spacing" and store them in a list
-        img_spac_2 = [case['img_spacing'][2] for case in dict_all_case.values()]
+        # img_spac_2 = [case['img_spacing'][2] for case in dict_all_case.values()]
+        img_spac_2 = [case[2] for case in all_shapes]
         # Find the minimum value and the average of the first elements
         min_img_spac_2 = min(img_spac_2)
         max_img_spac_2 = max(img_spac_2)
         avg_img_spac_2 = sum(img_spac_2) / len(img_spac_2)
         most_img_spac_2 = float(mode(img_spac_2))
 
-        nii_convert_path = os.path.join(data_path, "nii_convert")
         for sub_dir in list(dir_structure["nii_convert"]):
-            clear_folder(os.path.join(data_path, "nii_resample", sub_dir))
+            clear_folder(os.path.join(nii_resample_path, sub_dir))
             for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
-                nii_convert_case_file_path = os.path.join(data_path, "nii_convert", sub_dir, case)
-                nii_resample_case_file_path = os.path.join(data_path, "nii_resample", sub_dir, case)
+                nii_convert_case_file_path = os.path.join(nii_convert_path, sub_dir, case)
+                nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
                 resample_nii(nii_convert_case_file_path,
                              nii_resample_case_file_path,
                              [most_img_spac_0, most_img_spac_1, most_img_spac_2])
         controller_dump["resample"] = True
         json_save(controller_dump, controller_path)
+
+    # all_image_paths = []
+    # for sub_dir in dir_structure["nii_resample"]:
+    #     for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+    #         image_path = os.path.join(nii_resample_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}")
 
     if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
         for sub_dir in list(dir_structure["markers_info"]):
@@ -193,6 +210,13 @@ def controller(data_path, nnUNet_folder_name):
         controller_dump["mask_aorta_segment"] = True
         json_save(controller_dump, controller_path)
 
+    # all_image_paths = []
+    # for sub_dir in dir_structure["mask_aorta_segment"]:
+    #     for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
+    #         image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}")
+
     if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
             clear_folder(os.path.join(mask_aorta_segment_cut_path, sub_dir))
@@ -218,7 +242,7 @@ def controller(data_path, nnUNet_folder_name):
             for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
                 case_name = case[:-7]
                 radius = 10
-                nii_resample_case_file_path = os.path.join(data_path, "nii_resample", sub_dir, case)
+                nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
                 mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
                 process_markers(nii_resample_case_file_path,
                                 dict_all_case[case_name],
@@ -267,6 +291,12 @@ def controller(data_path, nnUNet_folder_name):
 
     # model_nnUnet = nnUnet_trainer(nnUNet_folder)
     # model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=nnUNet_folder)
+    # all_image_paths = []
+    # for sub_dir in dir_structure["mask_aorta_segment_cut"]:
+    #     for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
+    #         image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"mask_aorta_segment_cut {find_shape_2(all_image_paths)}")
 
     if not "crop_images" in controller_dump.keys() or not controller_dump["crop_images"]:
         # Получаем все пути к изображениям в папке mask_aorta_segment_cut

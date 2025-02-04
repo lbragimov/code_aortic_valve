@@ -513,4 +513,8 @@ class DatabaseImSegNII(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
+        img = self.images[idx]
+        mask = self.masks[idx]
+
+        # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
         return self.transform(self.images[idx]), torch.tensor(self.masks[idx], dtype=torch.long)
