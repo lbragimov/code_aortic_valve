@@ -304,6 +304,7 @@ class UNet3DTrainer:
         train_loss, valid_loss = [], []
 
         for epoch in range(self.epochs):
+            torch.cuda.empty_cache()  # 🔹 Освобождаем кеш перед каждой эпохой
             add_info_logging('Epoch {}/{}'.format(epoch, self.epochs - 1))
             add_info_logging('-' * 10)
 
@@ -331,7 +332,7 @@ class UNet3DTrainer:
                         self.optimizer.zero_grad()  # Обнуляем градиенты
                         outputs = self.model(x)  # Предсказание
                         loss = self.loss_criterion(outputs, y)  # Вычисление потерь
-                        loss.backward()  # Backward pass
+                        loss.backward(retain_graph=False)  # Backward pass
                         self.optimizer.step()  # Обновление параметров
                     else:
                         with torch.no_grad():  # Отключаем вычисление градиентов
@@ -448,7 +449,7 @@ class WrapperUnet:
     @staticmethod
     def try_unet3d_training(folder):
         loader = DataloaderSeg3D(folder + '/data')
-        loader.generate_data_loaders(0.15, 2)
+        loader.generate_data_loaders(0.15, 1)
 
         trainer = UNet3DTrainer()
         trainer.train(loader.train_dl, loader.valid_dl, folder + '/models/model_weights.pth')
@@ -456,7 +457,7 @@ class WrapperUnet:
     @staticmethod
     def try_unet3d_testing(folder):
         loader = DataloaderSeg3D(folder + '/test_data')
-        loader.generate_data_loaders(0, 2)
+        loader.generate_data_loaders(0, 1)
 
         trainer = UNet3DTrainer()
         trainer.test(loader.test_dl, loader.case_names,
