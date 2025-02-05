@@ -1,6 +1,34 @@
 import json
-
+import yaml
 from pathlib import Path
+import logging
+from datetime import datetime
+
+
+def add_info_logging(text_info):
+    current_time = datetime.now()
+    str_time = current_time.strftime("%d:%H:%M")
+    logging.info(f"time:  {str_time} {text_info}")
+
+
+def json_reader(path):
+    with open(path, 'r') as read_file:
+        return json.load(read_file)
+
+
+def json_save(current_dict, path):
+    with open(path, 'w') as json_file:
+        json.dump(current_dict, json_file)
+
+
+def yaml_reader(path):
+    with open(path, "r") as read_file:
+        return yaml.safe_load(read_file)
+
+
+def yaml_save(current_dict, path):
+    with open(path, "w") as file:
+        yaml.dump(current_dict, file, default_flow_style=False, allow_unicode=True)
 
 
 def txt_json_convert(txt_file_path: str, json_file_path: str):
@@ -42,11 +70,3 @@ def txt_json_convert(txt_file_path: str, json_file_path: str):
     with open(json_file_path, 'w') as json_file:
         json.dump(data, json_file, indent=4)
     return data
-
-
-if __name__ == "__main__":
-    txt_file_path = "C:/Users/Kamil/Aortic_valve/data/marker_info/Homburg pathology/o_HOM_M19_H217_W96_YA.txt"
-    json_file_path = "C:/Users/Kamil/Aortic_valve/data/HOM_M19_H217_W96_YA.json"
-    txt_json_convert(txt_file_path, json_file_path)
-
-

@@ -11,11 +11,10 @@ import nibabel as nib
 from totalsegmentator.python_api import totalsegmentator
 
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
-from data_preprocessing.txt_json_converter import txt_json_convert
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_preprocessing.check_structure import create_directory_structure
-from data_preprocessing.json_worker import json_reader, json_save
-from data_preprocessing.log_worker import add_info_logging
+from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
+                                            add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_bounds, find_shape, find_shape_2
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
@@ -56,13 +55,13 @@ def controller(data_path, nnUNet_folder_name):
     crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
     UNet_3D_folder = os.path.join(data_path, "3DUNet_folder")
 
-    controller_path = os.path.join(script_dir, "controller.json")
+    controller_path = os.path.join(script_dir, "controller.yaml")
     data_structure_path = os.path.join(script_dir, "dir_structure.json")
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
 
     dict_all_case = {}
     if os.path.isfile(controller_path):
-        controller_dump = json_reader(controller_path)
+        controller_dump = yaml_reader(controller_path)
     else:
         controller_dump = {}
     dir_structure = json_reader(data_structure_path)
@@ -89,7 +88,7 @@ def controller(data_path, nnUNet_folder_name):
         json_save(dict_all_case, dict_all_case_path)
         controller_dump["convert"] = True
         controller_dump["resample"] = False
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     if not dict_all_case:
         if os.path.isfile(dict_all_case_path):
@@ -125,13 +124,12 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "resample" in controller_dump.keys() or not controller_dump["resample"]:
 
-        use_size_spacy = False
-        if use_size_spacy:
+        if controller_dump["size_or_pixel"]:
             all_shapes = []
             for sub_dir in dir_structure["nii_convert"]:
                 for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                     image_path = os.path.join(nii_convert_path, sub_dir, case)
-                    all_shapes.append(find_shape(image_path))
+                    all_shapes.append(find_shape(image_path, controller_dump["size_or_pixel"]))
             # add_info_logging(f"all_shapes {set(all_shapes)}")
 
             # Extract the first elements of "img_spacing" and store them in a list
@@ -166,15 +164,16 @@ def controller(data_path, nnUNet_folder_name):
             for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                 nii_convert_case_file_path = os.path.join(nii_convert_path, sub_dir, case)
                 nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
-                if use_size_spacy:
+                if controller_dump["size_or_pixel"]:
                     resample_nii(nii_convert_case_file_path,
                                  nii_resample_case_file_path,
+                                 controller_dump["size_or_pixel"],
                                  [most_img_spac_0, most_img_spac_1, most_img_spac_2])
                 else:
                     resample_nii(nii_convert_case_file_path,
                                  nii_resample_case_file_path)
         controller_dump["resample"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     # all_image_paths = []
     # for sub_dir in dir_structure["nii_resample"]:
@@ -199,7 +198,7 @@ def controller(data_path, nnUNet_folder_name):
                     "LNC": data["LNC"]
                 }
         controller_dump["markers_info"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
         json_save(dict_all_case, dict_all_case_path)
 
     if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
@@ -214,7 +213,7 @@ def controller(data_path, nnUNet_folder_name):
                                         nii_resample_file,
                                         mask_aorta_segment_file)
         controller_dump["mask_aorta_segment"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     # all_image_paths = []
     # for sub_dir in dir_structure["mask_aorta_segment"]:
@@ -240,7 +239,7 @@ def controller(data_path, nnUNet_folder_name):
                                       mask_aorta_segment_cut_file,
                                       top_points, bottom_points, margin=2)
         controller_dump["mask_aorta_segment_cut"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
@@ -255,7 +254,7 @@ def controller(data_path, nnUNet_folder_name):
                                 mask_markers_img_path,
                                 radius)
         controller_dump["mask_markers_create"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     if (not "create_nnU_Net_data_base" in controller_dump.keys()
             or not controller_dump["create_nnU_Net_data_base"]):
@@ -277,7 +276,7 @@ def controller(data_path, nnUNet_folder_name):
                                 str(os.path.join(current_dataset_path, "imagesTs", f"{case_name}_0000.nii.gz")))
                 n += 1
         controller_dump["create_nnU_Net_data_base"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     if os.path.exists(current_dataset_path):
         if not os.path.isfile(os.path.join(current_dataset_path, "dataset.json")):
@@ -288,7 +287,7 @@ def controller(data_path, nnUNet_folder_name):
                                   num_training_cases=file_count,
                                   file_ending='.nii.gz')
             controller_dump["create_nnU_Net_dataset_json"] = True
-            json_save(controller_dump, controller_path)
+            yaml_save(controller_dump, controller_path)
     else:
         add_info_logging("No folder to save to dataset.json")
         return
@@ -327,7 +326,7 @@ def controller(data_path, nnUNet_folder_name):
                               output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
                               bounds=global_bounds)
         controller_dump["crop_images"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):
@@ -352,7 +351,7 @@ def controller(data_path, nnUNet_folder_name):
                                 str(os.path.join(UNet_3D_folder, "test_data", case_name, "mask.nii.gz")))
                 n += 1
         controller_dump["create_3D_UNet_data_base"] = True
-        json_save(controller_dump, controller_path)
+        yaml_save(controller_dump, controller_path)
 
     model_3D_Unet = WrapperUnet()
     model_3D_Unet.try_unet3d_training(UNet_3D_folder)

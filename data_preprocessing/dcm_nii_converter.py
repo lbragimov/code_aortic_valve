@@ -58,8 +58,8 @@ def reader_dcm(dicom_folder: str):
 
 def resample_nii(nii_original_path: str,
                  nii_resample_path: str,
-                 # new_size: list[float] = [1.0, 1.0, 1.0]):
-                 new_spacing: list[float] = [1.0, 1.0, 1.0]):
+                 size_or_pixel: str = None,
+                 variable: list[float] = [1.0, 1.0, 1.0]):
 
     # Loading the original image
     image = sitk.ReadImage(nii_original_path)
@@ -71,18 +71,22 @@ def resample_nii(nii_original_path: str,
     original_spacing = image.GetSpacing()
     original_size = image.GetSize()
 
-    # Calculate the new image size in voxels
-    new_size = [
-        int(original_size[0] * (original_spacing[0] / new_spacing[0])),
-        int(original_size[1] * (original_spacing[1] / new_spacing[1])),
-        int(original_size[2] * (original_spacing[2] / new_spacing[2]))
-    ]
-    # 🔹 Вычисляем новое `spacing` (чтобы сохранить правильный масштаб)
-    # new_spacing = [
-    #     (original_spacing[0] * original_size[0]) / new_size[0],
-    #     (original_spacing[1] * original_size[1]) / new_size[1],
-    #     (original_spacing[2] * original_size[2]) / new_size[2]
-    # ]
+    if size_or_pixel == "size":
+        # Вычисляем новое `spacing` (чтобы сохранить правильный масштаб)
+        new_size = variable
+        new_spacing = [
+            (original_spacing[0] * original_size[0]) / new_size[0],
+            (original_spacing[1] * original_size[1]) / new_size[1],
+            (original_spacing[2] * original_size[2]) / new_size[2]
+        ]
+    else:
+        new_spacing = variable
+        # Calculate the new image size in voxels
+        new_size = [
+            int(original_size[0] * (original_spacing[0] / new_spacing[0])),
+            int(original_size[1] * (original_spacing[1] / new_spacing[1])),
+            int(original_size[2] * (original_spacing[2] / new_spacing[2]))
+        ]
 
     # Set parameters resampling
     resampler.SetOutputSpacing(new_spacing)

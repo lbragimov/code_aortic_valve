@@ -12,7 +12,7 @@ from sklearn.preprocessing import OneHotEncoder
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import ToTensor
 
-from data_preprocessing.log_worker import add_info_logging
+from data_preprocessing.text_worker import add_info_logging
 
 global_loss_sum = [0, 0, 0, 0, 0]
 

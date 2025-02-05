@@ -6,7 +6,7 @@ import torch
 
 from datetime import datetime
 
-from data_preprocessing.log_worker import add_info_logging
+from data_preprocessing.text_worker import add_info_logging
 
 
 class nnUnet_trainer:
