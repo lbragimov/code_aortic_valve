@@ -125,48 +125,54 @@ def controller(data_path, nnUNet_folder_name):
 
     if not "resample" in controller_dump.keys() or not controller_dump["resample"]:
 
-        all_shapes = []
-        for sub_dir in dir_structure["nii_convert"]:
-            for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
-                image_path = os.path.join(nii_convert_path, sub_dir, case)
-                all_shapes.append(find_shape(image_path))
-        # add_info_logging(f"all_shapes {set(all_shapes)}")
+        use_size_spacy = False
+        if use_size_spacy:
+            all_shapes = []
+            for sub_dir in dir_structure["nii_convert"]:
+                for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
+                    image_path = os.path.join(nii_convert_path, sub_dir, case)
+                    all_shapes.append(find_shape(image_path))
+            # add_info_logging(f"all_shapes {set(all_shapes)}")
 
-        # Extract the first elements of "img_spacing" and store them in a list
-        # img_spac_0 = [case['img_spacing'][0] for case in dict_all_case.values()]
-        img_spac_0 = [case[0] for case in all_shapes]
-        # Find the minimum value and the average of the first elements
-        min_img_spac_0 = min(img_spac_0)
-        max_img_spac_0 = max(img_spac_0)
-        avg_img_spac_0 = sum(img_spac_0) / len(img_spac_0)
-        most_img_spac_0 = float(mode(img_spac_0))
+            # Extract the first elements of "img_spacing" and store them in a list
+            # img_spac_0 = [case['img_spacing'][0] for case in dict_all_case.values()]
+            img_spac_0 = [case[0] for case in all_shapes]
+            # Find the minimum value and the average of the first elements
+            min_img_spac_0 = min(img_spac_0)
+            max_img_spac_0 = max(img_spac_0)
+            avg_img_spac_0 = sum(img_spac_0) / len(img_spac_0)
+            most_img_spac_0 = float(mode(img_spac_0))
 
-        # Extract the first elements of "img_spacing" and store them in a list
-        # img_spac_1 = [case['img_spacing'][1] for case in dict_all_case.values()]
-        img_spac_1 = [case[1] for case in all_shapes]
-        # Find the minimum value and the average of the first elements
-        min_img_spac_1 = min(img_spac_1)
-        max_img_spac_1 = max(img_spac_1)
-        avg_img_spac_1 = sum(img_spac_1) / len(img_spac_1)
-        most_img_spac_1 = float(mode(img_spac_1))
+            # Extract the first elements of "img_spacing" and store them in a list
+            # img_spac_1 = [case['img_spacing'][1] for case in dict_all_case.values()]
+            img_spac_1 = [case[1] for case in all_shapes]
+            # Find the minimum value and the average of the first elements
+            min_img_spac_1 = min(img_spac_1)
+            max_img_spac_1 = max(img_spac_1)
+            avg_img_spac_1 = sum(img_spac_1) / len(img_spac_1)
+            most_img_spac_1 = float(mode(img_spac_1))
 
-        # Extract the first elements of "img_spacing" and store them in a list
-        # img_spac_2 = [case['img_spacing'][2] for case in dict_all_case.values()]
-        img_spac_2 = [case[2] for case in all_shapes]
-        # Find the minimum value and the average of the first elements
-        min_img_spac_2 = min(img_spac_2)
-        max_img_spac_2 = max(img_spac_2)
-        avg_img_spac_2 = sum(img_spac_2) / len(img_spac_2)
-        most_img_spac_2 = float(mode(img_spac_2))
+            # Extract the first elements of "img_spacing" and store them in a list
+            # img_spac_2 = [case['img_spacing'][2] for case in dict_all_case.values()]
+            img_spac_2 = [case[2] for case in all_shapes]
+            # Find the minimum value and the average of the first elements
+            min_img_spac_2 = min(img_spac_2)
+            max_img_spac_2 = max(img_spac_2)
+            avg_img_spac_2 = sum(img_spac_2) / len(img_spac_2)
+            most_img_spac_2 = float(mode(img_spac_2))
 
         for sub_dir in list(dir_structure["nii_convert"]):
             clear_folder(os.path.join(nii_resample_path, sub_dir))
             for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                 nii_convert_case_file_path = os.path.join(nii_convert_path, sub_dir, case)
                 nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
-                resample_nii(nii_convert_case_file_path,
-                             nii_resample_case_file_path,
-                             [most_img_spac_0, most_img_spac_1, most_img_spac_2])
+                if use_size_spacy:
+                    resample_nii(nii_convert_case_file_path,
+                                 nii_resample_case_file_path,
+                                 [most_img_spac_0, most_img_spac_1, most_img_spac_2])
+                else:
+                    resample_nii(nii_convert_case_file_path,
+                                 nii_resample_case_file_path)
         controller_dump["resample"] = True
         json_save(controller_dump, controller_path)
 
