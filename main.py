@@ -15,8 +15,7 @@ from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_ma
 from data_preprocessing.check_structure import create_directory_structure
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging)
-from data_preprocessing.crop_nii import (calculate_new_bounds, cropped_image, find_global_size,
-                                         find_shape, find_shape_2)
+from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 
