@@ -15,7 +15,8 @@ from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_ma
 from data_preprocessing.check_structure import create_directory_structure
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging)
-from data_preprocessing.crop_nii import cropped_image, find_global_bounds, find_shape, find_shape_2
+from data_preprocessing.crop_nii import (calculate_new_bounds, cropped_image, find_global_size,
+                                         find_shape, find_shape_2)
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 
@@ -175,12 +176,12 @@ def controller(data_path, nnUNet_folder_name):
         controller_dump["resample"] = True
         yaml_save(controller_dump, controller_path)
 
-    # all_image_paths = []
-    # for sub_dir in dir_structure["nii_resample"]:
-    #     for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-    #         image_path = os.path.join(nii_resample_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}")
+    all_image_paths = []
+    for sub_dir in dir_structure["nii_resample"]:
+        for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+            image_path = os.path.join(nii_resample_path, sub_dir, case)
+            all_image_paths.append(image_path)
+    add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}")
 
     if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
         for sub_dir in list(dir_structure["markers_info"]):
@@ -215,12 +216,12 @@ def controller(data_path, nnUNet_folder_name):
         controller_dump["mask_aorta_segment"] = True
         yaml_save(controller_dump, controller_path)
 
-    # all_image_paths = []
-    # for sub_dir in dir_structure["mask_aorta_segment"]:
-    #     for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
-    #         image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}")
+    all_image_paths = []
+    for sub_dir in dir_structure["mask_aorta_segment"]:
+        for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
+            image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
+            all_image_paths.append(image_path)
+    add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}")
 
     if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
@@ -246,7 +247,7 @@ def controller(data_path, nnUNet_folder_name):
             clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
             for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
                 case_name = case[:-7]
-                radius = 10
+                radius = 6
                 nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
                 mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
                 process_markers(nii_resample_case_file_path,
@@ -311,9 +312,9 @@ def controller(data_path, nnUNet_folder_name):
                 image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
                 all_image_paths.append(image_path)
 
-        padding = 16
-        # 🔹 1. Найти общий bounding box для всех изображений
-        global_bounds = find_global_bounds(all_image_paths, padding)
+        padding = 10
+        # Найти общий bounding box для всех изображений
+        global_size = find_global_size(all_image_paths, padding)
 
         for sub_dir in list(dir_structure["mask_aorta_segment_cut"]):
             clear_folder(os.path.join(crop_nii_image_path, sub_dir))
@@ -321,12 +322,26 @@ def controller(data_path, nnUNet_folder_name):
             for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
                 cropped_image(input_image_path=str(os.path.join(nii_resample_path, sub_dir, case)),
                               output_image_path=str(os.path.join(crop_nii_image_path, sub_dir, case)),
-                              bounds=global_bounds)
+                              size=global_size)
                 cropped_image(input_image_path=str(os.path.join(mask_markers_visual_path, sub_dir, case)),
                               output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-                              bounds=global_bounds)
+                              size=global_size)
         controller_dump["crop_images"] = True
         yaml_save(controller_dump, controller_path)
+
+    all_image_paths = []
+    for sub_dir in dir_structure["crop_nii_image"]:
+        for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
+            image_path = os.path.join(crop_nii_image_path, sub_dir, case)
+            all_image_paths.append(image_path)
+    add_info_logging(f"crop_nii_image {find_shape_2(all_image_paths)}")
+
+    all_image_paths = []
+    for sub_dir in dir_structure["crop_markers_mask"]:
+        for case in os.listdir(os.path.join(crop_markers_mask_path, sub_dir)):
+            image_path = os.path.join(crop_markers_mask_path, sub_dir, case)
+            all_image_paths.append(image_path)
+    add_info_logging(f"crop_markers_mask {find_shape_2(all_image_paths)}")
 
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):
@@ -352,6 +367,8 @@ def controller(data_path, nnUNet_folder_name):
                 n += 1
         controller_dump["create_3D_UNet_data_base"] = True
         yaml_save(controller_dump, controller_path)
+
+    return
 
     model_3D_Unet = WrapperUnet()
     model_3D_Unet.try_unet3d_training(UNet_3D_folder)
