@@ -10,3 +10,4 @@ open3d
 vtk
 torchvision
 torch
+psutil

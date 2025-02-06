@@ -10,21 +10,24 @@ from datetime import datetime
 import nibabel as nib
 from totalsegmentator.python_api import totalsegmentator
 
+from configurator.equipment_analysis import get_free_cpus
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
-from data_preprocessing.check_structure import create_directory_structure
+from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 
+from optimization.parallelization import division_processes
+
 from models.implementation_3D_Unet import WrapperUnet
 
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 
-def controller(data_path, nnUNet_folder_name):
+def controller(data_path, nnUNet_folder_name, cpus):
     def clear_folder(folder_path):
         """Очищает папку, удаляя все файлы и подпапки"""
         folder = Path(folder_path)
@@ -126,6 +129,7 @@ def controller(data_path, nnUNet_folder_name):
 
         if controller_dump["size_or_pixel"]:
             all_shapes = []
+            nii_convert_file_paths = collect_file_paths(nii_convert_path, dir_structure["nii_convert"])
             for sub_dir in dir_structure["nii_convert"]:
                 for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                     image_path = os.path.join(nii_convert_path, sub_dir, case)
@@ -319,10 +323,12 @@ def controller(data_path, nnUNet_folder_name):
             clear_folder(os.path.join(crop_nii_image_path, sub_dir))
             clear_folder(os.path.join(crop_markers_mask_path, sub_dir))
             for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                cropped_image(input_image_path=str(os.path.join(nii_resample_path, sub_dir, case)),
+                cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
+                              input_image_path=str(os.path.join(nii_resample_path, sub_dir, case)),
                               output_image_path=str(os.path.join(crop_nii_image_path, sub_dir, case)),
                               size=global_size)
-                cropped_image(input_image_path=str(os.path.join(mask_markers_visual_path, sub_dir, case)),
+                cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
+                              input_image_path=str(os.path.join(mask_markers_visual_path, sub_dir, case)),
                               output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
                               size=global_size)
         controller_dump["crop_images"] = True
@@ -400,6 +406,7 @@ if __name__ == "__main__":
         data_path = None
 
     if data_path:
+        free_cpus = get_free_cpus()
         current_time = datetime.now()
         filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
         log_path = os.path.join(data_path, filename)
@@ -408,5 +415,5 @@ if __name__ == "__main__":
         # os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
         # os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
         # os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
-        controller(data_path, nnUNet_folder)
+        controller(data_path, nnUNet_folder, cpus=free_cpus)
 
