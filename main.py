@@ -179,12 +179,12 @@ def controller(data_path, nnUNet_folder_name, cpus):
         controller_dump["resample"] = True
         yaml_save(controller_dump, controller_path)
 
-    all_image_paths = []
-    for sub_dir in dir_structure["nii_resample"]:
-        for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-            image_path = os.path.join(nii_resample_path, sub_dir, case)
-            all_image_paths.append(image_path)
-    add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}")
+    # all_image_paths = []
+    # for sub_dir in dir_structure["nii_resample"]:
+    #     for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+    #         image_path = os.path.join(nii_resample_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}")
 
     if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
         for sub_dir in list(dir_structure["markers_info"]):
@@ -219,12 +219,12 @@ def controller(data_path, nnUNet_folder_name, cpus):
         controller_dump["mask_aorta_segment"] = True
         yaml_save(controller_dump, controller_path)
 
-    all_image_paths = []
-    for sub_dir in dir_structure["mask_aorta_segment"]:
-        for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
-            image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
-            all_image_paths.append(image_path)
-    add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}")
+    # all_image_paths = []
+    # for sub_dir in dir_structure["mask_aorta_segment"]:
+    #     for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
+    #         image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}")
 
     if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
@@ -372,8 +372,6 @@ def controller(data_path, nnUNet_folder_name, cpus):
                 n += 1
         controller_dump["create_3D_UNet_data_base"] = True
         yaml_save(controller_dump, controller_path)
-
-    return
 
     model_3D_Unet = WrapperUnet()
     model_3D_Unet.try_unet3d_training(UNet_3D_folder)

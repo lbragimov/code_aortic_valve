@@ -32,7 +32,7 @@ def create_directory_structure(base_path, structure):
 
 def collect_file_paths(folder_path, structure, output_folder=None):
     file_paths = []
-    output_file_paths = [] if output_folder else None  # ✅ Создаём список только если он нужен
+    output_file_paths = [] if output_folder else None  # Создаём список только если он нужен
 
     for sub_dir in structure:
         for case in os.listdir(os.path.join(folder_path, sub_dir)):

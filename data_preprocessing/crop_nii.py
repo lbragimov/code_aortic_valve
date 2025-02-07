@@ -69,17 +69,38 @@ def _calculate_new_bounds(mask, size):
     # Determine the minimum and maximum indices for each axis
     z_min, y_min, x_min = nonzero_indices.min(axis=0)
     z_max, y_max, x_max = nonzero_indices.max(axis=0)
-    padding_z = (size[0] - (z_max - z_min)) / 2
-    padding_y = (size[1] - (y_max - y_min)) / 2
-    padding_x = (size[2] - (x_max - x_min)) / 2
+    padding_z_st = (size[0] - (z_max - z_min)) / 2
+    padding_z_fin = padding_z_st
+    padding_y_st = (size[1] - (y_max - y_min)) / 2
+    padding_y_fin = padding_y_st
+    padding_x_st = (size[2] - (x_max - x_min)) / 2
+    padding_x_fin = padding_x_st
+    if math.ceil(padding_z_st) > z_min:
+        padding_z_fin = math.floor(padding_z_fin) + math.ceil(padding_z_st) - z_min
+        padding_z_st = z_min
+    elif math.floor(padding_z_fin) + z_max > mask.shape[0]:
+        padding_z_st = math.floor(padding_z_st) + math.ceil(padding_z_fin) - (mask.shape[0]-z_max)
+        padding_z_fin = mask.shape[0]-z_max
+    if math.ceil(padding_y_st) > y_min:
+        padding_y_fin = math.floor(padding_y_fin) + math.ceil(padding_y_st) - y_min
+        padding_y_st = y_min
+    elif math.floor(padding_y_fin) + y_max > mask.shape[1]:
+        padding_y_st = math.floor(padding_y_st) + math.ceil(padding_y_fin) - (mask.shape[1]-y_max)
+        padding_y_fin = mask.shape[1]-y_max
+    if math.ceil(padding_x_st) > x_min:
+        padding_x_fin = math.floor(padding_x_fin) + math.ceil(padding_x_st) - x_min
+        padding_x_st = x_min
+    elif math.floor(padding_x_fin) + x_max > mask.shape[2]:
+        padding_x_st = math.floor(padding_x_st) + math.ceil(padding_x_fin) - (mask.shape[2]-x_max)
+        padding_x_fin = mask.shape[2]-x_max
 
     # Добавляем запас
-    z_min = max(0, z_min - math.ceil(padding_z))
-    y_min = max(0, y_min - math.ceil(padding_y))
-    x_min = max(0, x_min - math.ceil(padding_x))
-    z_max = min(mask.shape[0], z_max + math.floor(padding_z))
-    y_max = min(mask.shape[1], y_max + math.floor(padding_y))
-    x_max = min(mask.shape[2], x_max + math.floor(padding_x))
+    z_min = z_min - math.ceil(padding_z_st)
+    y_min = y_min - math.ceil(padding_y_st)
+    x_min = x_min - math.ceil(padding_x_st)
+    z_max = z_max + math.floor(padding_z_fin)
+    y_max = y_max + math.floor(padding_y_fin)
+    x_max = x_max + math.floor(padding_x_fin)
 
     return [(z_min, z_max), (y_min, y_max), (x_min, x_max)]
 
