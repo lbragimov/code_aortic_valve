@@ -1,7 +1,7 @@
 convert: true
 create_3D_UNet_data_base: true
-create_nnU_Net_data_base: true
-create_nnU_Net_dataset_json: true
+nnUNet_DS_aorta: true
+nnUNet_DS_json_aorta: true
 crop_images: true
 markers_info: true
 mask_aorta_segment: true

@@ -53,7 +53,8 @@ def controller(data_path, nnUNet_folder_name, cpus):
     mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
     mask_markers_visual_path = os.path.join(data_path, "markers_visual")
     nnUNet_folder = os.path.join(data_path, nnUNet_folder_name)
-    current_dataset_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
+    nnUNet_DS_aorta_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
+    nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks")
     crop_nii_image_path = os.path.join(data_path, "crop_nii_image")
     crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
     UNet_3D_folder = os.path.join(data_path, "3DUNet_folder")
@@ -260,11 +261,10 @@ def controller(data_path, nnUNet_folder_name, cpus):
         controller_dump["mask_markers_create"] = True
         yaml_save(controller_dump, controller_path)
 
-    if (not "create_nnU_Net_data_base" in controller_dump.keys()
-            or not controller_dump["create_nnU_Net_data_base"]):
-        clear_folder(os.path.join(current_dataset_path, "imagesTr"))
-        clear_folder(os.path.join(current_dataset_path, "labelsTr"))
-        clear_folder(os.path.join(current_dataset_path, "imagesTs"))
+    if not "nnUNet_DS_aorta" in controller_dump.keys() or not controller_dump["nnUNet_DS_aorta"]:
+        clear_folder(os.path.join(nnUNet_DS_aorta_path, "imagesTr"))
+        clear_folder(os.path.join(nnUNet_DS_aorta_path, "labelsTr"))
+        clear_folder(os.path.join(nnUNet_DS_aorta_path, "imagesTs"))
         for sub_dir in list(dir_structure["nii_resample"]):
             file_count = len([f for f in os.listdir(os.path.join(nii_resample_path, sub_dir))])
             n = 0
@@ -272,25 +272,25 @@ def controller(data_path, nnUNet_folder_name, cpus):
                 case_name = case[:-7]
                 if int(file_count*0.8) >= n:
                     shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
-                                str(os.path.join(current_dataset_path, "imagesTr", f"{case_name}_0000.nii.gz")))
+                                str(os.path.join(nnUNet_DS_aorta_path, "imagesTr", f"{case_name}_0000.nii.gz")))
                     shutil.copy(str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-                                str(os.path.join(current_dataset_path, "labelsTr", f"{case}.gz")))
+                                str(os.path.join(nnUNet_DS_aorta_path, "labelsTr", f"{case}.gz")))
                 else:
                     shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
-                                str(os.path.join(current_dataset_path, "imagesTs", f"{case_name}_0000.nii.gz")))
+                                str(os.path.join(nnUNet_DS_aorta_path, "imagesTs", f"{case_name}_0000.nii.gz")))
                 n += 1
-        controller_dump["create_nnU_Net_data_base"] = True
+        controller_dump["nnUNet_DS_aorta"] = True
         yaml_save(controller_dump, controller_path)
 
-    if os.path.exists(current_dataset_path):
-        if not os.path.isfile(os.path.join(current_dataset_path, "dataset.json")):
-            file_count = len([f for f in os.listdir(os.path.join(current_dataset_path, "imagesTr"))])
-            generate_dataset_json(current_dataset_path,
+    if os.path.exists(nnUNet_DS_aorta_path):
+        if not os.path.isfile(os.path.join(nnUNet_DS_aorta_path, "dataset.json")):
+            file_count = len([f for f in os.listdir(os.path.join(nnUNet_DS_aorta_path, "imagesTr"))])
+            generate_dataset_json(nnUNet_DS_aorta_path,
                                   channel_names={0: 'CT'},
                                   labels={'background': 0, 'aortic_valve': 1},
                                   num_training_cases=file_count,
                                   file_ending='.nii.gz')
-            controller_dump["create_nnU_Net_dataset_json"] = True
+            controller_dump["nnUNet_DS_json_aorta"] = True
             yaml_save(controller_dump, controller_path)
     else:
         add_info_logging("No folder to save to dataset.json")
