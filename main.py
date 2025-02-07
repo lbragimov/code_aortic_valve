@@ -334,19 +334,19 @@ def controller(data_path, nnUNet_folder_name, cpus):
         controller_dump["crop_images"] = True
         yaml_save(controller_dump, controller_path)
 
-    all_image_paths = []
-    for sub_dir in dir_structure["crop_nii_image"]:
-        for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
-            image_path = os.path.join(crop_nii_image_path, sub_dir, case)
-            all_image_paths.append(image_path)
-    add_info_logging(f"crop_nii_image {find_shape_2(all_image_paths)}")
-
-    all_image_paths = []
-    for sub_dir in dir_structure["crop_markers_mask"]:
-        for case in os.listdir(os.path.join(crop_markers_mask_path, sub_dir)):
-            image_path = os.path.join(crop_markers_mask_path, sub_dir, case)
-            all_image_paths.append(image_path)
-    add_info_logging(f"crop_markers_mask {find_shape_2(all_image_paths)}")
+    # all_image_paths = []
+    # for sub_dir in dir_structure["crop_nii_image"]:
+    #     for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
+    #         image_path = os.path.join(crop_nii_image_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"crop_nii_image {find_shape_2(all_image_paths)}")
+    #
+    # all_image_paths = []
+    # for sub_dir in dir_structure["crop_markers_mask"]:
+    #     for case in os.listdir(os.path.join(crop_markers_mask_path, sub_dir)):
+    #         image_path = os.path.join(crop_markers_mask_path, sub_dir, case)
+    #         all_image_paths.append(image_path)
+    # add_info_logging(f"crop_markers_mask {find_shape_2(all_image_paths)}")
 
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):

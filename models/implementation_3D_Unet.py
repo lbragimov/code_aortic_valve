@@ -45,6 +45,7 @@ def compute_per_channel_dice_3D(input, target, epsilon=1e-6, weight=None):
         return transposed.contiguous().view(C, -1)
 
     # input and target shapes must match
+    # add_info_logging(f"Input shape: {input.shape}, Target shape: {target.shape}")
     assert input.size() == target.size(), "'input' and 'target' must have the same shape"
 
     # Преобразование тензоров
@@ -105,9 +106,12 @@ class DiceLoss(nn.Module):
     #     return 1. - torch.mean(per_channel_dice)
 
     def forward(self, input, target):
+        # add_info_logging(f"Before one-hot: Target shape: {target.shape}")
         input = torch.softmax(input, dim=1)  # Softmax для логитов
         target_one_hot = F.one_hot(target, num_classes=input.shape[1])  # Преобразуем target в one-hot
+        # add_info_logging(f"After one-hot: Target one-hot shape: {target_one_hot.shape}")
         target_one_hot = target_one_hot.permute(0, 4, 1, 2, 3).float()  # Приводим в нужный формат
+        # add_info_logging(f"After one-hot: Target one-hot shape: {target_one_hot.shape}")
 
         per_channel_dice = compute_per_channel_dice_3D(input, target_one_hot)
         return 1. - torch.mean(per_channel_dice)
@@ -268,7 +272,7 @@ class UNet3D(nn.Module):
 
 class UNet3DTrainer:
 
-    def __init__(self, n_classes=4, learning_rate=0.0001, weight_decay=0.01, epochs=300):
+    def __init__(self, n_classes=7, learning_rate=0.0001, weight_decay=0.01, epochs=300):
         self.model = UNet3D(n_channels=1, n_classes=n_classes).float()
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         # self.loss_criterion = DiceLoss()
@@ -321,7 +325,8 @@ class UNet3DTrainer:
 
                 for step, (x, y) in enumerate(dataloader):
                     x = x.float()
-                    y = y.float()
+                    y = y
+                    # add_info_logging(f"Target unique values: {y.unique().tolist()}, num_classes: {self.model.n_classes}")
                     # Перенос данных на устройство
                     add_info_logging(f"Shape of x: {x.shape}")
                     x = x.to(device)
@@ -340,6 +345,7 @@ class UNet3DTrainer:
                             loss = self.loss_criterion(outputs, y)
 
                     # Вычисление метрик
+                    # add_info_logging(f"outputs shape: {outputs.shape}, y shape: {y.shape}")
                     acc = self.eval_criterion(outputs, y)
                     running_loss += loss.item() * x.size(0)  # Сумма потерь за батч
                     running_acc += acc.item() * x.size(0)  # Сумма точности за батч
@@ -535,5 +541,6 @@ class DatabaseImSegNII(Dataset):
 
         img = torch.tensor(img, dtype=torch.float32)  # Преобразуем в PyTorch тензор
         mask = torch.tensor(mask, dtype=torch.long)  # Маска в long (для CrossEntropyLoss)
+        mask = F.one_hot(mask, num_classes=7).permute(3, 0, 1, 2).float()
 
         return img, mask
