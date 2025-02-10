@@ -27,7 +27,7 @@ from models.implementation_3D_Unet import WrapperUnet
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 
-def controller(data_path, nnUNet_folder_name, cpus):
+def controller(data_path, cpus):
     def clear_folder(folder_path):
         """Очищает папку, удаляя все файлы и подпапки"""
         folder = Path(folder_path)
@@ -52,7 +52,7 @@ def controller(data_path, nnUNet_folder_name, cpus):
     nii_convert_path = os.path.join(data_path, "nii_convert")
     mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
     mask_markers_visual_path = os.path.join(data_path, "markers_visual")
-    nnUNet_folder = os.path.join(data_path, nnUNet_folder_name)
+    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     nnUNet_DS_aorta_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
     nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks")
     crop_nii_image_path = os.path.join(data_path, "crop_nii_image")
@@ -373,9 +373,51 @@ def controller(data_path, nnUNet_folder_name, cpus):
         controller_dump["create_3D_UNet_data_base"] = True
         yaml_save(controller_dump, controller_path)
 
-    model_3D_Unet = WrapperUnet()
-    model_3D_Unet.try_unet3d_training(UNet_3D_folder)
-    model_3D_Unet.try_unet3d_testing(UNet_3D_folder)
+    if not "nnUNet_DS_landmarks" in controller_dump.keys() or not controller_dump["nnUNet_DS_landmarks"]:
+        clear_folder(os.path.join(nnUNet_DS_landmarks_path, "imagesTr"))
+        clear_folder(os.path.join(nnUNet_DS_landmarks_path, "labelsTr"))
+        clear_folder(os.path.join(nnUNet_DS_landmarks_path, "imagesTs"))
+        for sub_dir in list(dir_structure["crop_nii_image"]):
+            file_count = len([f for f in os.listdir(os.path.join(crop_nii_image_path, sub_dir))])
+            n = 0
+            for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
+                case_name = case[:-7]
+                if int(file_count*0.8) >= n:
+                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
+                                str(os.path.join(nnUNet_DS_landmarks_path, "imagesTr", f"{case_name}_0000.nii.gz")))
+                    shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
+                                str(os.path.join(nnUNet_DS_landmarks_path, "labelsTr", f"{case}.gz")))
+                else:
+                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
+                                str(os.path.join(nnUNet_DS_landmarks_path, "imagesTs", f"{case_name}_0000.nii.gz")))
+                n += 1
+        controller_dump["nnUNet_DS_landmarks"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if os.path.exists(nnUNet_DS_aorta_path):
+        if not os.path.isfile(os.path.join(nnUNet_DS_landmarks_path, "dataset.json")):
+            file_count = len([f for f in os.listdir(os.path.join(nnUNet_DS_landmarks_path, "imagesTr"))])
+            generate_dataset_json(nnUNet_DS_landmarks_path,
+                                  channel_names={0: 'CT'},
+                                  labels={'background': 0, 'R': 1, 'L': 2, 'N': 3, 'RLC': 4, 'RNC': 5, 'LNC': 6},
+                                  num_training_cases=file_count,
+                                  file_ending='.nii.gz')
+            controller_dump["nnUNet_DS_json_landmarks"] = True
+            yaml_save(controller_dump, controller_path)
+    else:
+        add_info_logging("No folder to save to dataset.json")
+        return
+
+    # model_3D_Unet = WrapperUnet()
+    # model_3D_Unet.try_unet3d_training(UNet_3D_folder)
+    # model_3D_Unet.try_unet3d_testing(UNet_3D_folder)
+
+    input_folder = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks", "imagesTs")
+    output_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset402_AortaLandmarks")
+    model_nnUnet_402 = nnUnet_trainer(nnUNet_folder)
+    model_nnUnet_402.predicting(input_folder=input_folder,
+                                output_folder=output_folder,
+                                task_id=402, fold="all")
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
@@ -409,9 +451,5 @@ if __name__ == "__main__":
         filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
         log_path = os.path.join(data_path, filename)
         logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
-        nnUNet_folder = "nnUNet_folder"
-        # os.environ["nnUNet_raw"] = nnUNet_folder + "nnUNet_raw/"
-        # os.environ["nnUNet_preprocessed"] = nnUNet_folder + "nnUNet_preprocessed/"
-        # os.environ["nnUNet_results"] = nnUNet_folder + "nnUNet_results/"
-        controller(data_path, nnUNet_folder, cpus=free_cpus)
+        controller(data_path, cpus=free_cpus)
 

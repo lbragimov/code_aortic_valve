@@ -18,96 +18,90 @@ class nnUnet_trainer:
         os.environ["nnUNet_results"] = os.path.join(nnUnet_path, "nnUNet_results")
         os.environ["nnUNet_compile"] = "f"
 
-    def train_nnUnet(self, task_id, nnUnet_path, fold=0, network="3d_fullres"):
+    def preprocessing(self, task_id):
+        command = [
+            "nnUNetv2_plan_and_preprocess",
+            '-d ' + str(task_id),
+            "--verify_dataset_integrity",  # Optional: Save softmax predictions
+            "-np", "1",
+        ]
 
-        preprocessing = True
-        training = True
-        predicting = True
-        evaluation = False
+        # Execute preprocessing
+        try:
+            add_info_logging("Starting nnU-Net preprocessing")
+            call(command)
+            add_info_logging("Preprocessing completed successfully")
+        except Exception as e:
+            add_info_logging(f"An error occurred during preprocessing: {e}")
+
+    def train(self, task_id, fold=0, network="3d_fullres"):
+
         print(torch.device(type='cuda', index=2))
 
         # Define the task ID and fold
+        command = [
+            # "CUDA_VISIBLE_DEVICES=2",
+            "nnUNetv2_train",
+            str(task_id),
+            # trainer,
+            network,
+            # f"Task{task_id}",
+            str(fold),
+            "--npz",  # Optional: Save softmax predictions
+            #"-device cpu"
+            "-device", "cuda",
+            "-num_gpus", "2"
+        ]
 
-        if preprocessing:
-            command = [
-                "nnUNetv2_plan_and_preprocess",
-                '-d ' + str(task_id),
-                "--verify_dataset_integrity",  # Optional: Save softmax predictions
-                "-np", "1",
-            ]
+        # Execute the training
+        try:
+            add_info_logging("Starting nnU-Net training")
+            call(command)
+            add_info_logging("Training completed successfully")
+        except Exception as e:
+            add_info_logging(f"An error occurred during training: {e}")
 
-            # Execute preprocessing
-            try:
-                add_info_logging("Starting nnU-Net preprocessing")
-                call(command)
-                add_info_logging("Preprocessing completed successfully")
-            except Exception as e:
-                add_info_logging(f"An error occurred during preprocessing: {e}")
+    def predicting(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres"):
+        # input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
+        # output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
 
-        if training:
-            command = [
-                # "CUDA_VISIBLE_DEVICES=2",
-                "nnUNetv2_train",
-                str(task_id),
-                # trainer,
-                network,
-                # f"Task{task_id}",
-                str(fold),
-                "--npz",  # Optional: Save softmax predictions
-                #"-device cpu"
-                "-device", "cuda",
-                "-num_gpus", "0"
-            ]
+        command = [
+            "nnUNetv2_predict",
+            "-i" + input_folder,
+            "-o" + output_folder,
+            "-d" + str(task_id),
+            "-c" + network,
+            "-f" + str(fold),
+        ]
 
-            # Execute the training
-            try:
-                add_info_logging("Starting nnU-Net training")
-                call(command)
-                add_info_logging("Training completed successfully")
-            except Exception as e:
-                add_info_logging(f"An error occurred during training: {e}")
+        # Execute the predicting
+        try:
+            add_info_logging("Starting nnU-Net predict")
+            call(command)
+            add_info_logging("Predicting completed successfully")
+        except Exception as e:
+            add_info_logging(f"An error occurred during predicting: {e}")
 
-        if predicting:
-            input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
-            output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
+    def evaluation(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres"):
+        # input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
+        # output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
 
-            command = [
-                "nnUNetv2_predict",
-                "-i" + input_folder,
-                "-o" + output_folder,
-                "-d" + str(task_id),
-                "-c" + network,
-                "-f" + str(fold),
-            ]
+        command = [
+            "nnUNetv2_evaluate_folder",
+            "-i" + input_folder,
+            "-o" + output_folder,
+            "-d" + str(task_id),
+            "-c" + network,
+            "-f" + str(fold),
+        ]
 
-            # Execute the predicting
-            try:
-                add_info_logging("Starting nnU-Net predict")
-                call(command)
-                add_info_logging("Predicting completed successfully")
-            except Exception as e:
-                add_info_logging(f"An error occurred during predicting: {e}")
-
-        if evaluation:
-            input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
-            output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
-
-            command = [
-                "nnUNetv2_evaluate_folder",
-                "-i" + input_folder,
-                "-o" + output_folder,
-                "-d" + str(task_id),
-                "-c" + network,
-                "-f" + str(fold),
-            ]
-
-            # Execute the predicting
-            try:
-                add_info_logging("Starting nnU-Net predict")
-                call(command)
-                add_info_logging("Predicting completed successfully")
-            except Exception as e:
-                add_info_logging(f"An error occurred during predicting: {e}")
+        # Execute the predicting
+        try:
+            add_info_logging("Starting nnU-Net evaluation")
+            call(command)
+            add_info_logging("evaluation completed successfully")
+        except Exception as e:
+            add_info_logging(f"An error occurred during evaluation: {e}")
 
         # nnUNetv2_evaluate_folder / nnUNet_tests / gt / / nnUNet_tests / predictions / -djfile
         # Dataset300_Aorta / nnUNetTrainer_250epochs__nnUNetPlans__3d_fullres / dataset.json - pfile
