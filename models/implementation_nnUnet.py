@@ -107,4 +107,14 @@ class nnUnet_trainer:
         # Dataset300_Aorta / nnUNetTrainer_250epochs__nnUNetPlans__3d_fullres / dataset.json - pfile
         # Dataset300_Aorta / nnUNetTrainer_250epochs__nnUNetPlans__3d_fullres / plans.json
 
+    def reassembling_model(self, nnUnet_path, case_path):
+        model_path = os.path.join(nnUnet_path, "nnUNet_results", case_path, "nnUNetTrainer__nnUNetPlans__3d_fullres",
+                                  "fold_all", "checkpoint_final.pth")
+        # Загружаем старый чекпоинт (весы + другие данные)
+        checkpoint = torch.load(model_path, weights_only=False)  # Включаем загрузку всех данных
 
+        # Извлекаем только state_dict (веса)
+        model_weights = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
+
+        # Пересохраняем только веса
+        torch.save(model_weights, model_path)

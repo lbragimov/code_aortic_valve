@@ -415,6 +415,7 @@ def controller(data_path, cpus):
     input_folder = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks", "imagesTs")
     output_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset402_AortaLandmarks")
     model_nnUnet_402 = nnUnet_trainer(nnUNet_folder)
+    model_nnUnet_402.reassembling_model(nnUnet_path=nnUNet_folder, case_path="Dataset402_AortaLandmarks")
     model_nnUnet_402.predicting(input_folder=input_folder,
                                 output_folder=output_folder,
                                 task_id=402, fold="all")
