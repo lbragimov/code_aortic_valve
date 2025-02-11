@@ -153,7 +153,7 @@ class DoubleConv3D(nn.Module):
         )
 
     def forward(self, x):
-        add_info_logging(f"Shape of x: {x.shape}")
+        # add_info_logging(f"Shape of x: {x.shape}")
         return self.double_conv(x)
 
 
@@ -310,7 +310,7 @@ class UNet3DTrainer:
         for epoch in range(self.epochs):
             torch.cuda.empty_cache()  # 🔹 Освобождаем кеш перед каждой эпохой
             add_info_logging('Epoch {}/{}'.format(epoch, self.epochs - 1))
-            add_info_logging('-' * 10)
+            # add_info_logging('-' * 10)
 
             for phase in ['train', 'valid']:
                 if phase == 'train':
@@ -328,7 +328,7 @@ class UNet3DTrainer:
                     y = y
                     # add_info_logging(f"Target unique values: {y.unique().tolist()}, num_classes: {self.model.n_classes}")
                     # Перенос данных на устройство
-                    add_info_logging(f"Shape of x: {x.shape}")
+                    # add_info_logging(f"Shape of x: {x.shape}")
                     x = x.to(device)
                     y = y.to(device)
 
@@ -533,7 +533,7 @@ class DatabaseImSegNII(Dataset):
         # return self.transform(self.images[idx]), torch.tensor(self.masks[idx], dtype=torch.long)
         img = self.images[idx]
         mask = self.masks[idx]
-        add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
+        # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
 
         # 🔹 Если изображение имеет 3 оси (D, H, W), добавляем ось канала
         if len(img.shape) == 3:

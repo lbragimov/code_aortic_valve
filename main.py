@@ -386,7 +386,7 @@ def controller(data_path, cpus):
                     shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
                                 str(os.path.join(nnUNet_DS_landmarks_path, "imagesTr", f"{case_name}_0000.nii.gz")))
                     shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_landmarks_path, "labelsTr", f"{case}.gz")))
+                                str(os.path.join(nnUNet_DS_landmarks_path, "labelsTr", f"{case}")))
                 else:
                     shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
                                 str(os.path.join(nnUNet_DS_landmarks_path, "imagesTs", f"{case_name}_0000.nii.gz")))
@@ -415,7 +415,9 @@ def controller(data_path, cpus):
     input_folder = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks", "imagesTs")
     output_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset402_AortaLandmarks")
     model_nnUnet_402 = nnUnet_trainer(nnUNet_folder)
-    model_nnUnet_402.reassembling_model(nnUnet_path=nnUNet_folder, case_path="Dataset402_AortaLandmarks")
+    model_nnUnet_402.preprocessing(task_id=402)
+    model_nnUnet_402.train(task_id=402, fold="all")
+    # model_nnUnet_402.reassembling_model(nnUnet_path=nnUNet_folder, case_path="Dataset402_AortaLandmarks")
     model_nnUnet_402.predicting(input_folder=input_folder,
                                 output_folder=output_folder,
                                 task_id=402, fold="all")
