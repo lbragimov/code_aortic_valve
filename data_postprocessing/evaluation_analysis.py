@@ -111,7 +111,7 @@ class landmarking_testSimualtion:
 
 class landmarking_testing:
 
-    def compute_metrics_direct(mask_nii):
+    def compute_metrics_direct(self, mask_nii):
         mask_image = sitk.ReadImage(mask_nii)
         mask_array = sitk.GetArrayFromImage(mask_image)  # Convert to NumPy array
 
@@ -146,10 +146,10 @@ class landmarking_testing:
                 centers_of_mass[label] = center_world
 
         # R_land, L_land, N_land, RLC_land, RNC_land, LNC_land
-        measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
-                                                     centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
-        metrics = measurerer.compute_metrics()
-        pass
+        # measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
+        #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
+        # metrics = measurerer.compute_metrics()
+        return centers_of_mass
 
 
 class landmarking_locked:

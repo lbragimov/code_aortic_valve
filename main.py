@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import platform
 
+import numpy as np
 from statistics import mode
 from datetime import datetime
 
@@ -17,14 +18,17 @@ from data_preprocessing.check_structure import create_directory_structure, colle
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
+from data_postprocessing.evaluation_analysis import landmarking_testing
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
+from models.controller_nnUnet import process_nnunet
 
 from optimization.parallelization import division_processes
 
 from models.implementation_3D_Unet import WrapperUnet
 
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
 def controller(data_path, cpus):
@@ -408,19 +412,66 @@ def controller(data_path, cpus):
         add_info_logging("No folder to save to dataset.json")
         return
 
+    if not "nnUNet_lmk_ger_sep" in controller_dump.keys() or not controller_dump["nnUNet_lmk_ger_sep"]:
+        dict_dataset = {
+            "channel_names": {0: "CT"},
+            "labels": {
+                "background": 0,
+                "R": 1,
+                "L": 2,
+                "N": 3,
+                "RLC": 4,
+                "RNC": 5,
+                "LNC": 6
+            },
+            "file_ending": ".nii.gz"
+        }
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset403_AortaLandmarks", id_case=403,
+                       folder_image_path=crop_nii_image_path, folder_mask_path=crop_markers_mask_path,
+                       dict_dataset=dict_dataset, pct_test=0.15, test_folder="Homburg pathology")
+        controller_dump["nnUNet_lmk_ger_sep"] = True
+        yaml_save(controller_dump, controller_path)
+
     # model_3D_Unet = WrapperUnet()
     # model_3D_Unet.try_unet3d_training(UNet_3D_folder)
     # model_3D_Unet.try_unet3d_testing(UNet_3D_folder)
 
-    input_folder = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks", "imagesTs")
-    output_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset402_AortaLandmarks")
-    model_nnUnet_402 = nnUnet_trainer(nnUNet_folder)
-    model_nnUnet_402.preprocessing(task_id=402)
-    model_nnUnet_402.train(task_id=402, fold="all")
-    # model_nnUnet_402.reassembling_model(nnUnet_path=nnUNet_folder, case_path="Dataset402_AortaLandmarks")
-    model_nnUnet_402.predicting(input_folder=input_folder,
-                                output_folder=output_folder,
-                                task_id=402, fold="all")
+    # input_folder = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks", "imagesTs")
+    # output_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset402_AortaLandmarks")
+    # model_nnUnet_402 = nnUnet_trainer(nnUNet_folder)
+    # model_nnUnet_402.preprocessing(task_id=402)
+    # model_nnUnet_402.train(task_id=402, fold="all")
+    # # model_nnUnet_402.reassembling_model(nnUnet_path=nnUNet_folder, case_path="Dataset402_AortaLandmarks")
+    # model_nnUnet_402.predicting(input_folder=input_folder,
+    #                             output_folder=output_folder,
+    #                             task_id=402, fold="all")
+
+    # data_path_2 = Path(data_path)
+    # result_landmarks_folder = data_path_2 / "nnUNet_folder" / "nnUNet_test" / "Dataset402_AortaLandmarks"
+    # original_mask_folder = data_path_2 / "result_landmarks" / "original_mask"
+    # files = list(result_landmarks_folder.glob("*.nii.gz"))
+    # errors = []
+    # not_found = 0
+    # for file in files:
+    #     # for file in (result_landmarks_folder/sub_dir).iterdir():
+    #     # for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
+    #     res_test = landmarking_testing()
+    #     landmarks_pred = res_test.compute_metrics_direct(file)
+    #     landmarks_true = res_test.compute_metrics_direct(original_mask_folder / file.name)
+    #     print("hihih")
+    #     # Вычисляем среднюю ошибку
+    #     for key in landmarks_true:
+    #         if key in landmarks_pred:
+    #             dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
+    #             errors.append(dist)
+    #         else:
+    #             not_found += 1
+    #
+    #
+    # mean_error = np.mean(errors) if errors else None
+    # not_found = not_found / 330 * 100
+    #
+    # add_info_logging(f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%")
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
