@@ -91,6 +91,6 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
         model_nnUnet = nnUnet_trainer(str(folder))
         model_nnUnet.preprocessing(task_id=id_case)
         model_nnUnet.train(task_id=id_case, fold="all")
-        model_nnUnet.predicting(input_folder=input_folder,
-                                output_folder=output_folder,
+        model_nnUnet.predicting(input_folder=str(input_folder),
+                                output_folder=str(output_folder),
                                 task_id=id_case, fold="all")

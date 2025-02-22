@@ -49,8 +49,8 @@ class nnUnet_trainer:
             str(fold),
             "--npz",  # Optional: Save softmax predictions
             #"-device cpu"
-            "-device", "cuda",
-            "-num_gpus", "2"
+            "-device", "cuda"
+            # "-num_gpus", "2"
         ]
 
         # Execute the training
