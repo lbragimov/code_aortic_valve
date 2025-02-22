@@ -45,50 +45,52 @@ def _copy_img(input_imgs_path, output_folder, rename=False):
 
 
 def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
-                   folder_mask_path, dict_dataset, pct_test, test_folder=None):
+                   folder_mask_path, dict_dataset, pct_test, test_folder=None, create_ds=False, activate_mod=False):
 
     folder = Path(folder)
     folder_image_path = Path(folder_image_path)
     folder_mask_path = Path(folder_mask_path)
 
-    _configure_folder(folder, ds_folder_name)
+    if create_ds:
+        _configure_folder(folder, ds_folder_name)
 
-    list_train_case, list_test_case = [], []
-    list_train_mask, list_test_mask = [], []
-    for subfolder in folder_image_path.iterdir():
-        if subfolder.is_dir():
-            if subfolder.name == test_folder:
-                for case in (folder_image_path / subfolder).iterdir():
-                    list_test_case.append(case)
-                    list_test_mask.append(folder_mask_path / subfolder.name / case.name)
-            else:
-                file_count = len([f for f in (folder_image_path/subfolder).iterdir()])
-                n = 0
-                for case in (folder_image_path/subfolder).iterdir():
-                    if int(file_count * (1.0 - pct_test)) >= n:
-                        list_train_case.append(case)
-                        list_train_mask.append(folder_mask_path / subfolder.name / case.name)
-                    else:
+        list_train_case, list_test_case = [], []
+        list_train_mask, list_test_mask = [], []
+        for subfolder in folder_image_path.iterdir():
+            if subfolder.is_dir():
+                if subfolder.name == test_folder:
+                    for case in (folder_image_path / subfolder).iterdir():
                         list_test_case.append(case)
                         list_test_mask.append(folder_mask_path / subfolder.name / case.name)
-                    n += 1
+                else:
+                    file_count = len([f for f in (folder_image_path/subfolder).iterdir()])
+                    n = 0
+                    for case in (folder_image_path/subfolder).iterdir():
+                        if int(file_count * (1.0 - pct_test)) >= n:
+                            list_train_case.append(case)
+                            list_train_mask.append(folder_mask_path / subfolder.name / case.name)
+                        else:
+                            list_test_case.append(case)
+                            list_test_mask.append(folder_mask_path / subfolder.name / case.name)
+                        n += 1
 
-    _copy_img(list_train_case, folder/ "nnUNet_raw" / ds_folder_name / "imagesTr", rename=True)
-    _copy_img(list_train_mask, folder / "nnUNet_raw" / ds_folder_name / "labelsTr")
-    _copy_img(list_test_case, folder/ "nnUNet_raw" / ds_folder_name / "imagesTs", rename=True)
-    _copy_img(list_test_mask, folder / "original_mask" / ds_folder_name)
+        _copy_img(list_train_case, folder/ "nnUNet_raw" / ds_folder_name / "imagesTr", rename=True)
+        _copy_img(list_train_mask, folder / "nnUNet_raw" / ds_folder_name / "labelsTr")
+        _copy_img(list_test_case, folder/ "nnUNet_raw" / ds_folder_name / "imagesTs", rename=True)
+        _copy_img(list_test_mask, folder / "original_mask" / ds_folder_name)
 
-    generate_dataset_json(str(folder/ "nnUNet_raw" / ds_folder_name),
-                          channel_names=dict_dataset["channel_names"],
-                          labels=dict_dataset["labels"],
-                          num_training_cases=len(list_train_case),
-                          file_ending=dict_dataset["file_ending"])
+        generate_dataset_json(str(folder/ "nnUNet_raw" / ds_folder_name),
+                              channel_names=dict_dataset["channel_names"],
+                              labels=dict_dataset["labels"],
+                              num_training_cases=len(list_train_case),
+                              file_ending=dict_dataset["file_ending"])
 
-    # input_folder = Path(folder/ "nnUNet_raw" / ds_folder_name / "imagesTs")
-    # output_folder = Path(folder/ "nnUNet_test"/ ds_folder_name)
-    # model_nnUnet = nnUnet_trainer(folder)
-    # model_nnUnet.preprocessing(task_id=id_case)
-    # model_nnUnet.train(task_id=id_case, fold="all")
-    # model_nnUnet.predicting(input_folder=input_folder,
-    #                         output_folder=output_folder,
-    #                         task_id=id_case, fold="all")
+    if activate_mod:
+        input_folder = Path(folder / "nnUNet_raw" / ds_folder_name / "imagesTs")
+        output_folder = Path(folder / "nnUNet_test" / ds_folder_name)
+        model_nnUnet = nnUnet_trainer(folder)
+        model_nnUnet.preprocessing(task_id=id_case)
+        model_nnUnet.train(task_id=id_case, fold="all")
+        model_nnUnet.predicting(input_folder=input_folder,
+                                output_folder=output_folder,
+                                task_id=id_case, fold="all")

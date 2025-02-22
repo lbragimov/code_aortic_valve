@@ -7,6 +7,6 @@ mask_aorta_segment_cut: true
 mask_markers_create: true
 nnUNet_DS_aorta: true
 nnUNet_DS_landmarks: true
-nnUNet_lmk_ger_sep: true
+nnUNet_lmk_ger_sep: false
 resample: true
 size_or_pixel: none

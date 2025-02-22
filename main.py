@@ -428,7 +428,8 @@ def controller(data_path, cpus):
         }
         process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset403_AortaLandmarks", id_case=403,
                        folder_image_path=crop_nii_image_path, folder_mask_path=crop_markers_mask_path,
-                       dict_dataset=dict_dataset, pct_test=0.15, test_folder="Homburg pathology")
+                       dict_dataset=dict_dataset, pct_test=0.15, test_folder="Homburg pathology",
+                       create_ds=False, activate_mod=True)
         controller_dump["nnUNet_lmk_ger_sep"] = True
         yaml_save(controller_dump, controller_path)
 
