@@ -88,7 +88,7 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
     if activate_mod:
         input_folder = Path(folder / "nnUNet_raw" / ds_folder_name / "imagesTs")
         output_folder = Path(folder / "nnUNet_test" / ds_folder_name)
-        model_nnUnet = nnUnet_trainer(folder)
+        model_nnUnet = nnUnet_trainer(str(folder))
         model_nnUnet.preprocessing(task_id=id_case)
         model_nnUnet.train(task_id=id_case, fold="all")
         model_nnUnet.predicting(input_folder=input_folder,
