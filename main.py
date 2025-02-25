@@ -429,7 +429,7 @@ def controller(data_path, cpus):
         process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset403_AortaLandmarks", id_case=403,
                        folder_image_path=crop_nii_image_path, folder_mask_path=crop_markers_mask_path,
                        dict_dataset=dict_dataset, pct_test=0.15, test_folder="Homburg pathology",
-                       create_ds=False, activate_mod=True)
+                       create_ds=True, activate_mod=True)
         controller_dump["nnUNet_lmk_ger_sep"] = True
         yaml_save(controller_dump, controller_path)
 
@@ -447,32 +447,36 @@ def controller(data_path, cpus):
     #                             output_folder=output_folder,
     #                             task_id=402, fold="all")
 
-    # data_path_2 = Path(data_path)
-    # result_landmarks_folder = data_path_2 / "nnUNet_folder" / "nnUNet_test" / "Dataset402_AortaLandmarks"
-    # original_mask_folder = data_path_2 / "result_landmarks" / "original_mask"
-    # files = list(result_landmarks_folder.glob("*.nii.gz"))
-    # errors = []
-    # not_found = 0
-    # for file in files:
-    #     # for file in (result_landmarks_folder/sub_dir).iterdir():
-    #     # for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
-    #     res_test = landmarking_testing()
-    #     landmarks_pred = res_test.compute_metrics_direct(file)
-    #     landmarks_true = res_test.compute_metrics_direct(original_mask_folder / file.name)
-    #     print("hihih")
-    #     # Вычисляем среднюю ошибку
-    #     for key in landmarks_true:
-    #         if key in landmarks_pred:
-    #             dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
-    #             errors.append(dist)
-    #         else:
-    #             not_found += 1
-    #
-    #
-    # mean_error = np.mean(errors) if errors else None
-    # not_found = not_found / 330 * 100
-    #
-    # add_info_logging(f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%")
+    data_path_2 = Path(data_path)
+    result_landmarks_folder = data_path_2 / "nnUNet_folder" / "nnUNet_test" / "Dataset403_AortaLandmarks"
+    original_mask_folder = data_path_2 / "nnUNet_folder" / "original_mask" / "Dataset403_AortaLandmarks"
+    files = list(result_landmarks_folder.glob("*.nii.gz"))
+    errors = []
+    not_found = 0
+    num_img = 0
+    for file in files:
+        if not file.name[0] == "H":
+            continue
+        # for file in (result_landmarks_folder/sub_dir).iterdir():
+        # for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
+        res_test = landmarking_testing()
+        landmarks_pred = res_test.compute_metrics_direct(file)
+        landmarks_true = res_test.compute_metrics_direct(original_mask_folder / file.name)
+        # print("hihih")
+        num_img += 1
+        # Вычисляем среднюю ошибку
+        for key in landmarks_true:
+            if key in landmarks_pred:
+                dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
+                errors.append(dist)
+            else:
+                not_found += 1
+    
+    
+    mean_error = np.mean(errors) if errors else None
+    not_found = (not_found / (num_img * 6)) * 100
+    
+    add_info_logging(f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%. Number of images:{num_img}")
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
