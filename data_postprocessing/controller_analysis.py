@@ -5,6 +5,7 @@ from data_preprocessing.text_worker import add_info_logging
 
 
 def process_analysis(data_path, ds_folder_name):
+    add_info_logging("start analysis")
     data_path = Path(data_path)
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
