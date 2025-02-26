@@ -45,13 +45,14 @@ def _copy_img(input_imgs_path, output_folder, rename=False):
 
 
 def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
-                   folder_mask_path, dict_dataset, pct_test, test_folder=None, create_ds=False, activate_mod=False):
+                   folder_mask_path, dict_dataset, pct_test, test_folder=None, create_ds=False,
+                   training_mod=False, testing_mod=False):
 
     folder = Path(folder)
-    folder_image_path = Path(folder_image_path)
-    folder_mask_path = Path(folder_mask_path)
 
     if create_ds:
+        folder_image_path = Path(folder_image_path)
+        folder_mask_path = Path(folder_mask_path)
         _configure_folder(folder, ds_folder_name)
 
         list_train_case, list_test_case = [], []
@@ -85,12 +86,20 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
                               num_training_cases=len(list_train_case),
                               file_ending=dict_dataset["file_ending"])
 
-    if activate_mod:
+    if training_mod:
         input_folder = Path(folder / "nnUNet_raw" / ds_folder_name / "imagesTs")
         output_folder = Path(folder / "nnUNet_test" / ds_folder_name)
         model_nnUnet = nnUnet_trainer(str(folder))
         model_nnUnet.preprocessing(task_id=id_case)
         model_nnUnet.train(task_id=id_case, fold="all")
+        model_nnUnet.predicting(input_folder=str(input_folder),
+                                output_folder=str(output_folder),
+                                task_id=id_case, fold="all")
+
+    if testing_mod:
+        input_folder = Path(folder / "nnUNet_raw" / ds_folder_name / "imagesTs")
+        output_folder = Path(folder / "nnUNet_test" / ds_folder_name)
+        model_nnUnet = nnUnet_trainer(str(folder))
         model_nnUnet.predicting(input_folder=str(input_folder),
                                 output_folder=str(output_folder),
                                 task_id=id_case, fold="all")
