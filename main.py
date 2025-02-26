@@ -448,12 +448,12 @@ def controller(data_path, cpus):
     #                             output_folder=output_folder,
     #                             task_id=402, fold="all")
 
-    # ds_folder_name = "Dataset403_AortaLandmarks"
-    # data_path_2 = Path(data_path)
-    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name)
+    ds_folder_name = "Dataset404_AortaLandmarks"
+    data_path_2 = Path(data_path)
+    process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name)
 
-    process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset404_AortaLandmarks", id_case=404,
-                   folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=0.15, testing_mod=True)
+    # process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset404_AortaLandmarks", id_case=404,
+    #                folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=0.15, testing_mod=True)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',

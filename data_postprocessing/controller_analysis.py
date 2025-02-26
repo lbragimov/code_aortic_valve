@@ -5,6 +5,7 @@ from data_preprocessing.text_worker import add_info_logging
 
 
 def process_analysis(data_path, ds_folder_name):
+    add_info_logging("start analysis")
     data_path = Path(data_path)
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
@@ -14,12 +15,12 @@ def process_analysis(data_path, ds_folder_name):
     not_found = 0
     num_img = 0
     for file in files:
-        if not file.name[0] == "H":
-            continue
+        # if not file.name[0] == "H":
+        #     continue
         # for file in (result_landmarks_folder/sub_dir).iterdir():
         # for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
-        simulation = landmarking_MonteCarlo(str(json_path/file.name[:-7]) + ".json", file)
-        simulation.run_simulation()
+        # simulation = landmarking_MonteCarlo(str(json_path/file.name[:-7]) + ".json", file)
+        # simulation.run_simulation()
         res_test = landmarking_testing()
         landmarks_pred = res_test.compute_metrics_direct(file)
         landmarks_true = res_test.compute_metrics_direct(original_mask_folder / file.name)
