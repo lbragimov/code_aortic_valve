@@ -6,6 +6,7 @@ from data_preprocessing.text_worker import add_info_logging
 
 def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_monte_carlo=False):
     add_info_logging("start analysis")
+    print("start analysis")
     data_path = Path(data_path)
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
@@ -69,8 +70,9 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
         not_found_slo_norm = (not_found_slo_norm / (num_img_slo_norm * 6)) * 100
 
         mean_error = np.mean(np.concatenate([errors_ger_pat, errors_slo_pat, errors_slo_norm]))
-        num_img = num_img_ger_pat + not_found_slo_pat + num_img_slo_norm
+        num_img = num_img_ger_pat + num_img_slo_pat + num_img_slo_norm
         not_found = ((not_found_ger_pat + not_found_slo_pat + not_found_slo_norm) / (num_img * 6)) * 100
+        print("finish analysis")
 
         add_info_logging("German pathology")
         add_info_logging(
