@@ -61,9 +61,8 @@ class nnUnet_trainer:
         except Exception as e:
             add_info_logging(f"An error occurred during training: {e}")
 
-    def predicting(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres"):
-        # input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
-        # output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
+    def predicting(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres",
+                   save_probabilities=False):
 
         command = [
             "nnUNetv2_predict",
@@ -73,6 +72,8 @@ class nnUnet_trainer:
             "-c" + network,
             "-f" + str(fold),
         ]
+        if save_probabilities:
+            command.append("--save_probabilities")
 
         # Execute the predicting
         try:
@@ -83,8 +84,6 @@ class nnUnet_trainer:
             add_info_logging(f"An error occurred during predicting: {e}")
 
     def evaluation(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres"):
-        # input_folder = os.path.join(nnUnet_path, "nnUNet_raw", "Dataset401_AorticValve", "imagesTs")
-        # output_folder = os.path.join(nnUnet_path, "nnUNet_test", "Dataset401_AorticValve")
 
         command = [
             "nnUNetv2_evaluate_folder",
