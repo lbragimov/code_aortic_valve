@@ -8,7 +8,7 @@ from data_preprocessing.text_worker import add_info_logging
 
 class landmarking_MonteCarlo:
 
-    def __init__(self, json_file, probability_map_folder):
+    def __init__(self, json_file, nii_file, npy_file):
         # Load the JSON file with landmark coordinates
         self.N = 10  # Total candidate points per landmark
         self.N_land = 6  # Total landmarks
@@ -20,8 +20,9 @@ class landmarking_MonteCarlo:
 
         self.landmarks = []
         for i in range(1, self.N_land + 1):
-            prob_map, spacing, origin, direction = self.__load_probability_map(
-                probability_map_folder + 'class_' + str(i) + '_prob.nii.gz')
+            temp, spacing, origin, direction = self.__load_probability_map(nii_file)
+            prob_map_all = np.load(npy_file)
+            prob_map = prob_map_all["probabilities"][i]
             candidate_points, probabilities = self.__get_candidate_points(prob_map, spacing, origin, direction)
             self.landmarks.append({'candidate_points': candidate_points, 'probabilities': probabilities})
 
@@ -147,8 +148,9 @@ class landmarking_MonteCarlo:
             pass
         pass
 
-        add_info_logging(f"angles = '{np.mean(statistics_angles, axis=0)}'")
-        add_info_logging(f"distances = '{np.mean(statistics_dists, axis=0)}'")
+        # add_info_logging(f"angles = '{np.mean(statistics_angles, axis=0)}'")
+        # add_info_logging(f"distances = '{np.mean(statistics_dists, axis=0)}'")
+        return np.mean(statistics_angles, axis=0), np.mean(statistics_dists, axis=0)
 
 # simulation = landmarking_testSimualtion(heart_nnUnet + '/Landmarking/temp/result/HOM_M32_H185_W90_YA.nii.gz', heart_nnUnet + '/Landmarking/temp/result/HOM_M32_H185_W90_YA.npz', heart_nnUnet + '/Landmarking/temp/temp1/')
 # simulation = landmarking_MonteCarlo(heart_data + '/json_markers_info/Homburg pathology/HOM_M32_H185_W90_YA.json', heart_nnUnet + '/Landmarking/temp/temp1/')
