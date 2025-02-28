@@ -520,7 +520,7 @@ def controller(data_path, cpus):
     # data_path_2 = Path(data_path)
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_monte_carlo=True)
 
-    _experiment(create_img=True)
+    _experiment(create_img=True, create_models=True)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
