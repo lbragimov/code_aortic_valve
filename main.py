@@ -37,7 +37,8 @@ def controller(data_path, cpus):
         """Очищает папку, удаляя все файлы и подпапки"""
         folder = Path(folder_path)
         if not folder.exists():
-            add_info_logging(f"Папка '{folder_path}' не существует.")
+            folder.mkdir(parents=True, exist_ok=True)
+            add_info_logging(f"Папка '{folder_path}' не существовала, поэтому была создана.")
             return
 
         for item in folder.iterdir():
@@ -45,6 +46,69 @@ def controller(data_path, cpus):
                 item.unlink()  # Удаляем файл или символическую ссылку
             elif item.is_dir():
                 shutil.rmtree(item)  # Удаляем папку рекурсивно
+
+    def _experiment(create_img=False, create_models=False):
+        list_radius = [10, 9, 8, 7, 6, 5, 4]
+        if create_img:
+            for radius in list_radius:
+                cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
+                for sub_dir in list(dir_structure["nii_resample"]):
+                    clear_folder(os.path.join(cur_mask_markers_visual_path, sub_dir))
+                    for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+                        case_name = case[:-7]
+                        nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
+                        mask_markers_img_path = os.path.join(cur_mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
+                        process_markers(nii_resample_case_file_path,
+                                        dict_all_case[case_name],
+                                        mask_markers_img_path,
+                                        radius)
+
+            # Получаем все пути к изображениям в папке mask_aorta_segment_cut
+            all_image_paths = []
+            for sub_dir in dir_structure["mask_aorta_segment_cut"]:
+                for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
+                    image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
+                    all_image_paths.append(image_path)
+
+            padding = 10
+            # Найти общий bounding box для всех изображений
+            global_size = find_global_size(all_image_paths, padding)
+            add_info_logging(f"global size: {global_size}")
+
+            for radius in list_radius:
+                cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
+                cur_crop_markers_mask_path = os.path.join(data_path, f"crop_markers_mask_{radius}")
+                for sub_dir in os.listdir(cur_mask_markers_visual_path):
+                    clear_folder(os.path.join(cur_crop_markers_mask_path, sub_dir))
+                    for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
+                        cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
+                                      input_image_path=str(os.path.join(cur_mask_markers_visual_path, sub_dir, case)),
+                                      output_image_path=str(os.path.join(cur_crop_markers_mask_path, sub_dir, case)),
+                                      size=global_size)
+
+        if create_models:
+            dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
+            for radius in list_radius:
+                cur_crop_markers_mask_path = os.path.join(data_path, f"crop_markers_mask_{radius}")
+                dict_dataset = {
+                    "channel_names": {0: "CT"},
+                    "labels": {
+                        "background": 0,
+                        "R": 1,
+                        "L": 2,
+                        "N": 3,
+                        "RLC": 4,
+                        "RNC": 5,
+                        "LNC": 6
+                    },
+                    "file_ending": ".nii.gz"
+                }
+                process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{dict_id_case[radius]}_AortaLandmarks",
+                               id_case=dict_id_case[radius], folder_image_path=crop_nii_image_path,
+                               folder_mask_path=cur_crop_markers_mask_path, dict_dataset=dict_dataset,
+                               pct_test=0.15, create_ds=True, training_mod=True)
+
+
 
     script_dir = Path(__file__).resolve().parent
 
@@ -448,13 +512,15 @@ def controller(data_path, cpus):
     #                             output_folder=output_folder,
     #                             task_id=402, fold="all")
 
-    process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset404_AortaLandmarks", id_case=404,
-                   folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=None,
-                   testing_mod=True, save_probabilities=True)
+    # process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset404_AortaLandmarks", id_case=404,
+    #                folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=None,
+    #                testing_mod=True, save_probabilities=True)
+    #
+    # ds_folder_name = "Dataset404_AortaLandmarks"
+    # data_path_2 = Path(data_path)
+    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_monte_carlo=True)
 
-    ds_folder_name = "Dataset404_AortaLandmarks"
-    data_path_2 = Path(data_path)
-    process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_monte_carlo=True)
+    _experiment(create_img=True)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
