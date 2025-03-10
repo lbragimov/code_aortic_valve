@@ -19,7 +19,7 @@ from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 from data_postprocessing.evaluation_analysis import landmarking_testing
-from data_postprocessing.controller_analysis import process_analysis
+from data_postprocessing.controller_analysis import process_analysis, experiment
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 from models.controller_nnUnet import process_nnunet
@@ -518,9 +518,10 @@ def controller(data_path, cpus):
     #
     # ds_folder_name = "Dataset404_AortaLandmarks"
     # data_path_2 = Path(data_path)
-    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_monte_carlo=True)
+    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
-    _experiment(create_img=True, create_models=True)
+    # _experiment(create_img=True, create_models=True)
+    experiment(data_path=data_path)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',

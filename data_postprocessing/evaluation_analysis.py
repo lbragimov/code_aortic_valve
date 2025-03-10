@@ -229,43 +229,9 @@ class landmarking_computeMeasurements:
         return measurements
 
 
-class landmarking_testSimualtion:
-
-    def __init__(self, file_original_nii, file_probability_map, output_directory):
-        # Load probability maps
-        data = np.load(file_probability_map, allow_pickle=True)
-        prob_maps = data["probabilities"]  # Shape: (6, H, W, D) for 6 classes
-
-        # Load reference image for metadata (affine, spacing, origin)
-        ref_img = sitk.ReadImage(file_original_nii)
-        spacing = ref_img.GetSpacing()
-        origin = ref_img.GetOrigin()
-        direction = ref_img.GetDirection()
-
-        # Ensure output directory exists
-        os.makedirs(output_directory, exist_ok=True)
-
-        # Save each probability map as a separate NIfTI file
-        for class_idx in range(prob_maps.shape[0]):
-            prob_map = prob_maps[class_idx]  # Extract probability map for this class
-            sitk_img = sitk.GetImageFromArray(prob_map)  # Convert numpy to SimpleITK image
-
-            # Assign metadata from reference NIfTI
-            sitk_img.SetSpacing(spacing)
-            sitk_img.SetOrigin(origin)
-            sitk_img.SetDirection(direction)
-
-            # Save as NIfTI
-            output_path = os.path.join(output_directory, f"class_{class_idx}_prob.nii.gz")
-            sitk.WriteImage(sitk_img, output_path)
-            print(f"Saved: {output_path}")
-
-        print("All probability maps saved as NIfTI files.")
-
-
 class landmarking_testing:
 
-    def compute_metrics_direct(self, mask_nii):
+    def compute_metrics_direct_nii(self, mask_nii):
         mask_image = sitk.ReadImage(mask_nii)
         mask_array = sitk.GetArrayFromImage(mask_image)  # Convert to NumPy array
 
@@ -295,6 +261,44 @@ class landmarking_testing:
         centers_of_mass = {}
         for label in labels:
             binary_mask = (mask_array == label)  # Create binary mask for current label
+            center_world = compute_center_of_mass(binary_mask, spacing, origin, direction)
+            if center_world is not None:
+                centers_of_mass[label] = center_world
+
+        # R_land, L_land, N_land, RLC_land, RNC_land, LNC_land
+        # measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
+        #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
+        # metrics = measurerer.compute_metrics()
+        return centers_of_mass
+
+    def compute_metrics_direct_npz(self, mask_nii, mask_npz):
+        # Get image metadata
+        mask_image = sitk.ReadImage(mask_nii)
+        spacing = np.array(mask_image.GetSpacing())  # (x, y, z) voxel size
+        origin = np.array(mask_image.GetOrigin())  # World coordinate of (0,0,0)
+        direction = np.array(mask_image.GetDirection()).reshape(3, 3)  # Reshape to 3x3 matrix
+
+        prob_map_all = np.load(mask_npz)
+        labels = len(prob_map_all["probabilities"])
+
+        # Function to compute center of mass in world coordinates
+        def compute_center_of_mass(binary_mask, spacing, origin, direction):
+            indices = np.argwhere(binary_mask)  # Get voxel indices of the mask
+            if len(indices) == 0:
+                return None  # No center of mass if mask is empty
+
+            # Compute the mean position in voxel space
+            center_voxel = np.mean(indices, axis=0)[::-1]  # Reverse order (Z, Y, X) -> (X, Y, Z)
+
+            # Convert to world coordinates using the corrected direction matrix
+            center_world = np.dot(direction, center_voxel * spacing) + origin
+            return center_world
+
+        # Compute center of mass for each label
+        centers_of_mass = {}
+        for label in range(1, labels):
+            binary_mask = prob_map_all["probabilities"][label]  # Create binary mask for current label
+            binary_mask[binary_mask < binary_mask*0.2] = 0
             center_world = compute_center_of_mass(binary_mask, spacing, origin, direction)
             if center_world is not None:
                 centers_of_mass[label] = center_world
