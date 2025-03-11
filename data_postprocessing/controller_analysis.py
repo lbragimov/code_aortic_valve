@@ -69,6 +69,8 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                         errors_ger_pat.append(dist)
                     else:
                         not_found_ger_pat += 1
+                if len(landmarks_pred.keys()) < 5:
+                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}")
             if file.name[0] == "p":
                 res_test = landmarking_testing()
                 if probabilities_map:
@@ -86,6 +88,8 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                         errors_slo_pat.append(dist)
                     else:
                         not_found_slo_pat += 1
+                if len(landmarks_pred.keys()) < 5:
+                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}")
             if file.name[0] == "n":
                 res_test = landmarking_testing()
                 if probabilities_map:
@@ -103,6 +107,8 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                         errors_slo_norm.append(dist)
                     else:
                         not_found_slo_norm += 1
+                if len(landmarks_pred.keys()) < 5:
+                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}")
 
         mean_error_ger_pat = np.mean(errors_ger_pat) if errors_ger_pat else None
         not_found_ger_pat = (not_found_ger_pat / (num_img_ger_pat * 6)) * 100

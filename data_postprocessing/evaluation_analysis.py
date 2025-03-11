@@ -298,7 +298,7 @@ class landmarking_testing:
         centers_of_mass = {}
         for label in range(1, labels):
             binary_mask = prob_map_all["probabilities"][label]  # Create binary mask for current label
-            binary_mask[binary_mask < binary_mask*0.2] = 0
+            binary_mask[binary_mask < np.max(binary_mask)*0.2] = 0
             center_world = compute_center_of_mass(binary_mask, spacing, origin, direction)
             if center_world is not None:
                 centers_of_mass[label] = center_world
