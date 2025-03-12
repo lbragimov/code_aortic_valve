@@ -45,7 +45,7 @@ def _copy_img(input_imgs_path, output_folder, rename=False):
 
 
 def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
-                   folder_mask_path, dict_dataset, pct_test, test_folder=None, create_ds=False,
+                   folder_mask_path, dict_dataset, pct_test=0.15, num_test=None, test_folder=None, create_ds=False,
                    training_mod=False, testing_mod=False, save_probabilities=False):
 
     folder = Path(folder)
@@ -65,9 +65,13 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
                         list_test_mask.append(folder_mask_path / subfolder.name / case.name)
                 else:
                     file_count = len([f for f in (folder_image_path/subfolder).iterdir()])
+                    if not num_test:
+                        limit_files = file_count - num_test
+                    else:
+                        limit_files = int(file_count * (1.0 - pct_test))
                     n = 0
                     for case in (folder_image_path/subfolder).iterdir():
-                        if int(file_count * (1.0 - pct_test)) >= n:
+                        if limit_files >= n:
                             list_train_case.append(case)
                             list_train_mask.append(folder_mask_path / subfolder.name / case.name)
                         else:

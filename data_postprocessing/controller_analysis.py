@@ -8,8 +8,10 @@ from models.controller_nnUnet import process_nnunet
 
 def experiment(data_path):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
-    list_radius = [10, 9, 8, 7, 6, 5, 4]
-    dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
+    # list_radius = [10, 9, 8, 7, 6, 5, 4]
+    # dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
+    list_radius = [10, 9, 8, 7, 6]
+    dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
     list_result_type = ["binary_map", "probability_map"]
     for radius in list_radius:
         ds_folder_name = f"Dataset{dict_id_case[radius]}_AortaLandmarks"

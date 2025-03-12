@@ -49,6 +49,7 @@ def controller(data_path, cpus):
 
     def _experiment(create_img=False, create_models=False):
         list_radius = [10, 9, 8, 7, 6, 5, 4]
+        list_radius = [10, 9, 8, 7, 6]
         if create_img:
             for radius in list_radius:
                 cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
@@ -87,7 +88,8 @@ def controller(data_path, cpus):
                                       size=global_size)
 
         if create_models:
-            dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
+            # dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
+            dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
             for radius in list_radius:
                 cur_crop_markers_mask_path = os.path.join(data_path, f"crop_markers_mask_{radius}")
                 dict_dataset = {
@@ -106,7 +108,7 @@ def controller(data_path, cpus):
                 process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{dict_id_case[radius]}_AortaLandmarks",
                                id_case=dict_id_case[radius], folder_image_path=crop_nii_image_path,
                                folder_mask_path=cur_crop_markers_mask_path, dict_dataset=dict_dataset,
-                               pct_test=0.15, create_ds=True, training_mod=True)
+                               num_test=15, test_folder="Homburg pathology", create_ds=True, training_mod=True)
 
 
 
@@ -520,7 +522,7 @@ def controller(data_path, cpus):
     # data_path_2 = Path(data_path)
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
-    # _experiment(create_img=True, create_models=True)
+    _experiment(create_img=True, create_models=True)
     experiment(data_path=data_path)
 
     # slices_with_markers(
