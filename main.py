@@ -48,7 +48,7 @@ def controller(data_path, cpus):
                 shutil.rmtree(item)  # Удаляем папку рекурсивно
 
     def _experiment(create_img=False, create_models=False):
-        list_radius = [10, 9, 8, 7, 6, 5, 4]
+        # list_radius = [10, 9, 8, 7, 6, 5, 4]
         list_radius = [10, 9, 8, 7, 6]
         if create_img:
             for radius in list_radius:
@@ -140,7 +140,7 @@ def controller(data_path, cpus):
     else:
         controller_dump = {}
     dir_structure = json_reader(data_structure_path)
-    create_directory_structure(data_path, dir_structure)
+    # create_directory_structure(data_path, dir_structure)
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         for sub_dir in list(dir_structure['dicom']):
@@ -522,7 +522,7 @@ def controller(data_path, cpus):
     # data_path_2 = Path(data_path)
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
-    _experiment(create_img=True, create_models=True)
+    _experiment(create_img=False, create_models=True)
     experiment(data_path=data_path)
 
     # slices_with_markers(
