@@ -9,9 +9,10 @@ from models.controller_nnUnet import process_nnunet
 def experiment(data_path):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     # list_radius = [10, 9, 8, 7, 6, 5, 4]
-    # dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
-    list_radius = [10, 9, 8, 7, 6]
-    dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
+    dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
+    # list_radius = [10, 9, 8, 7, 6]
+    list_radius = [9]
+    # dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
     list_result_type = ["binary_map", "probability_map"]
     for radius in list_radius:
         ds_folder_name = f"Dataset{dict_id_case[radius]}_AortaLandmarks"
@@ -53,6 +54,12 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
         errors_slo_norm = []
         not_found_slo_norm = 0
         num_img_slo_norm = 0
+        r_errors = []
+        l_errors = []
+        n_errors = []
+        rlc_errors = []
+        rnc_errors = []
+        lnc_errors = []
         for file in files:
             if file.name[0] == "H":
                 res_test = landmarking_testing()
@@ -69,6 +76,18 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                     if key in landmarks_pred:
                         dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
                         errors_ger_pat.append(dist)
+                        if key == 1:
+                            r_errors.append(dist)
+                        elif key == 2:
+                            l_errors.append(dist)
+                        elif key == 3:
+                            n_errors.append(dist)
+                        elif key == 4:
+                            rlc_errors.append(dist)
+                        elif key == 5:
+                            rnc_errors.append(dist)
+                        elif key == 6:
+                            lnc_errors.append(dist)
                     else:
                         not_found_ger_pat += 1
                 if len(landmarks_pred.keys()) < 5:
@@ -88,6 +107,18 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                     if key in landmarks_pred:
                         dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
                         errors_slo_pat.append(dist)
+                    if key == 1:
+                        r_errors.append(dist)
+                    elif key == 2:
+                        l_errors.append(dist)
+                    elif key == 3:
+                        n_errors.append(dist)
+                    elif key == 4:
+                        rlc_errors.append(dist)
+                    elif key == 5:
+                        rnc_errors.append(dist)
+                    elif key == 6:
+                        lnc_errors.append(dist)
                     else:
                         not_found_slo_pat += 1
                 if len(landmarks_pred.keys()) < 5:
@@ -107,6 +138,18 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                     if key in landmarks_pred:
                         dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
                         errors_slo_norm.append(dist)
+                        if key == 1:
+                            r_errors.append(dist)
+                        elif key == 2:
+                            l_errors.append(dist)
+                        elif key == 3:
+                            n_errors.append(dist)
+                        elif key == 4:
+                            rlc_errors.append(dist)
+                        elif key == 5:
+                            rnc_errors.append(dist)
+                        elif key == 6:
+                            lnc_errors.append(dist)
                     else:
                         not_found_slo_norm += 1
                 if len(landmarks_pred.keys()) < 5:
@@ -125,6 +168,12 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
         num_img = num_img_ger_pat + num_img_slo_pat + num_img_slo_norm
         not_found = ((not_found_ger_pat + not_found_slo_pat + not_found_slo_norm) / (num_img * 6)) * 100
         # print("finish analysis")
+        mean_r_error = np.mean(r_errors) if r_errors else None
+        mean_l_error = np.mean(l_errors) if l_errors else None
+        mean_n_error = np.mean(n_errors) if n_errors else None
+        mean_rlc_error = np.mean(rlc_errors) if rlc_errors else None
+        mean_rnc_error = np.mean(rnc_errors) if rnc_errors else None
+        mean_lnc_error = np.mean(lnc_errors) if lnc_errors else None
 
         add_info_logging("German pathology")
         add_info_logging(
@@ -138,6 +187,12 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
         add_info_logging("Sum")
         add_info_logging(
             f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%. Number of images:{num_img}")
+        add_info_logging(f"Mean Euclidean Distance 'R' point: {mean_r_error}")
+        add_info_logging(f"Mean Euclidean Distance 'L' point: {mean_l_error}")
+        add_info_logging(f"Mean Euclidean Distance 'N' point: {mean_n_error}")
+        add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}")
+        add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}")
+        add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}")
 
     if find_monte_carlo:
         arr_mean_angles_ger_pat = np.array([]).reshape(0, 3)

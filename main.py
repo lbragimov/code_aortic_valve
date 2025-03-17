@@ -522,7 +522,7 @@ def controller(data_path, cpus):
     # data_path_2 = Path(data_path)
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
-    _experiment(create_img=False, create_models=True)
+    # _experiment(create_img=False, create_models=True)
     experiment(data_path=data_path)
 
     # slices_with_markers(
