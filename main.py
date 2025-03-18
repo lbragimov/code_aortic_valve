@@ -49,7 +49,8 @@ def controller(data_path, cpus):
 
     def _experiment(create_img=False, create_models=False):
         # list_radius = [10, 9, 8, 7, 6, 5, 4]
-        list_radius = [10, 9, 8, 7, 6]
+        # list_radius = [10, 9, 8, 7, 6]
+        list_radius = [7, 6]
         if create_img:
             for radius in list_radius:
                 cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
@@ -465,19 +466,19 @@ def controller(data_path, cpus):
         controller_dump["nnUNet_DS_landmarks"] = True
         yaml_save(controller_dump, controller_path)
 
-    if os.path.exists(nnUNet_DS_aorta_path):
-        if not os.path.isfile(os.path.join(nnUNet_DS_landmarks_path, "dataset.json")):
-            file_count = len([f for f in os.listdir(os.path.join(nnUNet_DS_landmarks_path, "imagesTr"))])
-            generate_dataset_json(nnUNet_DS_landmarks_path,
-                                  channel_names={0: 'CT'},
-                                  labels={'background': 0, 'R': 1, 'L': 2, 'N': 3, 'RLC': 4, 'RNC': 5, 'LNC': 6},
-                                  num_training_cases=file_count,
-                                  file_ending='.nii.gz')
-            controller_dump["nnUNet_DS_json_landmarks"] = True
-            yaml_save(controller_dump, controller_path)
-    else:
-        add_info_logging("No folder to save to dataset.json")
-        return
+        if os.path.exists(nnUNet_DS_aorta_path):
+            if not os.path.isfile(os.path.join(nnUNet_DS_landmarks_path, "dataset.json")):
+                file_count = len([f for f in os.listdir(os.path.join(nnUNet_DS_landmarks_path, "imagesTr"))])
+                generate_dataset_json(nnUNet_DS_landmarks_path,
+                                      channel_names={0: 'CT'},
+                                      labels={'background': 0, 'R': 1, 'L': 2, 'N': 3, 'RLC': 4, 'RNC': 5, 'LNC': 6},
+                                      num_training_cases=file_count,
+                                      file_ending='.nii.gz')
+                controller_dump["nnUNet_DS_json_landmarks"] = True
+                yaml_save(controller_dump, controller_path)
+        else:
+            add_info_logging("No folder to save to dataset.json")
+            return
 
     if not "nnUNet_lmk_ger_sep" in controller_dump.keys() or not controller_dump["nnUNet_lmk_ger_sep"]:
         dict_dataset = {
@@ -522,7 +523,7 @@ def controller(data_path, cpus):
     # data_path_2 = Path(data_path)
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
-    # _experiment(create_img=False, create_models=True)
+    _experiment(create_img=False, create_models=True)
     experiment(data_path=data_path)
 
     # slices_with_markers(

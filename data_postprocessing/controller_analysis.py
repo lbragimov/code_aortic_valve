@@ -10,8 +10,7 @@ def experiment(data_path):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     # list_radius = [10, 9, 8, 7, 6, 5, 4]
     dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
-    # list_radius = [10, 9, 8, 7, 6]
-    list_radius = [9]
+    list_radius = [10, 9, 8, 7, 6]
     # dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
     list_result_type = ["binary_map", "probability_map"]
     for radius in list_radius:
@@ -93,6 +92,8 @@ def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_mon
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}")
             if file.name[0] == "p":
+                # if file.name[1] == "9":
+                #     continue
                 res_test = landmarking_testing()
                 if probabilities_map:
                     file_name = file.name[:-4] + ".nii.gz"
