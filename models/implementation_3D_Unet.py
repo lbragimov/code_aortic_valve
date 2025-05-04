@@ -45,7 +45,7 @@ def compute_per_channel_dice_3D(input, target, epsilon=1e-6, weight=None):
         return transposed.contiguous().view(C, -1)
 
     # input and target shapes must match
-    # add_info_logging(f"Input shape: {input.shape}, Target shape: {target.shape}")
+    # add_info_logging(f"Input shape: {input.shape}, Target shape: {target.shape}", "work_logger")
     assert input.size() == target.size(), "'input' and 'target' must have the same shape"
 
     # Преобразование тензоров
@@ -106,12 +106,12 @@ class DiceLoss(nn.Module):
     #     return 1. - torch.mean(per_channel_dice)
 
     def forward(self, input, target):
-        # add_info_logging(f"Before one-hot: Target shape: {target.shape}")
+        # add_info_logging(f"Before one-hot: Target shape: {target.shape}", "work_logger")
         input = torch.softmax(input, dim=1)  # Softmax для логитов
         target_one_hot = F.one_hot(target, num_classes=input.shape[1])  # Преобразуем target в one-hot
-        # add_info_logging(f"After one-hot: Target one-hot shape: {target_one_hot.shape}")
+        # add_info_logging(f"After one-hot: Target one-hot shape: {target_one_hot.shape}", "work_logger")
         target_one_hot = target_one_hot.permute(0, 4, 1, 2, 3).float()  # Приводим в нужный формат
-        # add_info_logging(f"After one-hot: Target one-hot shape: {target_one_hot.shape}")
+        # add_info_logging(f"After one-hot: Target one-hot shape: {target_one_hot.shape}", "work_logger")
 
         per_channel_dice = compute_per_channel_dice_3D(input, target_one_hot)
         return 1. - torch.mean(per_channel_dice)
@@ -153,7 +153,7 @@ class DoubleConv3D(nn.Module):
         )
 
     def forward(self, x):
-        # add_info_logging(f"Shape of x: {x.shape}")
+        # add_info_logging(f"Shape of x: {x.shape}", "work_logger")
         return self.double_conv(x)
 
 
@@ -309,8 +309,8 @@ class UNet3DTrainer:
 
         for epoch in range(self.epochs):
             torch.cuda.empty_cache()  # 🔹 Освобождаем кеш перед каждой эпохой
-            add_info_logging('Epoch {}/{}'.format(epoch, self.epochs - 1))
-            # add_info_logging('-' * 10)
+            add_info_logging('Epoch {}/{}'.format(epoch, self.epochs - 1), "work_logger")
+            # add_info_logging('-' * 10, "work_logger")
 
             for phase in ['train', 'valid']:
                 if phase == 'train':
@@ -326,9 +326,10 @@ class UNet3DTrainer:
                 for step, (x, y) in enumerate(dataloader):
                     x = x.float()
                     y = y
-                    # add_info_logging(f"Target unique values: {y.unique().tolist()}, num_classes: {self.model.n_classes}")
+                    # add_info_logging(f"Target unique values: {y.unique().tolist()}, num_classes: {self.model.n_classes}",
+                    #                  "work_logger")
                     # Перенос данных на устройство
-                    # add_info_logging(f"Shape of x: {x.shape}")
+                    # add_info_logging(f"Shape of x: {x.shape}", "work_logger")
                     x = x.to(device)
                     y = y.to(device)
 
@@ -345,19 +346,21 @@ class UNet3DTrainer:
                             loss = self.loss_criterion(outputs, y)
 
                     # Вычисление метрик
-                    # add_info_logging(f"outputs shape: {outputs.shape}, y shape: {y.shape}")
+                    # add_info_logging(f"outputs shape: {outputs.shape}, y shape: {y.shape}", "work_logger")
                     acc = self.eval_criterion(outputs, y)
                     running_loss += loss.item() * x.size(0)  # Сумма потерь за батч
                     running_acc += acc.item() * x.size(0)  # Сумма точности за батч
 
                     if step % 5 == 0:
-                        add_info_logging(f'Step {step}: Loss = {loss.item():.4f}, Acc = {acc.item():.4f}')
+                        add_info_logging(f'Step {step}: Loss = {loss.item():.4f}, Acc = {acc.item():.4f}',
+                                         "work_logger")
 
                 # Усреднение статистик за эпоху
                 epoch_loss = running_loss / len(dataloader.dataset)
                 epoch_acc = running_acc / len(dataloader.dataset)
 
-                add_info_logging(f'{phase} Loss: {epoch_loss:.4f}, Acc: {epoch_acc:.4f}')
+                add_info_logging(f'{phase} Loss: {epoch_loss:.4f}, Acc: {epoch_acc:.4f}',
+                                 "work_logger")
 
                 # Сохранение потерь
                 if phase == 'train':
@@ -373,7 +376,8 @@ class UNet3DTrainer:
                     torch.save(self.model.state_dict(), model_file)
 
         time_elapsed = time.time() - start
-        add_info_logging('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+        add_info_logging('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60),
+                         "work_logger")
         torch.save(self.model.state_dict(), model_file + '_final.pth')
 
         return train_loss, valid_loss
@@ -416,12 +420,14 @@ class UNet3DTrainer:
                     mask_path = f"{results_folder}/mask_{case_names[global_count]}.nii.gz"
                     sitk.WriteImage(mask_sitk, mask_path)
 
-                    print(f"Saved results for case: {case_names[global_count]}")  # Логирование
+                    add_info_logging(f"Saved results for case: {case_names[global_count]}",
+                                     "work_logger")  # Логирование
 
                     global_count += 1  # Увеличиваем счётчик
 
         time_elapsed = time.time() - start  # Засекаем время
-        print(f"Testing complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s")
+        add_info_logging(f"Testing complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s",
+                         "work_logger")
 
     def test_framework(self, slices, model_file):
 
@@ -529,11 +535,13 @@ class DatabaseImSegNII(Dataset):
         # img = self.images[idx]
         # mask = self.masks[idx]
         #
-        # # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
+        # # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}",
+        #                    "work_logger")
         # return self.transform(self.images[idx]), torch.tensor(self.masks[idx], dtype=torch.long)
         img = self.images[idx]
         mask = self.masks[idx]
-        # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}")
+        # add_info_logging(f"🔹 Загружено изображение {idx}: img.shape={img.shape} mask.shape={mask.shape}",
+        #                  "work_logger")
 
         # 🔹 Если изображение имеет 3 оси (D, H, W), добавляем ось канала
         if len(img.shape) == 3:

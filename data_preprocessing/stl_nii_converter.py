@@ -12,6 +12,7 @@ from vtkmodules.util.numpy_support import vtk_to_numpy
 import os
 import glob
 import random
+from data_preprocessing.text_worker import add_info_logging
 
 
 
@@ -334,13 +335,13 @@ def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
 
     # Проверка успешной загрузки
     if len(mesh.vertices) == 0 or len(mesh.triangles) == 0:
-        print("Ошибка: файл пустой или не содержит валидных данных.")
+        add_info_logging("Ошибка: файл пустой или не содержит валидных данных.", "work_logger")
         return
 
     # Начальный размер вокселя - меньшая доля от общего размера модели
     initial_voxel_size = (mesh.get_max_bound() - mesh.get_min_bound()).max() / 1000
     voxel_size = initial_voxel_size  # начнем с малого значения
-    print(f"Начальный размер вокселя: {voxel_size}")
+    add_info_logging(f"Начальный размер вокселя: {voxel_size}", "work_logger")
 
     # Итеративное упрощение с кластеризацией вершин
     simplified_mesh = mesh
@@ -349,11 +350,11 @@ def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
         simplified_mesh = mesh.simplify_vertex_clustering(voxel_size=voxel_size)
         voxel_size *= 1.1  # поэтапно увеличиваем размер вокселя
 
-    print(f"Окончательный размер вокселя: {voxel_size}")
+    add_info_logging(f"Окончательный размер вокселя: {voxel_size}", "work_logger")
 
     # Проверка после кластеризации
     if len(simplified_mesh.vertices) == 0 or len(simplified_mesh.triangles) == 0:
-        print("Ошибка: упрощенная модель пуста после кластеризации.")
+        add_info_logging("Ошибка: упрощенная модель пуста после кластеризации.", "work_logger")
         return
 
     # Если все еще больше целевого количества, применяем квадратичное упрощение
@@ -367,9 +368,9 @@ def stl_resample(input_stl_path, output_stl_path, target_vertex_count):
     # Сохранение упрощенной модели
     success = o3d.io.write_triangle_mesh(output_stl_path, simplified_mesh)
     if success:
-        print("Файл успешно сохранен:", output_stl_path)
+        add_info_logging(f"Файл успешно сохранен: {output_stl_path}", "work_logger")
     else:
-        print("Ошибка при сохранении STL-файла.")
+        add_info_logging("Ошибка при сохранении STL-файла.", "work_logger")
 
 
 # def __vtk_image_to_sitk(vtk_image):

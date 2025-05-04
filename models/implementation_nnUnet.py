@@ -28,15 +28,15 @@ class nnUnet_trainer:
 
         # Execute preprocessing
         try:
-            add_info_logging("Starting nnU-Net preprocessing")
+            add_info_logging("Starting nnU-Net preprocessing", "work_logger")
             call(command)
-            add_info_logging("Preprocessing completed successfully")
+            add_info_logging("Preprocessing completed successfully", "work_logger")
         except Exception as e:
-            add_info_logging(f"An error occurred during preprocessing: {e}")
+            add_info_logging(f"An error occurred during preprocessing: {e}", "work_logger")
 
     def train(self, task_id, fold=0, network="3d_fullres"):
 
-        print(torch.device(type='cuda', index=2))
+        add_info_logging(f"{torch.device(type='cuda', index=2)}", "work_logger")
 
         # Define the task ID and fold
         command = [
@@ -55,11 +55,11 @@ class nnUnet_trainer:
 
         # Execute the training
         try:
-            add_info_logging("Starting nnU-Net training")
+            add_info_logging("Starting nnU-Net training", "work_logger")
             call(command)
-            add_info_logging("Training completed successfully")
+            add_info_logging("Training completed successfully", "work_logger")
         except Exception as e:
-            add_info_logging(f"An error occurred during training: {e}")
+            add_info_logging(f"An error occurred during training: {e}", "work_logger")
 
     def predicting(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres",
                    save_probabilities=False):
@@ -77,11 +77,11 @@ class nnUnet_trainer:
 
         # Execute the predicting
         try:
-            add_info_logging("Starting nnU-Net predict")
+            add_info_logging("Starting nnU-Net predict", "work_logger")
             call(command)
-            add_info_logging("Predicting completed successfully")
+            add_info_logging("Predicting completed successfully", "work_logger")
         except Exception as e:
-            add_info_logging(f"An error occurred during predicting: {e}")
+            add_info_logging(f"An error occurred during predicting: {e}", "work_logger")
 
     def evaluation(self, input_folder, output_folder, task_id, fold=0, network="3d_fullres"):
 
@@ -96,11 +96,11 @@ class nnUnet_trainer:
 
         # Execute the predicting
         try:
-            add_info_logging("Starting nnU-Net evaluation")
+            add_info_logging("Starting nnU-Net evaluation", "work_logger")
             call(command)
-            add_info_logging("evaluation completed successfully")
+            add_info_logging("evaluation completed successfully", "work_logger")
         except Exception as e:
-            add_info_logging(f"An error occurred during evaluation: {e}")
+            add_info_logging(f"An error occurred during evaluation: {e}", "work_logger")
 
         # nnUNetv2_evaluate_folder / nnUNet_tests / gt / / nnUNet_tests / predictions / -djfile
         # Dataset300_Aorta / nnUNetTrainer_250epochs__nnUNetPlans__3d_fullres / dataset.json - pfile

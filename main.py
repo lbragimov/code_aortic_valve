@@ -19,7 +19,8 @@ from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 from data_postprocessing.evaluation_analysis import landmarking_testing
-from data_postprocessing.controller_analysis import process_analysis, experiment
+from data_postprocessing.controller_analysis import process_analysis, experiment, aortic_mask_comparison
+from data_postprocessing.plotting_graphs import summarize_and_plot
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 from models.controller_nnUnet import process_nnunet
@@ -38,7 +39,8 @@ def controller(data_path, cpus):
         folder = Path(folder_path)
         if not folder.exists():
             folder.mkdir(parents=True, exist_ok=True)
-            add_info_logging(f"Папка '{folder_path}' не существовала, поэтому была создана.")
+            add_info_logging(f"Папка '{folder_path}' не существовала, поэтому была создана.",
+                             "work_logger")
             return
 
         for item in folder.iterdir():
@@ -75,7 +77,7 @@ def controller(data_path, cpus):
             padding = 10
             # Найти общий bounding box для всех изображений
             global_size = find_global_size(all_image_paths, padding)
-            add_info_logging(f"global size: {global_size}")
+            add_info_logging(f"global size: {global_size}", "work_logger")
 
             for radius in list_radius:
                 cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
@@ -115,6 +117,8 @@ def controller(data_path, cpus):
 
     script_dir = Path(__file__).resolve().parent
 
+    temp_path = os.path.join(data_path, "temp")
+    result_path = os.path.join(data_path, "result")
     dicom_path = os.path.join(data_path, "dicom")
     json_marker_path = os.path.join(data_path, "json_markers_info")
     txt_marker_path = os.path.join(data_path, "markers_info")
@@ -207,7 +211,7 @@ def controller(data_path, cpus):
                 for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
                     image_path = os.path.join(nii_convert_path, sub_dir, case)
                     all_shapes.append(find_shape(image_path, controller_dump["size_or_pixel"]))
-            # add_info_logging(f"all_shapes {set(all_shapes)}")
+            # add_info_logging(f"all_shapes {set(all_shapes)}", "work_logger")
 
             # Extract the first elements of "img_spacing" and store them in a list
             # img_spac_0 = [case['img_spacing'][0] for case in dict_all_case.values()]
@@ -257,7 +261,7 @@ def controller(data_path, cpus):
     #     for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
     #         image_path = os.path.join(nii_resample_path, sub_dir, case)
     #         all_image_paths.append(image_path)
-    # add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}")
+    # add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}", "work_logger")
 
     if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
         for sub_dir in list(dir_structure["markers_info"]):
@@ -297,7 +301,7 @@ def controller(data_path, cpus):
     #     for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
     #         image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
     #         all_image_paths.append(image_path)
-    # add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}")
+    # add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}", "work_logger")
 
     if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
@@ -365,7 +369,7 @@ def controller(data_path, cpus):
             controller_dump["nnUNet_DS_json_aorta"] = True
             yaml_save(controller_dump, controller_path)
     else:
-        add_info_logging("No folder to save to dataset.json")
+        add_info_logging("No folder to save to dataset.json", "work_logger")
         return
 
     # test_case_name = list(dict_all_case.keys())[0]
@@ -377,7 +381,7 @@ def controller(data_path, cpus):
     #     for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
     #         image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
     #         all_image_paths.append(image_path)
-    # add_info_logging(f"mask_aorta_segment_cut {find_shape_2(all_image_paths)}")
+    # add_info_logging(f"mask_aorta_segment_cut {find_shape_2(all_image_paths)}", "work_logger")
 
     if not "crop_images" in controller_dump.keys() or not controller_dump["crop_images"]:
         # Получаем все пути к изображениям в папке mask_aorta_segment_cut
@@ -411,14 +415,14 @@ def controller(data_path, cpus):
     #     for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
     #         image_path = os.path.join(crop_nii_image_path, sub_dir, case)
     #         all_image_paths.append(image_path)
-    # add_info_logging(f"crop_nii_image {find_shape_2(all_image_paths)}")
+    # add_info_logging(f"crop_nii_image {find_shape_2(all_image_paths)}", "work_logger")
     #
     # all_image_paths = []
     # for sub_dir in dir_structure["crop_markers_mask"]:
     #     for case in os.listdir(os.path.join(crop_markers_mask_path, sub_dir)):
     #         image_path = os.path.join(crop_markers_mask_path, sub_dir, case)
     #         all_image_paths.append(image_path)
-    # add_info_logging(f"crop_markers_mask {find_shape_2(all_image_paths)}")
+    # add_info_logging(f"crop_markers_mask {find_shape_2(all_image_paths)}", "work_logger")
 
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):
@@ -477,7 +481,7 @@ def controller(data_path, cpus):
                 controller_dump["nnUNet_DS_json_landmarks"] = True
                 yaml_save(controller_dump, controller_path)
         else:
-            add_info_logging("No folder to save to dataset.json")
+            add_info_logging("No folder to save to dataset.json", "work_logger")
             return
 
     if not "nnUNet_lmk_ger_sep" in controller_dump.keys() or not controller_dump["nnUNet_lmk_ger_sep"]:
@@ -523,8 +527,12 @@ def controller(data_path, cpus):
     # data_path_2 = Path(data_path)
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
-    _experiment(create_img=False, create_models=True)
-    experiment(data_path=data_path)
+    if not controller_dump["experiment"]:
+        _experiment(create_img=False, create_models=True)
+        experiment(data_path=data_path)
+
+    metrics = aortic_mask_comparison(data_path, type_mask="aortic_valve")
+    summarize_and_plot(metrics, result_path)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
@@ -555,8 +563,34 @@ if __name__ == "__main__":
     if data_path:
         free_cpus = get_free_cpus()
         current_time = datetime.now()
-        filename = current_time.strftime("log_%Y_%m_%d_%H_%M.log")
-        log_path = os.path.join(data_path, filename)
+        log_file_name = current_time.strftime("log_%H_%M__%d_%m_%Y.log")
+        log_path = os.path.join(data_path, log_file_name)
         logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
+        result_file_name = current_time.strftime("result_%H_%M__%d_%m_%Y.log")
+        result_path = os.path.join(data_path, result_file_name)
+        logging.basicConfig(level=logging.INFO, filename=result_path, filemode="w")
+
+        # Логгер для хода программы
+        log_file_name = current_time.strftime("log_%H_%M__%d_%m_%Y.log")
+        work_log_path = os.path.join(data_path, log_file_name)
+        work_logger = logging.getLogger("work_logger")
+        work_logger.setLevel(logging.INFO)
+        work_handler = logging.FileHandler(work_log_path, mode='w')
+        work_handler.setFormatter(logging.Formatter('%(message)s'))
+        work_logger.addHandler(work_handler)
+
+        # Логгер для результатов
+        result_file_name = current_time.strftime("result_%H_%M__%d_%m_%Y.log")
+        result_log_path = os.path.join(data_path, result_file_name)
+        result_logger = logging.getLogger("result_logger")
+        result_logger.setLevel(logging.INFO)
+        result_handler = logging.FileHandler(result_log_path, mode='w')
+        result_handler.setFormatter(logging.Formatter('%(message)s'))  # без времени
+        result_logger.addHandler(result_handler)
+
+        # Очистим базовые хендлеры у root-логгера (если есть)
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+
         controller(data_path, cpus=free_cpus)
 

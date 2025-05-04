@@ -5,10 +5,15 @@ import logging
 from datetime import datetime
 
 
-def add_info_logging(text_info):
+def add_info_logging(text_info, type_logger="work_logger"):
     current_time = datetime.now()
-    str_time = current_time.strftime("%d:%H:%M")
-    logging.info(f"time:  {str_time} {text_info}")
+    str_time = current_time.strftime("%H:%M")
+    if type_logger == "work_logger":
+        logger = logging.getLogger("work_logger")
+        logger.info(f"time:  {str_time} {text_info}")
+    elif type_logger == "result_logger":
+        logger = logging.getLogger("result_logger")
+        logger.info(f"time:  {str_time} {text_info}")
 
 
 def json_reader(path):

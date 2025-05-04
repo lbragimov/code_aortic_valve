@@ -3,6 +3,8 @@ import numpy as np
 import SimpleITK as sitk
 import json
 from scipy.ndimage import center_of_mass
+from sklearn.metrics import jaccard_score, f1_score
+from typing import Literal, Tuple
 from data_preprocessing.text_worker import add_info_logging
 
 
@@ -148,8 +150,8 @@ class landmarking_MonteCarlo:
             pass
         pass
 
-        # add_info_logging(f"angles = '{np.mean(statistics_angles, axis=0)}'")
-        # add_info_logging(f"distances = '{np.mean(statistics_dists, axis=0)}'")
+        # add_info_logging(f"angles = '{np.mean(statistics_angles, axis=0)}'", "result_logger")
+        # add_info_logging(f"distances = '{np.mean(statistics_dists, axis=0)}'", "result_logger")
         return np.mean(statistics_angles, axis=0), np.mean(statistics_dists, axis=0)
 
 # simulation = landmarking_testSimualtion(heart_nnUnet + '/Landmarking/temp/result/HOM_M32_H185_W90_YA.nii.gz', heart_nnUnet + '/Landmarking/temp/result/HOM_M32_H185_W90_YA.npz', heart_nnUnet + '/Landmarking/temp/temp1/')
@@ -358,3 +360,62 @@ class landmarking_locked:
             results.append(measurement * weight)
 
         return results
+
+
+def evaluate_segmentation(true_mask: np.ndarray, pred_mask: np.ndarray, num_classes: int = 1,
+                          average: Literal['macro', 'weighted'] = 'macro'):
+    """
+    Вычисляет Dice и IoU между масками.
+
+    Parameters:
+        true_mask (np.ndarray): Ground truth маска (2D или 3D).
+        pred_mask (np.ndarray): Предсказанная маска (2D или 3D).
+        num_classes (int): Количество классов. Если 1 — бинарная сегментация.
+        average (str): Способ усреднения ('macro' или 'weighted').
+
+    Returns:
+        dict: {'Dice': ..., 'IoU': ...}
+    """
+    true_flat = true_mask.flatten()
+    pred_flat = pred_mask.flatten()
+
+    if num_classes == 1:
+        dice = f1_score(true_flat, pred_flat)
+        iou = jaccard_score(true_flat, pred_flat)
+    else:
+        dice = f1_score(true_flat, pred_flat, average=average, labels=range(num_classes))
+        iou = jaccard_score(true_flat, pred_flat, average=average, labels=range(num_classes))
+
+    return {
+        'Dice': dice,
+        'IoU': iou
+    }
+
+
+def hausdorff_distance_sitk(mask1: np.ndarray, mask2: np.ndarray,
+                            spacing: Tuple[float, float, float] = (1.0, 1.0, 1.0)):
+    """
+    Вычисляет Hausdorff и HD95 расстояния между двумя 3D масками с учетом физического размера вокселя.
+
+    Parameters:
+        mask1 (np.ndarray): Ground truth бинарная 3D маска.
+        mask2 (np.ndarray): Предсказанная бинарная 3D маска.
+        spacing (tuple): Физический размер вокселя (мм), по осям (z, y, x).
+
+    Returns:
+        dict: {'Hausdorff': ..., 'HD95': ...}
+    """
+    mask1_itk = sitk.GetImageFromArray(mask1.astype(np.uint8))
+    mask2_itk = sitk.GetImageFromArray(mask2.astype(np.uint8))
+
+    mask1_itk.SetSpacing(spacing)
+    mask2_itk.SetSpacing(spacing)
+
+    hd_filter = sitk.HausdorffDistanceImageFilter()
+    hd_filter.Execute(mask1_itk, mask2_itk)
+
+    return {
+        'Hausdorff': hd_filter.GetHausdorffDistance(),
+        'HD95': hd_filter.Get95PercentHausdorffDistance()
+    }
+

@@ -10,3 +10,4 @@ nnUNet_DS_landmarks: true
 nnUNet_lmk_ger_sep: true
 resample: true
 size_or_pixel: none
+experiment: true

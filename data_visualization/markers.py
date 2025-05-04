@@ -2,6 +2,7 @@ import numpy as np
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 from pathlib import Path
+from data_preprocessing.text_worker import add_info_logging
 
 
 def _load_image(image_path):
@@ -67,7 +68,8 @@ def process_markers(image_path, dict_case, output_path, radius, keys_to_need=Non
 
         # Проверка на выход за границы
         if not all(0 <= voxel_coord[d] < shape[d] for d in range(3)):
-            print(f"Точка {coord} (воксельные координаты {voxel_coord}) вне объёма изображения.")
+            add_info_logging(f"Точка {coord} (воксельные координаты {voxel_coord}) вне объёма изображения.",
+                             "work_logger")
             continue
 
         # Создаём сферу и добавляем её в маску
@@ -127,7 +129,6 @@ def _extract_and_plot_slices(image, voxel_coords):
 
         plt.suptitle(f'Landmark {idx + 1}')
         plt.show()
-        print('hi')
 
 
 def _extract_and_save_slices(image, voxel_coords, save_path):
