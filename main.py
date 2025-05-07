@@ -19,7 +19,7 @@ from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 from data_postprocessing.evaluation_analysis import landmarking_testing
-from data_postprocessing.controller_analysis import process_analysis, experiment, aortic_mask_comparison
+from data_postprocessing.controller_analysis import process_analysis, experiment_analysis, mask_analysis
 from data_postprocessing.plotting_graphs import summarize_and_plot
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
@@ -49,7 +49,7 @@ def controller(data_path, cpus):
             elif item.is_dir():
                 shutil.rmtree(item)  # Удаляем папку рекурсивно
 
-    def _experiment(create_img=False, create_models=False):
+    def _experiment_training(create_img=False, create_models=False):
         # list_radius = [10, 9, 8, 7, 6, 5, 4]
         # list_radius = [10, 9, 8, 7, 6]
         list_radius = [7, 6]
@@ -528,11 +528,11 @@ def controller(data_path, cpus):
     # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
     if not controller_dump["experiment"]:
-        _experiment(create_img=False, create_models=True)
-        experiment(data_path=data_path)
+        _experiment_training(create_img=False, create_models=True)
+        experiment_analysis(data_path=data_path)
 
-    metrics = aortic_mask_comparison(data_path, type_mask="aortic_valve")
-    summarize_and_plot(metrics, result_path)
+    if not controller_dump["aorta_mask_analysis"]:
+        mask_analysis(data_path, result_path, type_mask="aortic_valve")
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',

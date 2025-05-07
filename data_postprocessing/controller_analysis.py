@@ -3,56 +3,21 @@ import numpy as np
 import nibabel as nib
 from pathlib import Path
 from data_postprocessing.evaluation_analysis import landmarking_testing, landmarking_MonteCarlo, evaluate_segmentation
+from data_postprocessing.mask_analysis import mask_comparison
+from data_postprocessing.plotting_graphs import summarize_and_plot
 from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
 
 
-def aortic_mask_comparison(data_path, type_mask):
-    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
-    if type_mask == "aortic_valve":
-        result_mask_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset401_AorticValve")
-        original_mask_folder = os.path.join(nnUNet_folder, "original_mask", "Dataset401_AorticValve")
-    elif type_mask == "aoric_landmarks":
-        result_mask_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset401_AorticValve")
-        original_mask_folder = os.path.join(nnUNet_folder, "original_mask", "Dataset401_AorticValve")
-
-    dice_scores = []
-    iou_scores = []
-
-    for case in os.listdir(result_mask_folder):
-        if not case.endswith(".nii.gz"):
-            continue
-        case_name = case[:-7]
-        result_mask_path = os.path.join(result_mask_folder, case)
-        original_mask_path = os.path.join(original_mask_folder, f"{case_name}.nii.gz")
-
-        if not os.path.exists(original_mask_path):
-            add_info_logging(f"⚠️ Пропущен {case_name} — нет оригинальной маски", "work_logger")
-            continue
-
-        result_mask = nib.load(result_mask_path).get_fdata()
-        mask_img = nib.load(original_mask_path).get_fdata()
-
-        if result_mask.shape != mask_img.shape:
-            add_info_logging(f"❌ Размеры не совпадают в кейсе: {case_name}", "work_logger")
-            add_info_logging(f"   → result_mask shape:  {result_mask.shape}", "work_logger")
-            add_info_logging(f"   → original_mask shape:{mask_img.shape}", "work_logger")
-            continue  # пропустить
-
-        try:
-            metrics = evaluate_segmentation(mask_img, result_mask)
-            dice_scores.append(metrics["Dice"])
-            iou_scores.append(metrics["IoU"])
-        except Exception as e:
-            add_info_logging(f"❗ Ошибка при сравнении {case_name}: {str(e)}", "work_logger")
-
-    return {
-        "Dice": dice_scores,
-        "IoU": iou_scores
-    }
+def mask_analysis(data_path, result_path, type_mask):
+    metrics = mask_comparison(data_path, type_mask=type_mask)
+    summarize_and_plot(metrics, result_path)
 
 
-def experiment(data_path):
+def experiment_analysis(data_path,
+                        generate_result=False,
+                        find_center_mass=False,
+                        find_monte_carlo=False):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     # list_radius = [10, 9, 8, 7, 6, 5, 4]
     dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
@@ -66,18 +31,25 @@ def experiment(data_path):
                 save_probabilities = True
             else:
                 save_probabilities = False
-            process_nnunet(folder=nnUNet_folder, ds_folder_name=ds_folder_name,
-                           id_case=dict_id_case[radius], folder_image_path=None, folder_mask_path=None, dict_dataset={},
-                           pct_test=None, testing_mod=True, save_probabilities=save_probabilities)
-            add_info_logging(f"radius: {radius}, type predicting: {type_map}", "result_logger")
-            process_analysis(data_path, ds_folder_name, find_center_mass=True, probabilities_map=save_probabilities)
+            if generate_result:
+                process_nnunet(folder=nnUNet_folder, ds_folder_name=ds_folder_name,
+                               id_case=dict_id_case[radius], folder_image_path=None, folder_mask_path=None, dict_dataset={},
+                               pct_test=None, testing_mod=True, save_probabilities=save_probabilities)
+                add_info_logging(f"radius: {radius}, type predicting: {type_map}", "result_logger")
+            process_analysis(data_path, ds_folder_name,
+                             find_center_mass=find_center_mass,
+                             find_monte_carlo=find_monte_carlo,
+                             probabilities_map=save_probabilities)
             # data_path = Path(data_path)
             # result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
             # original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
             # json_path = data_path / "nnUNet_folder" / "json_info"
 
 
-def process_analysis(data_path, ds_folder_name, find_center_mass=False, find_monte_carlo=False, probabilities_map=False):
+def process_analysis(data_path, ds_folder_name,
+                     find_center_mass=False,
+                     find_monte_carlo=False,
+                     probabilities_map=False):
     # add_info_logging("start analysis", "work_logger")
     data_path = Path(data_path)
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
