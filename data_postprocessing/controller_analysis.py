@@ -2,8 +2,9 @@ import os
 import numpy as np
 import nibabel as nib
 from pathlib import Path
-from data_postprocessing.evaluation_analysis import landmarking_testing, landmarking_MonteCarlo, evaluate_segmentation
-from data_postprocessing.mask_analysis import mask_comparison
+from data_postprocessing.evaluation_analysis import evaluate_segmentation
+from data_postprocessing.montecarlo import LandmarkingMonteCarlo
+from data_postprocessing.mask_analysis import mask_comparison, LandmarkCentersCalculator
 from data_postprocessing.plotting_graphs import summarize_and_plot
 from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
@@ -15,17 +16,14 @@ def mask_analysis(data_path, result_path, type_mask):
 
 
 def experiment_analysis(data_path,
+                        dict_case,
                         generate_result=False,
                         find_center_mass=False,
                         find_monte_carlo=False):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
-    # list_radius = [10, 9, 8, 7, 6, 5, 4]
-    dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
-    list_radius = [10, 9, 8, 7, 6]
-    # dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
     list_result_type = ["binary_map", "probability_map"]
-    for radius in list_radius:
-        ds_folder_name = f"Dataset{dict_id_case[radius]}_AortaLandmarks"
+    for radius, case_name in dict_case.items():
+        ds_folder_name = f"Dataset{case_name}_AortaLandmarks"
         for type_map in list_result_type:
             if type_map == "probability_map":
                 save_probabilities = True
@@ -33,7 +31,7 @@ def experiment_analysis(data_path,
                 save_probabilities = False
             if generate_result:
                 process_nnunet(folder=nnUNet_folder, ds_folder_name=ds_folder_name,
-                               id_case=dict_id_case[radius], folder_image_path=None, folder_mask_path=None, dict_dataset={},
+                               id_case=case_name, folder_image_path=None, folder_mask_path=None, dict_dataset={},
                                pct_test=None, testing_mod=True, save_probabilities=save_probabilities)
                 add_info_logging(f"radius: {radius}, type predicting: {type_map}", "result_logger")
             process_analysis(data_path, ds_folder_name,
@@ -78,7 +76,7 @@ def process_analysis(data_path, ds_folder_name,
         lnc_errors = []
         for file in files:
             if file.name[0] == "H":
-                res_test = landmarking_testing()
+                res_test = LandmarkCentersCalculator()
                 if probabilities_map:
                     file_name = file.name[:-4] + ".nii.gz"
                     landmarks_pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
@@ -112,7 +110,7 @@ def process_analysis(data_path, ds_folder_name,
             if file.name[0] == "p":
                 # if file.name[1] == "9":
                 #     continue
-                res_test = landmarking_testing()
+                res_test = LandmarkCentersCalculator()
                 if probabilities_map:
                     file_name = file.name[:-4] + ".nii.gz"
                     landmarks_pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
@@ -144,7 +142,7 @@ def process_analysis(data_path, ds_folder_name,
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
             if file.name[0] == "n":
-                res_test = landmarking_testing()
+                res_test = LandmarkCentersCalculator()
                 if probabilities_map:
                     file_name = file.name[:-4] + ".nii.gz"
                     landmarks_pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
@@ -229,21 +227,21 @@ def process_analysis(data_path, ds_folder_name,
         files = list(result_landmarks_folder.glob("*.npz"))
         for file in files:
             if file.name[0] == "H":
-                simulation = landmarking_MonteCarlo(json_file=str(json_path/file.name[:-4]) + ".json",
+                simulation = LandmarkingMonteCarlo(json_file=str(json_path/file.name[:-4]) + ".json",
                                                     nii_file=str(result_landmarks_folder/file.name[:-4]) + ".nii.gz" ,
                                                     npy_file=str(file))
                 cur_angles, cur_dists =  simulation.run_simulation()
                 arr_mean_angles_ger_pat = np.vstack([arr_mean_angles_ger_pat, cur_angles])
                 arr_mean_dists_ger_pat = np.vstack([arr_mean_dists_ger_pat, cur_dists])
             if file.name[0] == "p":
-                simulation = landmarking_MonteCarlo(json_file=str(json_path / file.name[:-4]) + ".json",
+                simulation = LandmarkingMonteCarlo(json_file=str(json_path / file.name[:-4]) + ".json",
                                                     nii_file=str(result_landmarks_folder / file.name[:-4]) + ".nii.gz",
                                                     npy_file=str(file))
                 cur_angles, cur_dists = simulation.run_simulation()
                 arr_mean_angles_slo_pat = np.vstack([arr_mean_angles_slo_pat, cur_angles])
                 arr_mean_dists_slo_pat = np.vstack([arr_mean_dists_slo_pat, cur_dists])
             if file.name[0] == "n":
-                simulation = landmarking_MonteCarlo(json_file=str(json_path / file.name[:-4]) + ".json",
+                simulation = LandmarkingMonteCarlo(json_file=str(json_path / file.name[:-4]) + ".json",
                                                     nii_file=str(result_landmarks_folder / file.name[:-4]) + ".nii.gz",
                                                     npy_file=str(file))
                 cur_angles, cur_dists = simulation.run_simulation()

@@ -529,7 +529,8 @@ def controller(data_path, cpus):
 
     if not controller_dump["experiment"]:
         _experiment_training(create_img=False, create_models=True)
-        experiment_analysis(data_path=data_path)
+        experiment_analysis(data_path=data_path,
+                            dict_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494})
 
     if not controller_dump["aorta_mask_analysis"]:
         mask_analysis(data_path, result_path, type_mask="aortic_valve")

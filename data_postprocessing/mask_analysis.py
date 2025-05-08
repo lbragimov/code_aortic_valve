@@ -1,5 +1,7 @@
 import os
 import nibabel as nib
+import numpy as np
+import SimpleITK as sitk
 from data_postprocessing.evaluation_analysis import  evaluate_segmentation
 from data_preprocessing.text_worker import add_info_logging
 
@@ -47,3 +49,71 @@ def mask_comparison(data_path, type_mask, folder_name):
         "Dice": dice_scores,
         "IoU": iou_scores
     }
+
+
+class LandmarkCentersCalculator:
+
+    def compute_center_of_mass(self, binary_mask, spacing, origin, direction):
+        # Function to compute center of mass in world coordinates
+        indices = np.argwhere(binary_mask)  # Get voxel indices of the mask
+        if len(indices) == 0:
+            return None  # No center of mass if mask is empty
+
+        # Compute the mean position in voxel space
+        center_voxel = np.mean(indices, axis=0)[::-1]  # Reverse order (Z, Y, X) -> (X, Y, Z)
+
+        # Convert to world coordinates using the corrected direction matrix
+        center_world = np.dot(direction, center_voxel * spacing) + origin
+        return center_world
+
+    def compute_metrics_direct_nii(self, mask_nii):
+        mask_image = sitk.ReadImage(mask_nii)
+        mask_array = sitk.GetArrayFromImage(mask_image)  # Convert to NumPy array
+
+        # Get image metadata
+        spacing = np.array(mask_image.GetSpacing())  # (x, y, z) voxel size
+        origin = np.array(mask_image.GetOrigin())  # World coordinate of (0,0,0)
+        direction = np.array(mask_image.GetDirection()).reshape(3, 3)  # Reshape to 3x3 matrix
+
+        # Find unique labels (excluding background 0)
+        labels = np.unique(mask_array)
+        labels = labels[labels != 0]  # Remove background if label 0 exists
+
+        # Compute center of mass for each label
+        centers_of_mass = {}
+        for label in labels:
+            binary_mask = (mask_array == label)  # Create binary mask for current label
+            center_world = self.compute_center_of_mass(binary_mask, spacing, origin, direction)
+            if center_world is not None:
+                centers_of_mass[label] = center_world
+
+        # R_land, L_land, N_land, RLC_land, RNC_land, LNC_land
+        # measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
+        #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
+        # metrics = measurerer.compute_metrics()
+        return centers_of_mass
+
+    def compute_metrics_direct_npz(self, mask_nii, mask_npz):
+        # Get image metadata
+        mask_image = sitk.ReadImage(mask_nii)
+        spacing = np.array(mask_image.GetSpacing())  # (x, y, z) voxel size
+        origin = np.array(mask_image.GetOrigin())  # World coordinate of (0,0,0)
+        direction = np.array(mask_image.GetDirection()).reshape(3, 3)  # Reshape to 3x3 matrix
+
+        prob_map_all = np.load(mask_npz)
+        labels = len(prob_map_all["probabilities"])
+
+        # Compute center of mass for each label
+        centers_of_mass = {}
+        for label in range(1, labels):
+            binary_mask = prob_map_all["probabilities"][label]  # Create binary mask for current label
+            binary_mask[binary_mask < np.max(binary_mask)*0.2] = 0
+            center_world = self.compute_center_of_mass(binary_mask, spacing, origin, direction)
+            if center_world is not None:
+                centers_of_mass[label] = center_world
+
+        # R_land, L_land, N_land, RLC_land, RNC_land, LNC_land
+        # measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
+        #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
+        # metrics = measurerer.compute_metrics()
+        return centers_of_mass
