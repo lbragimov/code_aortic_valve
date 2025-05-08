@@ -48,6 +48,41 @@ def process_analysis(data_path, ds_folder_name,
                      find_center_mass=False,
                      find_monte_carlo=False,
                      probabilities_map=False):
+
+    def process_file(file, original_mask_folder, probabilities_map):
+        res_test = LandmarkCentersCalculator()
+        if probabilities_map:
+            file_name = file.name[:-4] + ".nii.gz"
+            pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
+            true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
+        else:
+            pred = res_test.compute_metrics_direct_nii(file)
+            true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
+        return true, pred
+
+    def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc):
+        # Вычисляем среднюю ошибку
+        not_found = 0
+        for key in true:
+            if key in pred:
+                dist = np.linalg.norm(true[key] - pred[key]) # Евклидово расстояние
+                error_list.append(dist)
+                if key == 1:
+                    r.append(dist)
+                elif key == 2:
+                    l.append(dist)
+                elif key == 3:
+                    n.append(dist)
+                elif key == 4:
+                    rlc.append(dist)
+                elif key == 5:
+                    rnc.append(dist)
+                elif key == 6:
+                    lnc.append(dist)
+            else:
+                not_found += 1
+        return not_found
+
     # add_info_logging("start analysis", "work_logger")
     data_path = Path(data_path)
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
@@ -75,101 +110,30 @@ def process_analysis(data_path, ds_folder_name,
         rnc_errors = []
         lnc_errors = []
         for file in files:
-            if file.name[0] == "H":
-                res_test = LandmarkCentersCalculator()
-                if probabilities_map:
-                    file_name = file.name[:-4] + ".nii.gz"
-                    landmarks_pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
-                    landmarks_true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
-                else:
-                    landmarks_pred = res_test.compute_metrics_direct_nii(file)
-                    landmarks_true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
+            first_char = file.name[0]
+            if first_char == "H":
+                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_ger_pat += 1
-                # Вычисляем среднюю ошибку
-                for key in landmarks_true:
-                    if key in landmarks_pred:
-                        dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
-                        errors_ger_pat.append(dist)
-                        if key == 1:
-                            r_errors.append(dist)
-                        elif key == 2:
-                            l_errors.append(dist)
-                        elif key == 3:
-                            n_errors.append(dist)
-                        elif key == 4:
-                            rlc_errors.append(dist)
-                        elif key == 5:
-                            rnc_errors.append(dist)
-                        elif key == 6:
-                            lnc_errors.append(dist)
-                    else:
-                        not_found_ger_pat += 1
+                not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
-            if file.name[0] == "p":
+            if first_char == "p":
                 # if file.name[1] == "9":
                 #     continue
-                res_test = LandmarkCentersCalculator()
-                if probabilities_map:
-                    file_name = file.name[:-4] + ".nii.gz"
-                    landmarks_pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
-                    landmarks_true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
-                else:
-                    landmarks_pred = res_test.compute_metrics_direct_nii(file)
-                    landmarks_true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
+                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_pat += 1
-                # Вычисляем среднюю ошибку
-                for key in landmarks_true:
-                    if key in landmarks_pred:
-                        dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
-                        errors_slo_pat.append(dist)
-                    if key == 1:
-                        r_errors.append(dist)
-                    elif key == 2:
-                        l_errors.append(dist)
-                    elif key == 3:
-                        n_errors.append(dist)
-                    elif key == 4:
-                        rlc_errors.append(dist)
-                    elif key == 5:
-                        rnc_errors.append(dist)
-                    elif key == 6:
-                        lnc_errors.append(dist)
-                    else:
-                        not_found_slo_pat += 1
+                not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
-            if file.name[0] == "n":
-                res_test = LandmarkCentersCalculator()
-                if probabilities_map:
-                    file_name = file.name[:-4] + ".nii.gz"
-                    landmarks_pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
-                    landmarks_true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
-                else:
-                    landmarks_pred = res_test.compute_metrics_direct_nii(file)
-                    landmarks_true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
+            if first_char == "n":
+                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_norm += 1
-                # Вычисляем среднюю ошибку
-                for key in landmarks_true:
-                    if key in landmarks_pred:
-                        dist = np.linalg.norm(landmarks_true[key] - landmarks_pred[key])  # Евклидово расстояние
-                        errors_slo_norm.append(dist)
-                        if key == 1:
-                            r_errors.append(dist)
-                        elif key == 2:
-                            l_errors.append(dist)
-                        elif key == 3:
-                            n_errors.append(dist)
-                        elif key == 4:
-                            rlc_errors.append(dist)
-                        elif key == 5:
-                            rnc_errors.append(dist)
-                        elif key == 6:
-                            lnc_errors.append(dist)
-                    else:
-                        not_found_slo_norm += 1
+                not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
