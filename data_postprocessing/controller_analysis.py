@@ -1,18 +1,38 @@
 import os
 import numpy as np
+import pandas as pd
 import nibabel as nib
 from pathlib import Path
 from data_postprocessing.evaluation_analysis import evaluate_segmentation
 from data_postprocessing.montecarlo import LandmarkingMonteCarlo
 from data_postprocessing.mask_analysis import mask_comparison, LandmarkCentersCalculator
-from data_postprocessing.plotting_graphs import summarize_and_plot
+from data_postprocessing.plotting_graphs import summarize_and_plot, plot_group_comparison
 from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
 
 
 def mask_analysis(data_path, result_path, type_mask):
-    metrics = mask_comparison(data_path, type_mask=type_mask)
-    summarize_and_plot(metrics, result_path)
+    metrics_by_group, per_case_data = mask_comparison(data_path, type_mask=type_mask)
+    for group, metrics in metrics_by_group.items():
+        save_subdir = os.path.join(result_path, f"group_{group}")
+        summarize_and_plot(metrics, save_subdir)
+    # summarize_and_plot(metrics, result_path)
+    # Сохраняем CSV по кейсам
+    df = pd.DataFrame(per_case_data)
+    df.to_csv(os.path.join(result_path, "per_case_metrics.csv"), index=False)
+
+    # Сохраняем агрегированные данные
+    summary = []
+    for group, metrics in metrics_by_group.items():
+        for metric_name, values in metrics.items():
+            mean = np.nanmean(values)
+            std = np.nanstd(values)
+            summary.append({"Group": group, "Metric": metric_name, "Mean": mean, "Std": std})
+    df_summary = pd.DataFrame(summary)
+    df_summary.to_csv(os.path.join(result_path, "aggregated_metrics.csv"), index=False)
+
+    # Рисуем сравнение групп
+    plot_group_comparison(metrics_by_group, os.path.join(result_path, "group_comparison"))
 
 
 def experiment_analysis(data_path,

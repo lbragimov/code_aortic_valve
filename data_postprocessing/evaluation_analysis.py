@@ -2,6 +2,7 @@ import numpy as np
 import SimpleITK as sitk
 from sklearn.metrics import jaccard_score, f1_score
 from typing import Literal, Tuple
+from medpy.metric.binary import hd, assd
 
 
 class landmarking_locked:
@@ -72,17 +73,38 @@ def evaluate_segmentation(true_mask: np.ndarray, pred_mask: np.ndarray, num_clas
     true_flat = true_mask.flatten()
     pred_flat = pred_mask.flatten()
 
+    metrics = {}
+
     if num_classes == 1:
         dice = f1_score(true_flat, pred_flat)
         iou = jaccard_score(true_flat, pred_flat)
+
+        metrics["Dice"] = dice
+        metrics["IoU"] = iou
+
+        try:
+            # Преобразуем в бинарные маски
+            true_bin = (true_mask > 0).astype(np.bool_)
+            pred_bin = (pred_mask > 0).astype(np.bool_)
+
+            if np.count_nonzero(true_bin) == 0 or np.count_nonzero(pred_bin) == 0:
+                metrics["HD"] = np.nan
+                metrics["ASSD"] = np.nan
+            else:
+                metrics["HD"] = hd(pred_bin, true_bin)
+                metrics["ASSD"] = assd(pred_bin, true_bin)
+        except Exception as e:
+            metrics["HD"] = np.nan
+            metrics["ASSD"] = np.nan
     else:
         dice = f1_score(true_flat, pred_flat, average=average, labels=range(num_classes))
         iou = jaccard_score(true_flat, pred_flat, average=average, labels=range(num_classes))
+        metrics["Dice"] = dice
+        metrics["IoU"] = iou
+        metrics["HD"] = np.nan  # многоклассовую HD/ASSD сложнее интерпретировать
+        metrics["ASSD"] = np.nan
 
-    return {
-        'Dice': dice,
-        'IoU': iou
-    }
+    return metrics
 
 
 def hausdorff_distance_sitk(mask1: np.ndarray, mask2: np.ndarray,
