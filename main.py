@@ -525,9 +525,9 @@ def controller(data_path, cpus):
     #                folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=None,
     #                testing_mod=True, save_probabilities=True)
     #
-    ds_folder_name = "Dataset404_AortaLandmarks"
-    data_path_2 = Path(data_path)
-    process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
+    # ds_folder_name = "Dataset404_AortaLandmarks"
+    # data_path_2 = Path(data_path)
+    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
     if not controller_dump["experiment"]:
         _experiment_training(create_img=False, create_models=True)
