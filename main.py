@@ -18,7 +18,7 @@ from data_preprocessing.check_structure import create_directory_structure, colle
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
-from data_postprocessing.evaluation_analysis import landmarking_testing
+# from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import process_analysis, experiment_analysis, mask_analysis
 from data_postprocessing.plotting_graphs import summarize_and_plot
 from models.implementation_nnUnet import nnUnet_trainer
@@ -118,6 +118,8 @@ def controller(data_path, cpus):
     script_dir = Path(__file__).resolve().parent
 
     temp_path = os.path.join(data_path, "temp")
+    # temp = np.load(os.path.join(temp_path, "p9.npz"))
+
     result_path = os.path.join(data_path, "result")
     dicom_path = os.path.join(data_path, "dicom")
     json_marker_path = os.path.join(data_path, "json_markers_info")
@@ -523,9 +525,9 @@ def controller(data_path, cpus):
     #                folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=None,
     #                testing_mod=True, save_probabilities=True)
     #
-    # ds_folder_name = "Dataset404_AortaLandmarks"
-    # data_path_2 = Path(data_path)
-    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
+    ds_folder_name = "Dataset404_AortaLandmarks"
+    data_path_2 = Path(data_path)
+    process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
 
     if not controller_dump["experiment"]:
         _experiment_training(create_img=False, create_models=True)

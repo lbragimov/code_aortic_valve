@@ -98,6 +98,68 @@ class LandmarkingMonteCarlo:
 
         return angle_degrees
 
+    def simulate_distances_between_pairs(self):
+        statistics_dists = []
+
+        for t in range(0, self.N_land):
+            for k in range(t + 1, self.N_land):
+                measurements = []
+                for _ in range(self.num_simulations):
+                    selected_points = []
+                    for i in range(0, self.N_land):
+                        selected_index = np.random.choice(len(self.landmarks[i]['candidate_points']),
+                                                          p=self.landmarks[i]['probabilities'])
+                        selected_voxel = self.landmarks[i]['candidate_points'][selected_index]
+                        selected_points.append(selected_voxel)
+                    measurements.append(np.linalg.norm(selected_points[t] - selected_points[k]))
+
+                ref_measure = np.linalg.norm(
+                    np.asarray(self.landmarks_ref[self.landmark_names[t]]) -
+                    np.asarray(self.landmarks_ref[self.landmark_names[k]])
+                )
+                mean1 = np.mean(measurements)
+                std1 = np.std(measurements)
+                statistics_dists.append([np.abs(mean1 - ref_measure), np.abs(measurements[0] - ref_measure), std1])
+
+        return np.mean(statistics_dists, axis=0)
+
+    def simulate_angles_between_triplets(self):
+        statistics_angles = []
+
+        for t in range(0, self.N_land):
+            for k in range(t + 1, self.N_land):
+                for r in range(k + 1, self.N_land):
+                    measurements = []
+                    for _ in range(self.num_simulations):
+                        selected_points = []
+                        for i in range(0, self.N_land):
+                            selected_index = np.random.choice(len(self.landmarks[i]['candidate_points']),
+                                                              p=self.landmarks[i]['probabilities'])
+                            selected_voxel = self.landmarks[i]['candidate_points'][selected_index]
+                            selected_points.append(selected_voxel)
+                        # measurements.append(np.linalg.norm(selected_points[t] - selected_points[k]))
+                        measurements.append(
+                            self.__compute_3d_angle(selected_points[t], selected_points[k], selected_points[r]))
+
+                    ref_measure = self.__compute_3d_angle(np.asarray(self.landmarks_ref[self.landmark_names[t]]),
+                                                          np.asarray(self.landmarks_ref[self.landmark_names[k]]),
+                                                          np.asarray(self.landmarks_ref[self.landmark_names[r]]))
+                    mean1 = np.mean(measurements)
+                    std1 = np.std(measurements)
+                    statistics_angles.append([np.abs(mean1 - ref_measure), np.abs(measurements[0] - ref_measure), std1])
+
+        return np.mean(statistics_angles, axis=0)
+
+    def compute_metric(self, metric_fn):
+        """
+        metric_fn: callable, получает dict с координатами точек (samples) и возвращает значение метрики
+        """
+        results = []
+        for sample in self.samples:  # samples — это N сэмплов координат из вероятностных масок
+            metric_value = metric_fn(sample)
+            results.append(metric_value)
+        return np.array(results)
+
     def run_simulation(self):
         statistics_dists = []
         statistics_angles = []
@@ -134,17 +196,16 @@ class LandmarkingMonteCarlo:
                                                           p=self.landmarks[i]['probabilities'])
                         selected_voxel = self.landmarks[i]['candidate_points'][selected_index]
                         selected_points.append(selected_voxel)
-                    # measurements.append(np.linalg.norm(selected_points[t] - selected_points[k]))
                     measurements.append(np.linalg.norm(selected_points[t] - selected_points[k]))
 
-                ref_measure = np.linalg.norm(np.asarray(self.landmarks_ref[self.landmark_names[t]]) - np.asarray(
-                    self.landmarks_ref[self.landmark_names[k]]))
+                ref_measure = np.linalg.norm(
+                    np.asarray(self.landmarks_ref[self.landmark_names[t]]) -
+                    np.asarray(self.landmarks_ref[self.landmark_names[k]])
+                )
                 mean1 = np.mean(measurements)
                 std1 = np.std(measurements)
                 statistics_dists.append([np.abs(mean1 - ref_measure), np.abs(measurements[0] - ref_measure), std1])
 
-        # add_info_logging(f"angles = '{np.mean(statistics_angles, axis=0)}'", "result_logger")
-        # add_info_logging(f"distances = '{np.mean(statistics_dists, axis=0)}'", "result_logger")
         return np.mean(statistics_angles, axis=0), np.mean(statistics_dists, axis=0)
 
 # simulation = landmarking_testSimualtion(heart_nnUnet + '/Landmarking/temp/result/HOM_M32_H185_W90_YA.nii.gz', heart_nnUnet + '/Landmarking/temp/result/HOM_M32_H185_W90_YA.npz', heart_nnUnet + '/Landmarking/temp/temp1/')
