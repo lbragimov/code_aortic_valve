@@ -1,6 +1,7 @@
 SimpleITK
 nibabel
 numpy
+pandas
 matplotlib
 totalsegmentator
 trimesh
@@ -11,3 +12,4 @@ vtk
 torchvision
 torch
 psutil
+medpy
