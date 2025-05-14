@@ -87,31 +87,31 @@ def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], s
             x = np.random.normal(loc=i+1, scale=0.05, size=len(values))  # чтобы точки не накладывались
             plt.scatter(x, y, alpha=0.6, color='black', s=20)
 
-        # # Добавление линий среднего и текстовых аннотаций
-        # for i, (mean, std) in enumerate(zip(means, stds)):
-        #     plt.plot([i+0.8, i+1.2], [mean, mean], color='red', linestyle='--', linewidth=1.5)
-        #     plt.text(i+1, mean + std * 0.1, f"{mean:.3f} ± {std:.3f}",
-        #              ha='center', va='bottom', fontsize=9, color='darkred')
+        # Добавление линий среднего и текстовых аннотаций
+        for i, (mean, std) in enumerate(zip(means, stds)):
+            plt.plot([i+0.8, i+1.2], [mean, mean], color='red', linestyle='--', linewidth=1.5)
+            # plt.text(i+1, mean + std * 0.1, f"{mean:.3f} ± {std:.3f}",
+            #          ha='center', va='bottom', fontsize=9, color='darkred')
 
-        plt.xticks(ticks=np.arange(1, len(labels)+1), labels=labels)
-        plt.ylabel(metric)
-        plt.title(f"{metric} — per-group distribution with mean ± std")
-        plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
-        plt.close()
-
-        # # Добавление легенды под графиком
-        # plt.plot([], [], color='red', linestyle='--', linewidth=1.5, label='Mean')
-        # plt.scatter([], [], color='black', alpha=0.6, s=20, label='Individual cases')
-        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15),
-        #            fancybox=True, shadow=False, ncol=2, fontsize=8)
-        #
-        # plt.xticks(ticks=np.arange(1, len(labels) + 1), labels=labels)
+        # plt.xticks(ticks=np.arange(1, len(labels)+1), labels=labels)
         # plt.ylabel(metric)
         # plt.title(f"{metric} — per-group distribution with mean ± std")
-        #
-        # # Увеличиваем нижний отступ для легенды
-        # plt.subplots_adjust(bottom=0.25)
-        #
+        # plt.tight_layout()
         # plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
         # plt.close()
+
+        # Добавление легенды под графиком
+        plt.plot([], [], color='red', linestyle='--', linewidth=1.5, label='Mean')
+        plt.scatter([], [], color='black', alpha=0.6, s=20, label='Individual cases')
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15),
+                   fancybox=True, shadow=False, ncol=2, fontsize=8)
+
+        plt.xticks(ticks=np.arange(1, len(labels) + 1), labels=labels)
+        plt.ylabel(metric)
+        plt.title(f"{metric} — per-group distribution with mean ± std")
+
+        # Увеличиваем нижний отступ для легенды
+        plt.subplots_adjust(bottom=0.25)
+
+        plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
+        plt.close()
