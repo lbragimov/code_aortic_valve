@@ -48,7 +48,7 @@ def plot_group_comparison(metrics_by_group, save_dir: str, mode: str):
         }
         title_prefix = ""
         file_suffix = ""
-    elif mode == "landmark":
+    elif mode == "landmarks":
         metrics = ["all", "r", "l", "n", "rnc", "rlc", "lnc"]
         group_labels = ["all"]
         group_label_map = {"all": "All"}

@@ -9,7 +9,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 from data_postprocessing.mask_analysis import LandmarkCentersCalculator
 
-def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], save_dir: str, mode: str):
+def plot_group_comparison(metrics_by_group, save_dir: str, mode: str):
     os.makedirs(save_dir, exist_ok=True)
 
     if mode == "segmentation":
@@ -23,7 +23,7 @@ def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], s
         }
         title_prefix = ""
         file_suffix = ""
-    elif mode == "landmark":
+    elif mode == "landmarks":
         metrics = ["all", "r", "l", "n", "rnc", "rlc", "lnc"]
         group_labels = ["all"]
         group_label_map = {"all": "All"}
@@ -105,10 +105,10 @@ def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], s
         plt.close()
 
 
-def process_analysis(data_path, ds_folder_name,
-                     find_center_mass=False,
-                     find_monte_carlo=False,
-                     probabilities_map=False):
+def landmarks_analysis(data_path, ds_folder_name,
+                       find_center_mass=False,
+                       find_monte_carlo=False,
+                       probabilities_map=False):
 
     def process_file(file, original_mask_folder, probabilities_map):
         res_test = LandmarkCentersCalculator()
@@ -257,7 +257,7 @@ def process_analysis(data_path, ds_folder_name,
         add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
 
         results_df = pd.DataFrame(results)
-        csv_path = result_folder_path / "landmark_errors.csv"
+        csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
         results_df.to_csv(csv_path, index=False)
         # Сохраняем агрегированные ошибки по landmark'ам
         landmark_errors_grouped["all"] = r_errors + l_errors + n_errors + rlc_errors + rnc_errors + lnc_errors
@@ -271,21 +271,20 @@ def process_analysis(data_path, ds_folder_name,
             "all": landmark_errors_grouped["all"]
         }
         landmark_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in landmark_errors_grouped_dict.items()]))
-        grouped_csv_path = result_folder_path / "landmark_errors_grouped.csv"
+        grouped_csv_path = result_folder_path / f"landmark_errors_grouped_{ds_folder_name}.csv"
         landmark_df.to_csv(grouped_csv_path, index=False)
         add_info_logging(f"Saved landmark-wise grouped errors to: {grouped_csv_path}", "work_logger")
         add_info_logging(f"Saved CSV with errors to: {csv_path}", "work_logger")
 
-        plot_group_comparison(landmark_errors_grouped_dict, result_folder_path, mode="landmarks")
+        plot_group_comparison(landmark_errors_grouped_dict, str(result_folder_path), mode="landmarks")
 
 
 def controller(data_path):
     result_path = os.path.join(data_path, "result")
     add_info_logging("Start", "work_logger")
 
-    ds_folder_name = "Dataset404_AortaLandmarks"
-    data_path_2 = Path(data_path)
-    process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
+    landmarks_analysis(Path(data_path), ds_folder_name="Dataset499_AortaLandmarks",
+                       find_center_mass=True, probabilities_map=True)
     add_info_logging("Finish", "work_logger")
 
 
