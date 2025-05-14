@@ -13,10 +13,10 @@ def summarize_and_plot(metrics: Dict[str, List[float]], save_dir: str):
         std = np.std(values)
         median = np.median(values)
 
-        add_info_logging(f"\n📊 {metric_name} метрика:", "result_logger")
-        add_info_logging(f"  ▸ Среднее: {mean:.4f}", "result_logger")
-        add_info_logging(f"  ▸ Ст. отклонение: {std:.4f}", "result_logger")
-        add_info_logging(f"  ▸ Медиана: {median:.4f}", "result_logger")
+        add_info_logging(f"\n {metric_name} metric:", "result_logger")
+        add_info_logging(f"  Mean: {mean:.4f}", "result_logger")
+        add_info_logging(f"  Std: {std:.4f}", "result_logger")
+        add_info_logging(f"  Median: {median:.4f}", "result_logger")
 
         # Visualization
         plt.figure(figsize=(6, 4))

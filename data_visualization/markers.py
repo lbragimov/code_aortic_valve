@@ -68,7 +68,7 @@ def process_markers(image_path, dict_case, output_path, radius, keys_to_need=Non
 
         # Проверка на выход за границы
         if not all(0 <= voxel_coord[d] < shape[d] for d in range(3)):
-            add_info_logging(f"Точка {coord} (воксельные координаты {voxel_coord}) вне объёма изображения.",
+            add_info_logging(f"Point {coord} (voxel coordinates {voxel_coord}) is outside the image volume.",
                              "work_logger")
             continue
 

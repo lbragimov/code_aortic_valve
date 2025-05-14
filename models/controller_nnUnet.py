@@ -10,7 +10,7 @@ from models.implementation_nnUnet import nnUnet_trainer
 def _clear_folder(folder):
     """Очищает папку, удаляя все файлы и подпапки"""
     if not folder.exists():
-        add_info_logging(f"Папка '{str(folder)}' не существует.", "work_logger")
+        add_info_logging(f"Folder '{str(folder)}' does not exist.", "work_logger")
         return
 
     for item in folder.iterdir():

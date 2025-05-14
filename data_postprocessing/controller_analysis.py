@@ -11,11 +11,12 @@ from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
 
 
-def mask_analysis(data_path, result_path, type_mask):
-    metrics_by_group, per_case_data = mask_comparison(data_path, type_mask=type_mask)
+def mask_analysis(data_path, result_path, type_mask, folder_name):
+    metrics_by_group, per_case_data = mask_comparison(data_path, type_mask=type_mask, folder_name=folder_name)
     for group, metrics in metrics_by_group.items():
         save_subdir = os.path.join(result_path, f"group_{group}")
         summarize_and_plot(metrics, save_subdir)
+    add_info_logging("Data for comparison has been collected", "work_logger")
     # summarize_and_plot(metrics, result_path)
     # Сохраняем CSV по кейсам
     df = pd.DataFrame(per_case_data)

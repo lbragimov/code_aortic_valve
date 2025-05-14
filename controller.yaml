@@ -11,4 +11,4 @@ nnUNet_lmk_ger_sep: true
 resample: true
 size_or_pixel: none
 experiment: true
-aorta_mask_analysis: true
+aorta_mask_analysis: false

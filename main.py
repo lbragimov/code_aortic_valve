@@ -39,7 +39,7 @@ def controller(data_path, cpus):
         folder = Path(folder_path)
         if not folder.exists():
             folder.mkdir(parents=True, exist_ok=True)
-            add_info_logging(f"Папка '{folder_path}' не существовала, поэтому была создана.",
+            add_info_logging(f"The folder '{folder_path}' did not exist, so it was created.",
                              "work_logger")
             return
 
@@ -535,7 +535,7 @@ def controller(data_path, cpus):
                             dict_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494})
 
     if not controller_dump["aorta_mask_analysis"]:
-        mask_analysis(data_path, result_path, type_mask="aortic_valve")
+        mask_analysis(data_path, result_path, type_mask="aortic_valve", folder_name="Dataset401_AorticValve")
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
@@ -591,9 +591,9 @@ if __name__ == "__main__":
         result_handler.setFormatter(logging.Formatter('%(message)s'))  # без времени
         result_logger.addHandler(result_handler)
 
-        # Очистим базовые хендлеры у root-логгера (если есть)
-        for handler in logging.root.handlers[:]:
-            logging.root.removeHandler(handler)
+        # # Очистим базовые хендлеры у root-логгера (если есть)
+        # for handler in logging.root.handlers[:]:
+        #     logging.root.removeHandler(handler)
 
         controller(data_path, cpus=free_cpus)
 
