@@ -19,7 +19,7 @@ from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save,
                                             add_info_logging)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 # from data_postprocessing.evaluation_analysis import landmarking_testing
-from data_postprocessing.controller_analysis import process_analysis, experiment_analysis, mask_analysis
+from data_postprocessing.controller_analysis import landmarks_analysis, experiment_analysis, mask_analysis
 from data_postprocessing.plotting_graphs import summarize_and_plot
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
@@ -536,6 +536,10 @@ def controller(data_path, cpus):
 
     if not controller_dump["aorta_mask_analysis"]:
         mask_analysis(data_path, result_path, type_mask="aortic_valve", folder_name="Dataset401_AorticValve")
+
+    if not controller_dump["landmarks_analysis"]:
+        landmarks_analysis(Path(data_path), ds_folder_name="Dataset499_AortaLandmarks",
+                           find_center_mass=True, probabilities_map=True)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',

@@ -34,28 +34,41 @@ def summarize_and_plot(metrics: Dict[str, List[float]], save_dir: str):
         plt.savefig(plot_path, dpi=300)
         plt.close()
 
-def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], save_dir: str):
+def plot_group_comparison(metrics_by_group, save_dir: str, mode: str):
     os.makedirs(save_dir, exist_ok=True)
-    metrics = ["Dice", "IoU", "HD", "ASSD"]
-    group_labels = ["all", "H", "p", "n"]
-    group_label_map = {
-        "all": "All",
-        "H": "Ger. path.",
-        "p": "Slo. path.",
-        "n": "Slo. norm."
-    }
-    colors = ["lightgray", "skyblue", "lightgreen", "salmon"]
 
-    # Добавим "all", если он не посчитан
-    if "all" not in metrics_by_group:
-        metrics_by_group["all"] = {}
-        for metric in metrics:
-            combined = []
-            for group in metrics_by_group:
-                if group == "all":
-                    continue
-                combined.extend(metrics_by_group[group].get(metric, []))
-            metrics_by_group["all"][metric] = combined
+    if mode == "segmentation":
+        metrics = ["Dice", "IoU", "HD", "ASSD"]
+        group_labels = ["all", "H", "p", "n"]
+        group_label_map = {
+            "all": "All",
+            "H": "Ger. path.",
+            "p": "Slo. path.",
+            "n": "Slo. norm."
+        }
+        title_prefix = ""
+        file_suffix = ""
+    elif mode == "landmark":
+        metrics = ["all", "r", "l", "n", "rnc", "rlc", "lnc"]
+        group_labels = ["all"]
+        group_label_map = {"all": "All"}
+        title_prefix = "Landmark "
+        file_suffix = "_landmarks"
+    else:
+        raise ValueError(f"Unknown mode '{mode}'")
+
+    colors = ["lightgray", "skyblue", "lightgreen", "salmon", "orange", "violet", "gold"]
+
+    # # Добавим "all", если он не посчитан
+    # if "all" not in metrics_by_group:
+    #     metrics_by_group["all"] = {}
+    #     for metric in metrics:
+    #         combined = []
+    #         for group in metrics_by_group:
+    #             if group == "all":
+    #                 continue
+    #             combined.extend(metrics_by_group[group].get(metric, []))
+    #         metrics_by_group["all"][metric] = combined
 
     for metric in metrics:
         data = []

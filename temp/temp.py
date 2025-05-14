@@ -9,17 +9,41 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 from data_postprocessing.mask_analysis import LandmarkCentersCalculator
 
-def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], save_dir: str):
+def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], save_dir: str, mode: str):
     os.makedirs(save_dir, exist_ok=True)
-    metrics = ["Dice", "IoU", "HD", "ASSD"]
-    group_labels = ["all", "H", "p", "n"]
-    group_label_map = {
-        "all": "All",
-        "H": "Ger. path.",
-        "p": "Slo. path.",
-        "n": "Slo. norm."
-    }
-    colors = ["lightgray", "skyblue", "lightgreen", "salmon"]
+
+    if mode == "segmentation":
+        metrics = ["Dice", "IoU", "HD", "ASSD"]
+        group_labels = ["all", "H", "p", "n"]
+        group_label_map = {
+            "all": "All",
+            "H": "Ger. path.",
+            "p": "Slo. path.",
+            "n": "Slo. norm."
+        }
+        title_prefix = ""
+        file_suffix = ""
+    elif mode == "landmark":
+        metrics = ["all", "r", "l", "n", "rnc", "rlc", "lnc"]
+        group_labels = ["all"]
+        group_label_map = {"all": "All"}
+        title_prefix = "Landmark "
+        file_suffix = "_landmarks"
+    else:
+        raise ValueError(f"Unknown mode '{mode}'")
+
+    colors = ["lightgray", "skyblue", "lightgreen", "salmon", "orange", "violet", "gold"]
+
+    # # Добавим "all", если он не посчитан
+    # if "all" not in metrics_by_group:
+    #     metrics_by_group["all"] = {}
+    #     for metric in metrics:
+    #         combined = []
+    #         for group in metrics_by_group:
+    #             if group == "all":
+    #                 continue
+    #             combined.extend(metrics_by_group[group].get(metric, []))
+    #         metrics_by_group["all"][metric] = combined
 
     for metric in metrics:
         data = []
@@ -54,13 +78,29 @@ def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], s
         # Добавление линий среднего и текстовых аннотаций
         for i, (mean, std) in enumerate(zip(means, stds)):
             plt.plot([i+0.8, i+1.2], [mean, mean], color='red', linestyle='--', linewidth=1.5)
-            plt.text(i+1, mean + std * 0.1, f"{mean:.3f} ± {std:.3f}",
-                     ha='center', va='bottom', fontsize=9, color='darkred')
+            # plt.text(i+1, mean + std * 0.1, f"{mean:.3f} ± {std:.3f}",
+            #          ha='center', va='bottom', fontsize=9, color='darkred')
 
-        plt.xticks(ticks=np.arange(1, len(labels)+1), labels=labels)
+        # plt.xticks(ticks=np.arange(1, len(labels)+1), labels=labels)
+        # plt.ylabel(metric)
+        # plt.title(f"{metric} — per-group distribution with mean ± std")
+        # plt.tight_layout()
+        # plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
+        # plt.close()
+
+        # Добавление легенды под графиком
+        plt.plot([], [], color='red', linestyle='--', linewidth=1.5, label='Mean')
+        plt.scatter([], [], color='black', alpha=0.6, s=20, label='Individual cases')
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15),
+                   fancybox=True, shadow=False, ncol=2, fontsize=8)
+
+        plt.xticks(ticks=np.arange(1, len(labels) + 1), labels=labels)
         plt.ylabel(metric)
         plt.title(f"{metric} — per-group distribution with mean ± std")
-        plt.tight_layout()
+
+        # Увеличиваем нижний отступ для легенды
+        plt.subplots_adjust(bottom=0.25)
+
         plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
         plt.close()
 
@@ -81,25 +121,24 @@ def process_analysis(data_path, ds_folder_name,
             true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
         return true, pred
 
-    def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc):
-        # Вычисляем среднюю ошибку
+    def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc, results, file_name, group):
         not_found = 0
         for key in true:
             if key in pred:
                 dist = np.linalg.norm(true[key] - pred[key]) # Евклидово расстояние
                 error_list.append(dist)
-                if key == 1:
-                    r.append(dist)
-                elif key == 2:
-                    l.append(dist)
-                elif key == 3:
-                    n.append(dist)
-                elif key == 4:
-                    rlc.append(dist)
-                elif key == 5:
-                    rnc.append(dist)
-                elif key == 6:
-                    lnc.append(dist)
+                results.append({
+                    "filename": file_name,
+                    "group": group,
+                    "point_id": key,
+                    "error": dist
+                })
+                if key == 1: r.append(dist)
+                elif key == 2: l.append(dist)
+                elif key == 3: n.append(dist)
+                elif key == 4: rlc.append(dist)
+                elif key == 5: rnc.append(dist)
+                elif key == 6: lnc.append(dist)
             else:
                 not_found += 1
         return not_found
@@ -109,6 +148,18 @@ def process_analysis(data_path, ds_folder_name,
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
     json_path = data_path / "nnUNet_folder" / "json_info"
+    result_folder_path = data_path / "result"
+
+    results = []  # список словарей
+    landmark_errors_grouped = {
+        "all": [],
+        "r": [],
+        "l": [],
+        "n": [],
+        "rlc": [],
+        "rnc": [],
+        "lnc": []
+    }
 
     if find_center_mass:
         if probabilities_map:
@@ -136,7 +187,8 @@ def process_analysis(data_path, ds_folder_name,
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_ger_pat += 1
                 not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                    results, file.name, "H")
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
@@ -146,7 +198,8 @@ def process_analysis(data_path, ds_folder_name,
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_pat += 1
                 not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                    results, file.name, "p")
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
@@ -154,7 +207,8 @@ def process_analysis(data_path, ds_folder_name,
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_norm += 1
                 not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                    results, file.name, "n")
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
@@ -201,6 +255,28 @@ def process_analysis(data_path, ds_folder_name,
         add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}", "result_logger")
         add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
         add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
+
+        results_df = pd.DataFrame(results)
+        csv_path = result_folder_path / "landmark_errors.csv"
+        results_df.to_csv(csv_path, index=False)
+        # Сохраняем агрегированные ошибки по landmark'ам
+        landmark_errors_grouped["all"] = r_errors + l_errors + n_errors + rlc_errors + rnc_errors + lnc_errors
+        landmark_errors_grouped_dict = {
+            "r": r_errors,
+            "l": l_errors,
+            "n": n_errors,
+            "rlc": rlc_errors,
+            "rnc": rnc_errors,
+            "lnc": lnc_errors,
+            "all": landmark_errors_grouped["all"]
+        }
+        landmark_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in landmark_errors_grouped_dict.items()]))
+        grouped_csv_path = result_folder_path / "landmark_errors_grouped.csv"
+        landmark_df.to_csv(grouped_csv_path, index=False)
+        add_info_logging(f"Saved landmark-wise grouped errors to: {grouped_csv_path}", "work_logger")
+        add_info_logging(f"Saved CSV with errors to: {csv_path}", "work_logger")
+
+        plot_group_comparison(landmark_errors_grouped_dict, result_folder_path, mode="landmarks")
 
 
 def controller(data_path):

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 from data_postprocessing.evaluation_analysis import evaluate_segmentation
 from data_postprocessing.montecarlo import LandmarkingMonteCarlo
 from data_postprocessing.mask_analysis import mask_comparison, LandmarkCentersCalculator
@@ -97,7 +97,7 @@ def experiment_analysis(data_path,
                                id_case=case_name, folder_image_path=None, folder_mask_path=None, dict_dataset={},
                                pct_test=None, testing_mod=True, save_probabilities=save_probabilities)
                 add_info_logging(f"radius: {radius}, type predicting: {type_map}", "result_logger")
-            process_analysis(data_path, ds_folder_name,
+            landmarks_analysis(data_path, ds_folder_name,
                              find_center_mass=find_center_mass,
                              find_monte_carlo=find_monte_carlo,
                              probabilities_map=save_probabilities)
@@ -107,10 +107,10 @@ def experiment_analysis(data_path,
             # json_path = data_path / "nnUNet_folder" / "json_info"
 
 
-def process_analysis(data_path, ds_folder_name,
-                     find_center_mass=False,
-                     find_monte_carlo=False,
-                     probabilities_map=False):
+def landmarks_analysis(data_path, ds_folder_name,
+                       find_center_mass=False,
+                       find_monte_carlo=False,
+                       probabilities_map=False):
 
     def process_file(file, original_mask_folder, probabilities_map):
         res_test = LandmarkCentersCalculator()
@@ -123,25 +123,24 @@ def process_analysis(data_path, ds_folder_name,
             true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
         return true, pred
 
-    def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc):
-        # Вычисляем среднюю ошибку
+    def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc, results, file_name, group):
         not_found = 0
         for key in true:
             if key in pred:
                 dist = np.linalg.norm(true[key] - pred[key]) # Евклидово расстояние
                 error_list.append(dist)
-                if key == 1:
-                    r.append(dist)
-                elif key == 2:
-                    l.append(dist)
-                elif key == 3:
-                    n.append(dist)
-                elif key == 4:
-                    rlc.append(dist)
-                elif key == 5:
-                    rnc.append(dist)
-                elif key == 6:
-                    lnc.append(dist)
+                results.append({
+                    "filename": file_name,
+                    "group": group,
+                    "point_id": key,
+                    "error": dist
+                })
+                if key == 1: r.append(dist)
+                elif key == 2: l.append(dist)
+                elif key == 3: n.append(dist)
+                elif key == 4: rlc.append(dist)
+                elif key == 5: rnc.append(dist)
+                elif key == 6: lnc.append(dist)
             else:
                 not_found += 1
         return not_found
@@ -151,6 +150,18 @@ def process_analysis(data_path, ds_folder_name,
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
     json_path = data_path / "nnUNet_folder" / "json_info"
+    result_folder_path = data_path / "result"
+
+    results = []  # список словарей
+    landmark_errors_grouped = {
+        "all": [],
+        "r": [],
+        "l": [],
+        "n": [],
+        "rlc": [],
+        "rnc": [],
+        "lnc": []
+    }
 
     if find_center_mass:
         if probabilities_map:
@@ -178,7 +189,8 @@ def process_analysis(data_path, ds_folder_name,
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_ger_pat += 1
                 not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                    results, file.name, "H")
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
@@ -188,7 +200,8 @@ def process_analysis(data_path, ds_folder_name,
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_pat += 1
                 not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                    results, file.name, "p")
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
@@ -196,7 +209,8 @@ def process_analysis(data_path, ds_folder_name,
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_norm += 1
                 not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors)
+                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                    results, file.name, "n")
                 if len(landmarks_pred.keys()) < 5:
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
@@ -243,6 +257,28 @@ def process_analysis(data_path, ds_folder_name,
         add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}", "result_logger")
         add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
         add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
+
+        results_df = pd.DataFrame(results)
+        csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
+        results_df.to_csv(csv_path, index=False)
+        # Сохраняем агрегированные ошибки по landmark'ам
+        landmark_errors_grouped["all"] = r_errors + l_errors + n_errors + rlc_errors + rnc_errors + lnc_errors
+        landmark_errors_grouped_dict = {
+            "r": r_errors,
+            "l": l_errors,
+            "n": n_errors,
+            "rlc": rlc_errors,
+            "rnc": rnc_errors,
+            "lnc": lnc_errors,
+            "all": landmark_errors_grouped["all"]
+        }
+        landmark_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in landmark_errors_grouped_dict.items()]))
+        grouped_csv_path = result_folder_path / f"landmark_errors_grouped_{ds_folder_name}.csv"
+        landmark_df.to_csv(grouped_csv_path, index=False)
+        add_info_logging(f"Saved landmark-wise grouped errors to: {grouped_csv_path}", "work_logger")
+        add_info_logging(f"Saved CSV with errors to: {csv_path}", "work_logger")
+
+        plot_group_comparison(landmark_errors_grouped_dict, str(result_folder_path), mode="landmarks")
 
     if find_monte_carlo:
         arr_mean_angles_ger_pat = np.array([]).reshape(0, 3)
