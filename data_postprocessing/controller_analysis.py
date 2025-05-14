@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from pathlib import Path
+from typing import Dict
 from data_postprocessing.evaluation_analysis import evaluate_segmentation
 from data_postprocessing.montecarlo import LandmarkingMonteCarlo
 from data_postprocessing.mask_analysis import mask_comparison, LandmarkCentersCalculator
@@ -12,28 +13,69 @@ from models.controller_nnUnet import process_nnunet
 
 
 def mask_analysis(data_path, result_path, type_mask, folder_name):
-    metrics_by_group, per_case_data = mask_comparison(data_path, type_mask=type_mask, folder_name=folder_name)
+    per_case_csv = os.path.join(result_path, "per_case_metrics.csv")
+    aggregated_csv = os.path.join(result_path, "aggregated_metrics.csv")
+
+    if os.path.exists(per_case_csv) and os.path.exists(aggregated_csv):
+        # Загружаем данные из файлов
+        add_info_logging("Using cached metrics from CSV files", "work_logger")
+        df = pd.read_csv(per_case_csv)
+        df_summary = pd.read_csv(aggregated_csv)
+
+        # Восстановим структуру metrics_by_group
+        metrics_by_group: Dict[str, Dict[str, list]] = {}
+        for _, row in df_summary.iterrows():
+            group = row["Group"]
+            metric = row["Metric"]
+            if group not in metrics_by_group:
+                metrics_by_group[group] = {}
+            if metric not in metrics_by_group[group]:
+                # Найдём все значения этой метрики и группы из df
+                values = df[df["group"] == group][metric].dropna().tolist()
+                metrics_by_group[group][metric] = values
+    else:
+        # Пересчитываем метрики
+        metrics_by_group, per_case_data = mask_comparison(data_path, type_mask=type_mask, folder_name=folder_name)
+
+        # Сохраняем метрики по кейсам
+        df = pd.DataFrame(per_case_data)
+        df.to_csv(per_case_csv, index=False)
+
+        # Сохраняем агрегированные метрики
+        summary = []
+        for group, metrics in metrics_by_group.items():
+            for metric_name, values in metrics.items():
+                mean = np.nanmean(values)
+                std = np.nanstd(values)
+                summary.append({"Group": group, "Metric": metric_name, "Mean": mean, "Std": std})
+        df_summary = pd.DataFrame(summary)
+        df_summary.to_csv(aggregated_csv, index=False)
+
+    # Добавим агрегированную группу "all"
+    all_metrics: Dict[str, List[float]] = {}
+    for group, group_data in metrics_by_group.items():
+        for metric, values in group_data.items():
+            if metric not in all_metrics:
+                all_metrics[metric] = []
+            all_metrics[metric].extend(values)
+    metrics_by_group["all"] = all_metrics
+
+    # При необходимости — добавим "all" в df_summary
+    for metric_name, values in all_metrics.items():
+        mean = np.nanmean(values)
+        std = np.nanstd(values)
+        df_summary.loc[len(df_summary.index)] = ["all", metric_name, mean, std]
+
+    # Пересохраним df_summary с учётом "all"
+    df_summary.to_csv(aggregated_csv, index=False)
+
+    # Строим графики
     for group, metrics in metrics_by_group.items():
         save_subdir = os.path.join(result_path, f"group_{group}")
         summarize_and_plot(metrics, save_subdir)
-    add_info_logging("Data for comparison has been collected", "work_logger")
-    # summarize_and_plot(metrics, result_path)
-    # Сохраняем CSV по кейсам
-    df = pd.DataFrame(per_case_data)
-    df.to_csv(os.path.join(result_path, "per_case_metrics.csv"), index=False)
 
-    # Сохраняем агрегированные данные
-    summary = []
-    for group, metrics in metrics_by_group.items():
-        for metric_name, values in metrics.items():
-            mean = np.nanmean(values)
-            std = np.nanstd(values)
-            summary.append({"Group": group, "Metric": metric_name, "Mean": mean, "Std": std})
-    df_summary = pd.DataFrame(summary)
-    df_summary.to_csv(os.path.join(result_path, "aggregated_metrics.csv"), index=False)
-
-    # Рисуем сравнение групп
     plot_group_comparison(metrics_by_group, os.path.join(result_path, "group_comparison"))
+    add_info_logging("Analysis completed", "work_logger")
 
 
 def experiment_analysis(data_path,

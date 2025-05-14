@@ -38,22 +38,80 @@ def plot_group_comparison(metrics_by_group: Dict[str, Dict[str, List[float]]], s
     os.makedirs(save_dir, exist_ok=True)
     metrics = ["Dice", "IoU", "HD", "ASSD"]
     group_labels = ["all", "H", "p", "n"]
-    colors = ["gray", "skyblue", "lightgreen", "salmon"]
+    group_label_map = {
+        "all": "All",
+        "H": "Ger. path.",
+        "p": "Slo. path.",
+        "n": "Slo. norm."
+    }
+    colors = ["lightgray", "skyblue", "lightgreen", "salmon"]
+
+    # Добавим "all", если он не посчитан
+    if "all" not in metrics_by_group:
+        metrics_by_group["all"] = {}
+        for metric in metrics:
+            combined = []
+            for group in metrics_by_group:
+                if group == "all":
+                    continue
+                combined.extend(metrics_by_group[group].get(metric, []))
+            metrics_by_group["all"][metric] = combined
 
     for metric in metrics:
+        data = []
+        labels = []
         means = []
         stds = []
+
         for group in group_labels:
             values = metrics_by_group.get(group, {}).get(metric, [])
-            means.append(np.nanmean(values))
-            stds.append(np.nanstd(values))
+            if values:
+                data.append(values)
+                labels.append(group_label_map.get(group, group))
+                means.append(np.mean(values))
+                stds.append(np.std(values))
 
-        x = np.arange(len(group_labels))
-        plt.figure(figsize=(6, 5))
-        plt.bar(x, means, yerr=stds, color=colors, capsize=5)
-        plt.xticks(x, group_labels)
+        if not data:
+            continue  # Пропуск метрики без данных
+
+        plt.figure(figsize=(7, 5))
+        bplot = plt.boxplot(data, patch_artist=True)
+
+        # Цвета boxplot'ов
+        for patch, color in zip(bplot['boxes'], colors[:len(data)]):
+            patch.set_facecolor(color)
+
+        # Добавление scatter-значений
+        for i, values in enumerate(data):
+            y = values
+            x = np.random.normal(loc=i+1, scale=0.05, size=len(values))  # чтобы точки не накладывались
+            plt.scatter(x, y, alpha=0.6, color='black', s=20)
+
+        # # Добавление линий среднего и текстовых аннотаций
+        # for i, (mean, std) in enumerate(zip(means, stds)):
+        #     plt.plot([i+0.8, i+1.2], [mean, mean], color='red', linestyle='--', linewidth=1.5)
+        #     plt.text(i+1, mean + std * 0.1, f"{mean:.3f} ± {std:.3f}",
+        #              ha='center', va='bottom', fontsize=9, color='darkred')
+
+        plt.xticks(ticks=np.arange(1, len(labels)+1), labels=labels)
         plt.ylabel(metric)
-        plt.title(f"{metric} — comparison by group")
+        plt.title(f"{metric} — per-group distribution with mean ± std")
         plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, f"{metric}_barplot.png"), dpi=300)
+        plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
         plt.close()
+
+        # # Добавление легенды под графиком
+        # plt.plot([], [], color='red', linestyle='--', linewidth=1.5, label='Mean')
+        # plt.scatter([], [], color='black', alpha=0.6, s=20, label='Individual cases')
+        # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15),
+        #            fancybox=True, shadow=False, ncol=2, fontsize=8)
+        #
+        # plt.xticks(ticks=np.arange(1, len(labels) + 1), labels=labels)
+        # plt.ylabel(metric)
+        # plt.title(f"{metric} — per-group distribution with mean ± std")
+        #
+        # # Увеличиваем нижний отступ для легенды
+        # plt.subplots_adjust(bottom=0.25)
+        #
+        # plt.savefig(os.path.join(save_dir, f"{metric}_group_boxplot_mean_std.png"), dpi=300)
+        # plt.close()
