@@ -117,10 +117,9 @@ def landmarks_analysis(data_path, ds_folder_name,
         if probabilities_map:
             file_name = file.name[:-4] + ".nii.gz"
             pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
-            true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
         else:
             pred = res_test.compute_metrics_direct_nii(file)
-            true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
+        true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
         return true, pred
 
     def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc, results, file_name, group):
@@ -153,67 +152,47 @@ def landmarks_analysis(data_path, ds_folder_name,
     result_folder_path = data_path / "result"
 
     results = []  # список словарей
-    landmark_errors_grouped = {
-        "all": [],
-        "r": [],
-        "l": [],
-        "n": [],
-        "rlc": [],
-        "rnc": [],
-        "lnc": []
-    }
 
     if find_center_mass:
         if probabilities_map:
             files = list(result_landmarks_folder.glob("*.npz"))
         else:
             files = list(result_landmarks_folder.glob("*.nii.gz"))
-        errors_ger_pat = []
-        not_found_ger_pat = 0
-        num_img_ger_pat = 0
-        errors_slo_pat = []
-        not_found_slo_pat = 0
-        num_img_slo_pat = 0
-        errors_slo_norm = []
-        not_found_slo_norm = 0
-        num_img_slo_norm = 0
-        r_errors = []
-        l_errors = []
-        n_errors = []
-        rlc_errors = []
-        rnc_errors = []
-        lnc_errors = []
+        errors_ger_pat, errors_slo_pat, errors_slo_norm = [], [], []
+        not_found_ger_pat, not_found_slo_pat, not_found_slo_norm = 0, 0, 0
+        num_img_ger_pat, num_img_slo_pat, num_img_slo_norm = 0, 0, 0
+        r_errors, l_errors, n_errors = [], [], []
+        rlc_errors, rnc_errors, lnc_errors = [], [], []
         for file in files:
+
+            landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
+            if len(landmarks_pred.keys()) < 5:
+                add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
+                                 "result_logger")
+
             first_char = file.name[0]
             if first_char == "H":
-                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_ger_pat += 1
                 not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
                                                     r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
                                                     results, file.name, "H")
-                if len(landmarks_pred.keys()) < 5:
-                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
-                                     "result_logger")
-            if first_char == "p":
+            elif first_char == "p":
                 # if file.name[1] == "9":
                 #     continue
-                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 num_img_slo_pat += 1
                 not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
                                                     r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
                                                     results, file.name, "p")
-                if len(landmarks_pred.keys()) < 5:
-                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
-                                     "result_logger")
-            if first_char == "n":
-                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
+            elif first_char == "n":
                 num_img_slo_norm += 1
                 not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
                                                     r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
                                                     results, file.name, "n")
-                if len(landmarks_pred.keys()) < 5:
-                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
-                                     "result_logger")
+
+        # Сохраняем подробный CSV
+        results_df = pd.DataFrame(results)
+        results_csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
+        results_df.to_csv(results_csv_path, index=False)
 
         mean_error_ger_pat = np.mean(errors_ger_pat) if errors_ger_pat else None
         not_found_ger_pat = (not_found_ger_pat / (num_img_ger_pat * 6)) * 100
@@ -258,27 +237,7 @@ def landmarks_analysis(data_path, ds_folder_name,
         add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
         add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
 
-        results_df = pd.DataFrame(results)
-        csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
-        results_df.to_csv(csv_path, index=False)
-        # Сохраняем агрегированные ошибки по landmark'ам
-        landmark_errors_grouped["all"] = r_errors + l_errors + n_errors + rlc_errors + rnc_errors + lnc_errors
-        landmark_errors_grouped_dict = {
-            "r": r_errors,
-            "l": l_errors,
-            "n": n_errors,
-            "rlc": rlc_errors,
-            "rnc": rnc_errors,
-            "lnc": lnc_errors,
-            "all": landmark_errors_grouped["all"]
-        }
-        landmark_df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in landmark_errors_grouped_dict.items()]))
-        grouped_csv_path = result_folder_path / f"landmark_errors_grouped_{ds_folder_name}.csv"
-        landmark_df.to_csv(grouped_csv_path, index=False)
-        add_info_logging(f"Saved landmark-wise grouped errors to: {grouped_csv_path}", "work_logger")
-        add_info_logging(f"Saved CSV with errors to: {csv_path}", "work_logger")
-
-        plot_group_comparison(landmark_errors_grouped_dict, str(result_folder_path), mode="landmarks")
+        plot_group_comparison(landmark_errors_grouped, str(result_folder_path), mode="landmarks")
 
     if find_monte_carlo:
         arr_mean_angles_ger_pat = np.array([]).reshape(0, 3)
