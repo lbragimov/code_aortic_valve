@@ -142,9 +142,9 @@ def landmarks_analysis(data_path, ds_folder_name,
             r_errors, l_errors, n_errors = [], [], []
             rlc_errors, rnc_errors, lnc_errors = [], [], []
             for file in files:
-                if file.endswith(".npz"):
+                if file.name.endswith(".npz"):
                     file_name = file.name[:-4]
-                elif file.endswith(".nii.gz"):
+                elif file.name.endswith(".nii.gz"):
                     file_name = file.name[:-7]
 
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
