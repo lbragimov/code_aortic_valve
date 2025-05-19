@@ -11,13 +11,6 @@ def mask_comparison(data_path, type_mask, folder_name):
     result_mask_folder = os.path.join(nnUNet_folder, "nnUNet_test", folder_name)
     original_mask_folder = os.path.join(nnUNet_folder, "original_mask", folder_name)
 
-    metric_groups = {
-        "all": {"Dice": [], "IoU": [], "HD": [], "ASSD": []},
-        "H": {"Dice": [], "IoU": [], "HD": [], "ASSD": []},
-        "p": {"Dice": [], "IoU": [], "HD": [], "ASSD": []},
-        "n": {"Dice": [], "IoU": [], "HD": [], "ASSD": []},
-    }
-
     per_case_data = []
 
     for case in os.listdir(result_mask_folder):
@@ -48,15 +41,10 @@ def mask_comparison(data_path, type_mask, folder_name):
             metrics["case"] = case_name
             metrics["group"] = first_char
             per_case_data.append(metrics)
-            for key in metric_groups[first_char]:
-                metric_groups[first_char][key].append(metrics[key])
-                metric_groups["all"][key].append(metrics[key])
-            # dice_scores.append(metrics["Dice"])
-            # iou_scores.append(metrics["IoU"])
         except Exception as e:
             add_info_logging(f"Error while comparing {case_name}: {str(e)}", "work_logger")
 
-    return metric_groups, per_case_data
+    return per_case_data
 
 
 class LandmarkCentersCalculator:
