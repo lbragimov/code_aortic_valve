@@ -78,12 +78,12 @@ def landmarks_analysis(data_path, ds_folder_name,
 
     def process_file(file, original_mask_folder, probabilities_map):
         res_test = LandmarkCentersCalculator()
+        file_name = file.name[:-4] + ".nii.gz"
         if probabilities_map:
-            file_name = file.name[:-4] + ".nii.gz"
             pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
         else:
             pred = res_test.compute_metrics_direct_nii(file)
-        true = res_test.compute_metrics_direct_nii(original_mask_folder / file.name)
+        true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
         return true, pred
 
     def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc, results, file_name, group):
@@ -158,8 +158,8 @@ def landmarks_analysis(data_path, ds_folder_name,
                                                         r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
                                                         results, file.name, "H")
                 elif first_char == "p":
-                    # if file.name[1] == "9":
-                    #     continue
+                    if file.name[1] == "9":
+                        continue
                     num_img_slo_pat += 1
                     not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
                                                         r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
@@ -217,6 +217,7 @@ def landmarks_analysis(data_path, ds_folder_name,
             add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
             add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
 
+        point_name = {"all": "All", "r": "R", "l": "L", "n": "N", "rlc": "RLC", "rnc": "RNC", "lnc": "LNC"}
         for key, type_name in type_label.items():
             if key == "all":
                 data_for_plot = results_df[["point_id", "error"]].dropna(how='any')
