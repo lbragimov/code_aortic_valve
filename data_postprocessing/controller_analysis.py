@@ -90,10 +90,14 @@ def landmarks_analysis(data_path, ds_folder_name,
         not_found = 0
         for key in true:
             if key in pred:
+                if file_name.endswith(".npz"):
+                    cur_file_name = file_name[:-4]
+                elif file_name.endswith(".nii.gz"):
+                    cur_file_name = file_name[:-7]
                 dist = np.linalg.norm(true[key] - pred[key]) # Евклидово расстояние
                 error_list.append(dist)
                 results.append({
-                    "filename": file_name,
+                    "filename": cur_file_name,
                     "group": group,
                     "point_id": point_name[key],
                     "error": dist
@@ -142,14 +146,9 @@ def landmarks_analysis(data_path, ds_folder_name,
             r_errors, l_errors, n_errors = [], [], []
             rlc_errors, rnc_errors, lnc_errors = [], [], []
             for file in files:
-                if file.name.endswith(".npz"):
-                    file_name = file.name[:-4]
-                elif file.name.endswith(".nii.gz"):
-                    file_name = file.name[:-7]
-
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 if len(landmarks_pred.keys()) < 5:
-                    add_info_logging(f"img: {file_name}, not found landmark: {6 - len(landmarks_pred.keys())}",
+                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
 
                 first_char = file.name[0]
@@ -157,19 +156,19 @@ def landmarks_analysis(data_path, ds_folder_name,
                     num_img_ger_pat += 1
                     not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
                                                         r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                        results, file_name, "H")
+                                                        results, file.name, "H")
                 elif first_char == "p":
                     # if file.name[1] == "9":
                     #     continue
                     num_img_slo_pat += 1
                     not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
                                                         r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                        results, file_name, "p")
+                                                        results, file.name, "p")
                 elif first_char == "n":
                     num_img_slo_norm += 1
                     not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
                                                         r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                        results, file_name, "n")
+                                                        results, file.name, "n")
 
             # Сохраняем подробный CSV
             results_df = pd.DataFrame(results)
