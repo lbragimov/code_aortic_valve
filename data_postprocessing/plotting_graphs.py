@@ -35,8 +35,12 @@ def summarize_and_plot(metrics: Dict[str, List[float]], save_dir: str):
         plt.close()
 
 
-def plot_group_comparison(metric_name, group_label_map, data_pd, save_dir: str):
+def plot_group_comparison(filter_column, metric_name, group_label_map, data_pd, save_dir: str,
+                          label_file_name: str=None):
     os.makedirs(save_dir, exist_ok=True)
+
+    if not label_file_name:
+        label_file_name = metric_name
 
     colors = ["lightgray", "skyblue", "lightgreen", "salmon", "orange", "violet", "gold"]
 
@@ -51,7 +55,7 @@ def plot_group_comparison(metric_name, group_label_map, data_pd, save_dir: str):
             values = data_pd[metric_name].dropna().tolist()
         else:
             # Отбираем по конкретной группе
-            values = data_pd[data_pd['group'] == group_id][metric_name].dropna().tolist()
+            values = data_pd[data_pd[filter_column] == group_id][metric_name].dropna().tolist()
 
         if values:
             data.append(values)
@@ -60,6 +64,7 @@ def plot_group_comparison(metric_name, group_label_map, data_pd, save_dir: str):
             stds.append(np.std(values))
 
     if not data:
+        add_info_logging(f"No data found for metric {metric_name}. Skipping plot.", "work_logger")
         return  # Пропуск метрики без данных
 
     plt.figure(figsize=(7, 5))
@@ -86,11 +91,11 @@ def plot_group_comparison(metric_name, group_label_map, data_pd, save_dir: str):
                fancybox=True, shadow=False, ncol=2, fontsize=8)
 
     plt.xticks(ticks=np.arange(1, len(labels) + 1), labels=labels)
-    plt.ylabel(metric_name)
-    plt.title(f"{metric_name} — per-group distribution with mean ± std")
+    plt.ylabel(label_file_name)
+    plt.title(f"{label_file_name} — per-group distribution with mean ± std")
 
     # Увеличиваем нижний отступ для легенды
     plt.subplots_adjust(bottom=0.25)
 
-    plt.savefig(os.path.join(save_dir, f"{metric_name}.png"), dpi=300)
+    plt.savefig(os.path.join(save_dir, f"{label_file_name}.png"), dpi=300)
     plt.close()

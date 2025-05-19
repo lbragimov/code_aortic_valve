@@ -37,7 +37,7 @@ def mask_analysis(data_path, result_path, type_mask, folder_name):
 
     for metric_name in metrics:
         data_for_plot = df[['group', metric_name]].dropna(how='any')
-        plot_group_comparison(metric_name, group_label_map, data_for_plot,
+        plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
                               os.path.join(result_path, "aorta_root_comparison"))
     add_info_logging("Analysis completed", "work_logger")
 
@@ -95,7 +95,7 @@ def landmarks_analysis(data_path, ds_folder_name,
                 results.append({
                     "filename": file_name,
                     "group": group,
-                    "point_id": key,
+                    "point_id": point_name[key],
                     "error": dist
                 })
                 if key == 1: r.append(dist)
@@ -114,94 +114,115 @@ def landmarks_analysis(data_path, ds_folder_name,
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
     json_path = data_path / "nnUNet_folder" / "json_info"
     result_folder_path = data_path / "result"
+    results_csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
+
+    point_name = {"all": "All", 1:"r", 2:"l", 3:"n", 4:"rlc", 5:"rnc", 6:"lnc"}
+    type_label = {
+        "all": "All",
+        "H": "Ger. path.",
+        "p": "Slo. path.",
+        "n": "Slo. norm."
+    }
 
     results = []  # список словарей
 
     if find_center_mass:
-        if probabilities_map:
-            files = list(result_landmarks_folder.glob("*.npz"))
+        if os.path.exists(results_csv_path):
+            # Загружаем данные из файлов
+            add_info_logging("Using cached metrics from CSV files", "work_logger")
+            results_df = pd.read_csv(results_csv_path)
         else:
-            files = list(result_landmarks_folder.glob("*.nii.gz"))
-        errors_ger_pat, errors_slo_pat, errors_slo_norm = [], [], []
-        not_found_ger_pat, not_found_slo_pat, not_found_slo_norm = 0, 0, 0
-        num_img_ger_pat, num_img_slo_pat, num_img_slo_norm = 0, 0, 0
-        r_errors, l_errors, n_errors = [], [], []
-        rlc_errors, rnc_errors, lnc_errors = [], [], []
-        for file in files:
+            if probabilities_map:
+                files = list(result_landmarks_folder.glob("*.npz"))
+            else:
+                files = list(result_landmarks_folder.glob("*.nii.gz"))
+            errors_ger_pat, errors_slo_pat, errors_slo_norm = [], [], []
+            not_found_ger_pat, not_found_slo_pat, not_found_slo_norm = 0, 0, 0
+            num_img_ger_pat, num_img_slo_pat, num_img_slo_norm = 0, 0, 0
+            r_errors, l_errors, n_errors = [], [], []
+            rlc_errors, rnc_errors, lnc_errors = [], [], []
+            for file in files:
 
-            landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
-            if len(landmarks_pred.keys()) < 5:
-                add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
-                                 "result_logger")
+                landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
+                if len(landmarks_pred.keys()) < 5:
+                    add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
+                                     "result_logger")
 
-            first_char = file.name[0]
-            if first_char == "H":
-                num_img_ger_pat += 1
-                not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                    results, file.name, "H")
-            elif first_char == "p":
-                # if file.name[1] == "9":
-                #     continue
-                num_img_slo_pat += 1
-                not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                    results, file.name, "p")
-            elif first_char == "n":
-                num_img_slo_norm += 1
-                not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
-                                                    r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                    results, file.name, "n")
+                first_char = file.name[0]
+                if first_char == "H":
+                    num_img_ger_pat += 1
+                    not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
+                                                        r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                        results, file.name, "H")
+                elif first_char == "p":
+                    # if file.name[1] == "9":
+                    #     continue
+                    num_img_slo_pat += 1
+                    not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
+                                                        r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                        results, file.name, "p")
+                elif first_char == "n":
+                    num_img_slo_norm += 1
+                    not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
+                                                        r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                        results, file.name, "n")
 
-        # Сохраняем подробный CSV
-        results_df = pd.DataFrame(results)
-        results_csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
-        results_df.to_csv(results_csv_path, index=False)
+            # Сохраняем подробный CSV
+            results_df = pd.DataFrame(results)
+            results_df.to_csv(results_csv_path, index=False)
 
-        mean_error_ger_pat = np.mean(errors_ger_pat) if errors_ger_pat else None
-        not_found_ger_pat = (not_found_ger_pat / (num_img_ger_pat * 6)) * 100
+            mean_error_ger_pat = np.mean(errors_ger_pat) if errors_ger_pat else None
+            not_found_ger_pat = (not_found_ger_pat / (num_img_ger_pat * 6)) * 100
 
-        mean_error_slo_pat = np.mean(errors_slo_pat) if errors_slo_pat else None
-        not_found_slo_pat = (not_found_slo_pat / (num_img_slo_pat * 6)) * 100
+            mean_error_slo_pat = np.mean(errors_slo_pat) if errors_slo_pat else None
+            not_found_slo_pat = (not_found_slo_pat / (num_img_slo_pat * 6)) * 100
 
-        mean_error_slo_norm = np.mean(errors_slo_norm) if errors_slo_norm else None
-        not_found_slo_norm = (not_found_slo_norm / (num_img_slo_norm * 6)) * 100
+            mean_error_slo_norm = np.mean(errors_slo_norm) if errors_slo_norm else None
+            not_found_slo_norm = (not_found_slo_norm / (num_img_slo_norm * 6)) * 100
 
-        mean_error = np.mean(np.concatenate([errors_ger_pat, errors_slo_pat, errors_slo_norm]))
-        num_img = num_img_ger_pat + num_img_slo_pat + num_img_slo_norm
-        not_found = ((not_found_ger_pat + not_found_slo_pat + not_found_slo_norm) / (num_img * 6)) * 100
-        # add_info_logging("finish analysis", "work_logger")
-        mean_r_error = np.mean(r_errors) if r_errors else None
-        mean_l_error = np.mean(l_errors) if l_errors else None
-        mean_n_error = np.mean(n_errors) if n_errors else None
-        mean_rlc_error = np.mean(rlc_errors) if rlc_errors else None
-        mean_rnc_error = np.mean(rnc_errors) if rnc_errors else None
-        mean_lnc_error = np.mean(lnc_errors) if lnc_errors else None
+            mean_error = np.mean(np.concatenate([errors_ger_pat, errors_slo_pat, errors_slo_norm]))
+            num_img = num_img_ger_pat + num_img_slo_pat + num_img_slo_norm
+            not_found = ((not_found_ger_pat + not_found_slo_pat + not_found_slo_norm) / (num_img * 6)) * 100
+            # add_info_logging("finish analysis", "work_logger")
+            mean_r_error = np.mean(r_errors) if r_errors else None
+            mean_l_error = np.mean(l_errors) if l_errors else None
+            mean_n_error = np.mean(n_errors) if n_errors else None
+            mean_rlc_error = np.mean(rlc_errors) if rlc_errors else None
+            mean_rnc_error = np.mean(rnc_errors) if rnc_errors else None
+            mean_lnc_error = np.mean(lnc_errors) if lnc_errors else None
 
-        add_info_logging("German pathology", "result_logger")
-        add_info_logging(
-            f"Mean Euclidean Distance: {mean_error_ger_pat:.4f} mm, not found: {not_found_ger_pat: .2f}%. Number of images:{num_img_ger_pat}",
-            "result_logger")
-        add_info_logging("Slovenian pathology", "result_logger")
-        add_info_logging(
-            f"Mean Euclidean Distance: {mean_error_slo_pat:.4f} mm, not found: {not_found_slo_pat: .2f}%. Number of images:{num_img_slo_pat}",
-            "result_logger")
-        add_info_logging("Slovenian normal", "result_logger")
-        add_info_logging(
-            f"Mean Euclidean Distance: {mean_error_slo_norm:.4f} mm, not found: {not_found_slo_norm: .2f}%. Number of images:{num_img_slo_norm}",
-            "result_logger")
-        add_info_logging("Sum", "result_logger")
-        add_info_logging(
-            f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%. Number of images:{num_img}",
-            "result_logger")
-        add_info_logging(f"Mean Euclidean Distance 'R' point: {mean_r_error}", "result_logger")
-        add_info_logging(f"Mean Euclidean Distance 'L' point: {mean_l_error}", "result_logger")
-        add_info_logging(f"Mean Euclidean Distance 'N' point: {mean_n_error}", "result_logger")
-        add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}", "result_logger")
-        add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
-        add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
+            add_info_logging("German pathology", "result_logger")
+            add_info_logging(
+                f"Mean Euclidean Distance: {mean_error_ger_pat:.4f} mm, not found: {not_found_ger_pat: .2f}%. Number of images:{num_img_ger_pat}",
+                "result_logger")
+            add_info_logging("Slovenian pathology", "result_logger")
+            add_info_logging(
+                f"Mean Euclidean Distance: {mean_error_slo_pat:.4f} mm, not found: {not_found_slo_pat: .2f}%. Number of images:{num_img_slo_pat}",
+                "result_logger")
+            add_info_logging("Slovenian normal", "result_logger")
+            add_info_logging(
+                f"Mean Euclidean Distance: {mean_error_slo_norm:.4f} mm, not found: {not_found_slo_norm: .2f}%. Number of images:{num_img_slo_norm}",
+                "result_logger")
+            add_info_logging("Sum", "result_logger")
+            add_info_logging(
+                f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%. Number of images:{num_img}",
+                "result_logger")
+            add_info_logging(f"Mean Euclidean Distance 'R' point: {mean_r_error}", "result_logger")
+            add_info_logging(f"Mean Euclidean Distance 'L' point: {mean_l_error}", "result_logger")
+            add_info_logging(f"Mean Euclidean Distance 'N' point: {mean_n_error}", "result_logger")
+            add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}", "result_logger")
+            add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
+            add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
 
-        plot_group_comparison(landmark_errors_grouped, str(result_folder_path), mode="landmarks")
+        for key, type_name in type_label.items():
+            if key == "all":
+                data_for_plot = results_df[["point_id", "error"]].dropna(how='any')
+                plot_group_comparison("point_id", "error", point_name, data_for_plot,
+                                      str(result_folder_path / "landmarks_comparsion"), type_name)
+            else:
+                data_for_plot = results_df[results_df['group'] == key][["point_id", "error"]].dropna(how='any')
+                plot_group_comparison("point_id","error", point_name, data_for_plot,
+                                      str(result_folder_path / "landmarks_comparsion"), type_name)
 
     if find_monte_carlo:
         arr_mean_angles_ger_pat = np.array([]).reshape(0, 3)
