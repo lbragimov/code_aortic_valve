@@ -239,22 +239,22 @@ def landmarks_analysis(data_path, ds_folder_name,
         for file in files:
             if file.name[0] == "H":
                 simulation = LandmarkingMonteCarlo(json_file=str(json_path/file.name[:-4]) + ".json",
-                                                    nii_file=str(result_landmarks_folder/file.name[:-4]) + ".nii.gz" ,
-                                                    npy_file=str(file))
+                                                   nii_file=str(result_landmarks_folder/file.name[:-4]) + ".nii.gz" ,
+                                                   npy_file=str(file))
                 cur_angles, cur_dists =  simulation.run_simulation()
                 arr_mean_angles_ger_pat = np.vstack([arr_mean_angles_ger_pat, cur_angles])
                 arr_mean_dists_ger_pat = np.vstack([arr_mean_dists_ger_pat, cur_dists])
             if file.name[0] == "p":
                 simulation = LandmarkingMonteCarlo(json_file=str(json_path / file.name[:-4]) + ".json",
-                                                    nii_file=str(result_landmarks_folder / file.name[:-4]) + ".nii.gz",
-                                                    npy_file=str(file))
+                                                   nii_file=str(result_landmarks_folder / file.name[:-4]) + ".nii.gz",
+                                                   npy_file=str(file))
                 cur_angles, cur_dists = simulation.run_simulation()
                 arr_mean_angles_slo_pat = np.vstack([arr_mean_angles_slo_pat, cur_angles])
                 arr_mean_dists_slo_pat = np.vstack([arr_mean_dists_slo_pat, cur_dists])
             if file.name[0] == "n":
                 simulation = LandmarkingMonteCarlo(json_file=str(json_path / file.name[:-4]) + ".json",
-                                                    nii_file=str(result_landmarks_folder / file.name[:-4]) + ".nii.gz",
-                                                    npy_file=str(file))
+                                                   nii_file=str(result_landmarks_folder / file.name[:-4]) + ".nii.gz",
+                                                   npy_file=str(file))
                 cur_angles, cur_dists = simulation.run_simulation()
                 arr_mean_angles_slo_norm = np.vstack([arr_mean_angles_slo_norm, cur_angles])
                 arr_mean_dists_slo_norm = np.vstack([arr_mean_dists_slo_norm, cur_dists])
