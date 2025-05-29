@@ -13,3 +13,4 @@ torchvision
 torch
 psutil
 medpy
+pyvista

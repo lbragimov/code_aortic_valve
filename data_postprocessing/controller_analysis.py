@@ -37,6 +37,18 @@ def mask_analysis(data_path, result_path, type_mask, folder_name):
 
     for metric_name in metrics:
         data_for_plot = df[['group', metric_name]].dropna(how='any')
+        assd_mean = df["ASSD"].mean(numeric_only=True)
+        assd_median = df["ASSD"].median(numeric_only=True)
+        assd_std = df["ASSD"].std(numeric_only=True)
+        dice_mean = df["Dice"].mean(numeric_only=True)
+        dice_median = df["Dice"].median(numeric_only=True)
+        dice_std = df["Dice"].std(numeric_only=True)
+        assd_mean_groupby = df.groupby("group")["ASSD"].mean(numeric_only=True)
+        assd_median_groupby = df.groupby("group")["ASSD"].median(numeric_only=True)
+        assd_std_groupby = df.groupby("group")["ASSD"].std(numeric_only=True)
+        dice_mean_groupby = df.groupby("group")["Dice"].mean(numeric_only=True)
+        dice_median_groupby = df.groupby("group")["Dice"].median(numeric_only=True)
+        dice_std_groupby = df.groupby("group")["Dice"].std(numeric_only=True)
         plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
                               os.path.join(result_path, "aorta_root_comparison"))
     add_info_logging("Analysis completed", "work_logger")
@@ -219,6 +231,8 @@ def landmarks_analysis(data_path, ds_folder_name,
 
         point_name = {"all": "All", "r": "R", "l": "L", "n": "N", "rlc": "RLC", "rnc": "RNC", "lnc": "LNC"}
         for key, type_name in type_label.items():
+            err_std = results_df["error"].std(numeric_only=True)
+            err_std_groupby = results_df.groupby("group")["error"].std(numeric_only=True)
             if key == "all":
                 data_for_plot = results_df[["point_id", "error"]].dropna(how='any')
                 plot_group_comparison("point_id", "error", point_name, data_for_plot,
