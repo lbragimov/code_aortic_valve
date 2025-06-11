@@ -31,8 +31,9 @@ def show_log_and_exit(timeout_seconds=20):
     """
     log_text = print_buffer.getvalue()
 
-    def close_after_timeout():
-        root.after(timeout_seconds * 1000, root.destroy)
+    def force_exit():
+        root.destroy()
+        sys.exit()  # гарантированное завершение
 
     root = tk.Tk()
     root.title("Лог выполнения скрипта")
@@ -42,7 +43,7 @@ def show_log_and_exit(timeout_seconds=20):
     text_area.config(state=tk.DISABLED)
     text_area.pack(padx=10, pady=10)
 
-    close_after_timeout()
+    root.after(timeout_seconds * 1000, force_exit)
     root.mainloop()
     sys.exit()
 
@@ -91,14 +92,16 @@ def reorient_image_by_plane(image_path, points_dict):
     affine.SetCenter(A_phys.tolist())  # Центр поворота — точка A
 
     # Ресэмплинг
-    resampled = sitk.Resample(
-        image,
-        image,  # та же сетка, просто повёрнутая
-        affine.GetInverse(),  # обратное преобразование!
-        sitk.sitkLinear,
-        0.0,
-        image.GetPixelID()
-    )
+    # resampled = sitk.Resample(
+    #     image,
+    #     image,  # та же сетка, просто повёрнутая
+    #     affine.GetInverse(),  # обратное преобразование!
+    #     sitk.sitkLinear,
+    #     0.0,
+    #     image.GetPixelID()
+    # )
+
+    resampled = resample_with_new_bounds(image, affine)
 
     return resampled
 
@@ -165,6 +168,48 @@ def get_file_name(file_path):
         filename = filename[:-5]
 
     return filename
+
+
+def resample_with_new_bounds(image, transform):
+    # Получаем физические границы исходного изображения
+    orig_size = np.array(image.GetSize())
+    orig_spacing = np.array(image.GetSpacing())
+    orig_direction = np.array(image.GetDirection()).reshape(3, 3)
+    orig_origin = np.array(image.GetOrigin())
+
+    # Получаем 8 углов изображения в физическом пространстве
+    corners = np.array([[i, j, k] for i in [0, orig_size[0]]
+                                   for j in [0, orig_size[1]]
+                                   for k in [0, orig_size[2]]])
+    phys_corners = [image.TransformIndexToPhysicalPoint(corner.tolist()) for corner in corners]
+
+    # Преобразуем все углы
+    transformed_corners = [transform.TransformPoint(p) for p in phys_corners]
+
+    # Находим новые минимумы и максимумы по всем координатам
+    min_coords = np.min(transformed_corners, axis=0)
+    max_coords = np.max(transformed_corners, axis=0)
+
+    # Размер нового изображения
+    new_spacing = orig_spacing
+    new_size = np.ceil((max_coords - min_coords) / new_spacing).astype(int).tolist()
+
+    # Создаём новое направление (оставим как у текущего изображения)
+    new_origin = min_coords.tolist()
+
+    # Ресэмплируем с новыми параметрами
+    resampled = sitk.Resample(
+        image,
+        new_size,
+        transform.GetInverse(),
+        sitk.sitkLinear,
+        new_origin,
+        new_spacing.tolist(),
+        image.GetDirection(),
+        0.0,
+        image.GetPixelID()
+    )
+    return resampled
 
 
 def get_json_dict(json_folder_path, nii_file_name):
