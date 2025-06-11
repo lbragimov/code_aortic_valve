@@ -1,6 +1,10 @@
+aorta_mask_analysis: true
+check_dicom: true
 convert: true
 create_3D_UNet_data_base: true
 crop_images: true
+experiment: true
+landmarks_analysis: true
 markers_info: true
 mask_aorta_segment: true
 mask_aorta_segment_cut: true
@@ -10,6 +14,3 @@ nnUNet_DS_landmarks: true
 nnUNet_lmk_ger_sep: true
 resample: true
 size_or_pixel: none
-experiment: true
-aorta_mask_analysis: true
-landmarks_analysis: false

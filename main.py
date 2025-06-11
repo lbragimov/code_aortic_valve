@@ -5,6 +5,7 @@ from pathlib import Path
 import platform
 
 import numpy as np
+import pandas as pd
 from statistics import mode
 from datetime import datetime
 
@@ -12,7 +13,7 @@ import nibabel as nib
 from totalsegmentator.python_api import totalsegmentator
 
 from configurator.equipment_analysis import get_free_cpus
-from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm
+from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm, check_dcm_info
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
@@ -148,6 +149,20 @@ def controller(data_path, cpus):
         controller_dump = {}
     dir_structure = json_reader(data_structure_path)
     # create_directory_structure(data_path, dir_structure)
+
+    if not "check_dicom" in controller_dump.keys() or not controller_dump["check_dicom"]:
+        summary_info = []
+        for sub_dir in list(dir_structure['dicom']):
+            for case in os.listdir(os.path.join(dicom_path, sub_dir)):
+                dcm_case_path = os.path.join(dicom_path, sub_dir, case)
+                info = check_dcm_info(dcm_case_path)
+                info["case_name"] = case
+                summary_info.append(info)
+        controller_dump["check_dicom"] = True
+        yaml_save(controller_dump, controller_path)
+
+        df = pd.DataFrame(summary_info)
+        df.to_csv(os.path.join(result_path, "cases_info.csv"), index=False)
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         for sub_dir in list(dir_structure['dicom']):

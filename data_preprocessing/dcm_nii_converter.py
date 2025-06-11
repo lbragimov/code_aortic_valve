@@ -2,6 +2,51 @@ from pathlib import Path
 
 import SimpleITK as sitk
 import numpy as np
+import pydicom
+from datetime import datetime
+
+
+def calculate_age(birth_date_str, study_date_str):
+    """Вычисляет возраст пациента на момент исследования."""
+    try:
+        birth_date = datetime.strptime(birth_date_str, "%Y%m%d")
+        study_date = datetime.strptime(study_date_str, "%Y%m%d")
+        age = study_date.year - birth_date.year - ((study_date.month, study_date.day) < (birth_date.month, birth_date.day))
+        return age
+    except Exception:
+        return "Unknown"
+
+
+def check_dcm_info(dicom_folder: str):
+
+    # Reading a series of DICOM files
+    reader = sitk.ImageSeriesReader()
+
+    # Getting a list of DICOM files in the specified folder
+    dicom_series = reader.GetGDCMSeriesFileNames(dicom_folder)
+
+    # Читаем первый файл серии для извлечения метаданных
+    first_file = dicom_series[0]
+    ds = pydicom.dcmread(first_file)
+
+    # Извлекаем данные
+    birth_date = ds.get("PatientBirthDate", "")
+    study_date = ds.get("StudyDate", ds.get("SeriesDate", ""))
+    age = calculate_age(birth_date, study_date)
+
+    # Извлекаем необходимые поля
+    sex = ds.get("PatientSex", "Unknown")
+    slice_thickness = ds.get("SliceThickness", "Unknown")
+    manufacturer = ds.get("Manufacturer", "Unknown")
+    model = ds.get("ManufacturerModelName", "Unknown")
+
+    return {
+        "PatientAge": age,
+        "PatientSex": sex,
+        "SliceThickness": slice_thickness,
+        "Manufacturer": manufacturer,
+        "Model": model
+    }
 
 
 def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
