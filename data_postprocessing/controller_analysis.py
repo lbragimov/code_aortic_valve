@@ -10,6 +10,8 @@ from data_postprocessing.mask_analysis import mask_comparison, LandmarkCentersCa
 from data_postprocessing.plotting_graphs import summarize_and_plot, plot_group_comparison
 from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
+from metrics_config import metric_to_landmarks
+from geometric_metrics import controller_metrics
 
 
 def mask_analysis(data_path, result_path, type_mask, folder_name):
@@ -92,10 +94,10 @@ def landmarks_analysis(data_path, ds_folder_name,
         res_test = LandmarkCentersCalculator()
         file_name = file.name[:-4] + ".nii.gz"
         if probabilities_map:
-            pred = res_test.compute_metrics_direct_npz(original_mask_folder / file_name, file)
+            pred = res_test.extract_landmarks_com_npz(original_mask_folder / file_name, file)
         else:
-            pred = res_test.compute_metrics_direct_nii(file)
-        true = res_test.compute_metrics_direct_nii(original_mask_folder / file_name)
+            pred = res_test.extract_landmarks_com_nii(file)
+        true = res_test.extract_landmarks_com_nii(original_mask_folder / file_name)
         return true, pred
 
     def compute_errors(true, pred, error_list, r, l, n, rlc, rnc, lnc, results, file_name, group):
@@ -286,3 +288,35 @@ def landmarks_analysis(data_path, ds_folder_name,
         arr_mean_dists = np.vstack([arr_mean_dists_ger_pat, arr_mean_dists_slo_pat, arr_mean_dists_slo_norm])
         add_info_logging(f"mean angles = '{np.mean(arr_mean_angles, axis=0)}'")
         add_info_logging(f"mean distances = '{np.mean(arr_mean_dists, axis=0)}'")
+
+
+def find_morphometric_parameters(data_path, ds_folder_name):
+    data_path = Path(data_path)
+    result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
+    original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
+    result_folder_path = data_path / "result"
+    results_csv_path = result_folder_path / f"morphometric_parameters_{ds_folder_name}.csv"
+    files = list(result_landmarks_folder.glob("*.npz"))
+    summary_result = []
+    for file in files:
+        lcc = LandmarkCentersCalculator()
+        file_name = file.name[:-4] + ".nii.gz"
+        landmarks_centers_of_peak = lcc.extract_landmarks_peak_npz(original_mask_folder / file_name, file)
+        landmarks_centers_of_mass = lcc.extract_landmarks_com_npz(original_mask_folder / file_name, file)
+        landmarks_centers_of_peaks_topk = lcc.extract_landmarks_topk_peaks_npz(original_mask_folder / file_name, file)
+        for metric, sets_landmarks in metric_to_landmarks.items():
+            result_cop = controller_metrics(metric, sets_landmarks, landmarks_centers_of_peak)
+            result_com = controller_metrics(metric, sets_landmarks, landmarks_centers_of_mass)
+            result_mc = controller_metrics(metric, sets_landmarks, landmarks_centers_of_peaks_topk, mc_option=True)
+            summary_result.append({
+                "file": file_name,
+                "metric": metric,
+                "peak": result_cop,
+                "center_of_mass": result_com,
+                "topk_peaks_avg": result_mc
+            })
+
+    df = pd.DataFrame.from_records(summary_result)
+    result_folder_path.mkdir(parents=True, exist_ok=True)
+    df.to_csv(results_csv_path, index=False)
+

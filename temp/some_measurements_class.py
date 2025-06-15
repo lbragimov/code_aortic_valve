@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class landmarking_computeMeasurements_simplified:
 
     class landmark_ellipse:

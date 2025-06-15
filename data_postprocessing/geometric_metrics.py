@@ -1,4 +1,47 @@
+import random
 import numpy as np
+from data_preprocessing.text_worker import add_info_logging
+
+
+metric_name_function = {
+    "inter_commissure_distance": "_inter_commissure_distance",
+    "cusp_triangle_area": "_cusp_triangle_area",
+    "sinotubular_diameter": "_sinotubular_diameter",
+    "valve_height": "_valve_height",
+}
+
+
+def controller_metrics(metric_name, necessary_landmarks, found_landmarks, mc_option=False):
+    # Получаем имя функции из словаря
+    function_name = metric_name_function.get(metric_name)
+    if function_name is None:
+        add_info_logging(f"Unknown metric name: {metric_name}", "work_logger")
+        raise ValueError(f"Unknown metric name: {metric_name}")
+
+    # Получаем объект функции по имени
+    function = globals().get(function_name)
+    if function is None:
+        add_info_logging(f"Function '{function_name}' is not defined", "work_logger")
+        raise ValueError(f"Function '{function_name}' is not defined")
+
+    results_list = []
+    if not mc_option:
+        for current_set in necessary_landmarks:
+            sets_use_landmarks = []
+            for new_point in current_set:
+                sets_use_landmarks.append(found_landmarks[new_point])
+            results_list.append(function(sets_use_landmarks))
+    else:
+        # Монте-Карло симуляции
+        num_samples = 1000
+        for current_set in necessary_landmarks:
+            for _ in range(num_samples):
+                sets_use_landmarks = []
+                for new_point in current_set:
+                    sets_use_landmarks.append(random.choice(found_landmarks[new_point]))
+                results_list.append(function(sets_use_landmarks))
+
+    return np.mean(np.asarray(results_list))
 
 
 class landmarking_computeMeasurements:

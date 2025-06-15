@@ -49,7 +49,8 @@ def mask_comparison(data_path, type_mask, folder_name):
 
 class LandmarkCentersCalculator:
 
-    def compute_center_of_mass(self, binary_mask, spacing, origin, direction):
+    @staticmethod
+    def _compute_center_of_mass(binary_mask, spacing, origin, direction):
         # Function to compute center of mass in world coordinates
         indices = np.argwhere(binary_mask)  # Get voxel indices of the mask
         if len(indices) == 0:
@@ -62,7 +63,7 @@ class LandmarkCentersCalculator:
         center_world = np.dot(direction, center_voxel * spacing) + origin
         return center_world
 
-    def compute_metrics_direct_nii(self, mask_nii):
+    def extract_landmarks_com_nii(self, mask_nii):
         mask_image = sitk.ReadImage(mask_nii)
         mask_array = sitk.GetArrayFromImage(mask_image)  # Convert to NumPy array
 
@@ -79,7 +80,7 @@ class LandmarkCentersCalculator:
         centers_of_mass = {}
         for label in labels:
             binary_mask = (mask_array == label)  # Create binary mask for current label
-            center_world = self.compute_center_of_mass(binary_mask, spacing, origin, direction)
+            center_world = self._compute_center_of_mass(binary_mask, spacing, origin, direction)
             if center_world is not None:
                 centers_of_mass[label] = center_world
 
@@ -89,7 +90,7 @@ class LandmarkCentersCalculator:
         # metrics = measurerer.compute_metrics()
         return centers_of_mass
 
-    def compute_metrics_direct_npz(self, mask_nii, mask_npz):
+    def extract_landmarks_com_npz(self, mask_nii, mask_npz):
         # Get image metadata
         mask_image = sitk.ReadImage(mask_nii)
         spacing = np.array(mask_image.GetSpacing())  # (x, y, z) voxel size
@@ -104,7 +105,7 @@ class LandmarkCentersCalculator:
         for label in range(1, labels):
             binary_mask = prob_map_all["probabilities"][label]  # Create binary mask for current label
             binary_mask[binary_mask < np.max(binary_mask)*0.2] = 0
-            center_world = self.compute_center_of_mass(binary_mask, spacing, origin, direction)
+            center_world = self._compute_center_of_mass(binary_mask, spacing, origin, direction)
             if center_world is not None:
                 centers_of_mass[label] = center_world
 
@@ -113,3 +114,66 @@ class LandmarkCentersCalculator:
         #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
         # metrics = measurerer.compute_metrics()
         return centers_of_mass
+
+    @staticmethod
+    def extract_landmarks_peak_npz(mask_nii, mask_npz):
+        # Get image metadata
+        mask_image = sitk.ReadImage(mask_nii)
+        spacing = np.array(mask_image.GetSpacing())  # (x, y, z)
+        origin = np.array(mask_image.GetOrigin())  # (x0, y0, z0)
+        direction = np.array(mask_image.GetDirection()).reshape(3, 3)
+
+        prob_map_all = np.load(mask_npz)
+        labels = len(prob_map_all["probabilities"])
+
+        # Compute peak voxel for each label
+        peaks_world = {}
+        for label in range(1, labels):
+            prob_map = prob_map_all["probabilities"][label]
+            if np.max(prob_map) == 0:
+                continue  # Skip empty maps
+
+            # Find voxel index of the maximum probability
+            peak_index = np.unravel_index(np.argmax(prob_map), prob_map.shape)  # (z, y, x)
+
+            # Convert index to physical coordinates
+            peak_voxel = np.array(peak_index)[::-1]  # Convert to (x, y, z) from (z, y, x)
+            peak_world = np.dot(direction, peak_voxel * spacing) + origin
+
+            peaks_world[label] = peak_world
+
+        return peaks_world
+
+    @staticmethod
+    def extract_landmarks_topk_peaks_npz(mask_nii, mask_npz, top_k=3):
+        # Get image metadata
+        mask_image = sitk.ReadImage(mask_nii)
+        spacing = np.array(mask_image.GetSpacing())  # (x, y, z)
+        origin = np.array(mask_image.GetOrigin())  # (x0, y0, z0)
+        direction = np.array(mask_image.GetDirection()).reshape(3, 3)
+
+        prob_map_all = np.load(mask_npz)
+        labels = len(prob_map_all["probabilities"])
+
+        # Compute top-k peak voxels for each label
+        peaks_world = {}
+        for label in range(1, labels):
+            prob_map = prob_map_all["probabilities"][label]
+            flat = prob_map.flatten()
+            if np.max(flat) == 0:
+                continue  # Skip empty maps
+
+            # Get indices of top_k highest probabilities
+            topk_indices_flat = np.argpartition(-flat, range(min(top_k, flat.size)))[:top_k]
+            topk_indices_sorted = topk_indices_flat[np.argsort(-flat[topk_indices_flat])]
+
+            peak_world_coords = []
+            for idx in topk_indices_sorted:
+                peak_index = np.unravel_index(idx, prob_map.shape)  # (z, y, x)
+                peak_voxel = np.array(peak_index)[::-1]  # to (x, y, z)
+                peak_world = np.dot(direction, peak_voxel * spacing) + origin
+                peak_world_coords.append(peak_world)
+
+            peaks_world[label] = peak_world_coords
+
+        return peaks_world  # Dict[label] = [coord1, coord2, ..., coordK]

@@ -9,8 +9,6 @@ from Demos.mmapfile_demo import offset
 from scipy.spatial.transform import Rotation as R
 
 
-
-
 def controller(json_path):
     # === 1. Загрузка JSON ===
     with open(json_path, "r") as f:
@@ -49,7 +47,10 @@ def controller(json_path):
         "RCI": "red",
         "LCI": "red",
         "NCI": "red",
-        "BR - closed": "black"
+        "BR - closed": "black",
+        "RLS - closed": "blue",
+        "RNS - closed": "blue",
+        "LNS - closed": "blue",
     }
 
     # === 6. Добавление всех кривых (дуг) ===
