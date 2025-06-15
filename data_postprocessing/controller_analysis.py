@@ -10,8 +10,8 @@ from data_postprocessing.mask_analysis import mask_comparison, LandmarkCentersCa
 from data_postprocessing.plotting_graphs import summarize_and_plot, plot_group_comparison
 from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
-from metrics_config import metric_to_landmarks
-from geometric_metrics import controller_metrics
+from data_postprocessing.metrics_config import metric_to_landmarks
+from data_postprocessing.geometric_metrics import controller_metrics
 
 
 def mask_analysis(data_path, result_path, type_mask, folder_name):
