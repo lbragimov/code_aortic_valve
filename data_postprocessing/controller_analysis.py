@@ -303,7 +303,8 @@ def find_morphometric_parameters(data_path, ds_folder_name):
         file_name = file.name[:-4] + ".nii.gz"
         landmarks_centers_of_peak = lcc.extract_landmarks_peak_npz(original_mask_folder / file_name, file)
         landmarks_centers_of_mass = lcc.extract_landmarks_com_npz(original_mask_folder / file_name, file)
-        landmarks_centers_of_peaks_topk = lcc.extract_landmarks_topk_peaks_npz(original_mask_folder / file_name, file)
+        landmarks_centers_of_peaks_topk = lcc.extract_landmarks_topk_peaks_npz(original_mask_folder / file_name,
+                                                                               file, top_k=10)
         for metric, sets_landmarks in metric_to_landmarks.items():
             result_cop = controller_metrics(metric, sets_landmarks, landmarks_centers_of_peak)
             result_com = controller_metrics(metric, sets_landmarks, landmarks_centers_of_mass)
