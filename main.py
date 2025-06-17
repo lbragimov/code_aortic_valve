@@ -17,12 +17,13 @@ from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_ni
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
-                                            add_info_logging)
+                                            add_info_logging, create_new_json)
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 # from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
-                                                     find_morphometric_parameters)
+                                                     find_morphometric_parameters, LandmarkCentersCalculator)
 from data_postprocessing.plotting_graphs import summarize_and_plot
+from data_postprocessing.coherent_point_drift import create_new_gh_json
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 from models.controller_nnUnet import process_nnunet
@@ -138,6 +139,8 @@ def controller(data_path, cpus):
     crop_nii_image_path = os.path.join(data_path, "crop_nii_image")
     crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
     UNet_3D_folder = os.path.join(data_path, "3DUNet_folder")
+    json_duplication_g_h_path = os.path.join(data_path, "json_duplication_geometric_heights")
+    json_land_mask_coord_path = os.path.join(data_path, "json_landmarks_mask_coord")
 
     controller_path = os.path.join(script_dir, "controller.yaml")
     data_structure_path = os.path.join(script_dir, "dir_structure.json")
@@ -559,6 +562,63 @@ def controller(data_path, cpus):
 
     if not controller_dump["calc_morphometric"]:
         find_morphometric_parameters(data_path, ds_folder_name="Dataset499_AortaLandmarks")
+
+    if not controller_dump["duplication_geometric_heights"]:
+        ds_folder_name = "Dataset499_AortaLandmarks"
+        train_nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name, "imagesTr")
+        test_nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name, "imagesTs")
+        cases_folders_list = [train_nnUNet_DS_landmarks_path, test_nnUNet_DS_landmarks_path]
+        json_dupl_folder = os.path.join(json_duplication_g_h_path, "train")
+        for cur_folder in cases_folders_list:
+            for file in os.listdir(cur_folder):
+                file_name = file[:-12]
+                first_letter = file[:1]
+                if first_letter == "H":
+                    json_org_file = os.path.join(json_marker_path, "Homburg pathology", f"{file_name}.json")
+                elif first_letter == "n":
+                    json_org_file = os.path.join(json_marker_path, "Normal", f"{file_name}.json")
+                else:
+                    json_org_file = os.path.join(json_marker_path, "Pathology", f"{file_name}.json")
+                json_dupl_file = os.path.join(json_dupl_folder, f"{file_name}.json")
+
+                create_new_gh_json(json_org_file, json_dupl_file, n_points=10)
+            json_dupl_folder = os.path.join(json_duplication_g_h_path, "test")
+
+        controller_dump["duplication_geometric_heights"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump["json_landmarks_mask_coord"]:
+        ds_folder_name = "Dataset499_AortaLandmarks"
+        cur_nnUNet_folder_path = Path(nnUNet_folder)
+        train_mask_folder_path = cur_nnUNet_folder_path / "nnUNet_raw" / ds_folder_name / "labelsTr"
+        test_mask_folder_path = cur_nnUNet_folder_path / "nnUNet_test" / ds_folder_name
+        original_mask_folder_path = cur_nnUNet_folder_path / "original_mask" / ds_folder_name
+        cases_folders_list = [train_mask_folder_path, test_mask_folder_path]
+
+        type_set = "train"
+        res_test = LandmarkCentersCalculator()
+        for cur_folder in cases_folders_list:
+            if type_set == "train":
+                files = list(Path(cur_folder).glob("*.nii.gz"))
+                json_land_mask_coord_folder = os.path.join(json_land_mask_coord_path, "train")
+            else:
+                files = list(Path(cur_folder).glob("*.npz"))
+                json_land_mask_coord_folder = os.path.join(json_land_mask_coord_path, "test")
+            for file in files:
+                json_dupl_file = os.path.join(json_land_mask_coord_folder, f"{file.name.split('.')[0]}.json")
+                if type_set == "train":
+                    labels = {1: "R",2: "L",3: "N",4: "RLC",5: "RNC",6: "LNC"}
+                    pred = {}
+                    for key, name in labels.items():
+                        pred[key] = dict_all_case[file.name.split('.')[0]][name]
+                else:
+                    file_name = file.name.split('.')[0] + ".nii.gz"
+                    pred = res_test.extract_landmarks_com_npz(original_mask_folder_path / file_name, file)
+                create_new_json(json_dupl_file, pred)
+            type_set = "test"
+
+        controller_dump["json_landmarks_mask_coord"] = True
+        yaml_save(controller_dump, controller_path)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',

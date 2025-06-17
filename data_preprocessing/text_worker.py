@@ -2,6 +2,7 @@ import json
 import yaml
 from pathlib import Path
 import logging
+import numpy as np
 from datetime import datetime
 
 
@@ -24,6 +25,24 @@ def json_reader(path):
 def json_save(current_dict, path):
     with open(path, 'w') as json_file:
         json.dump(current_dict, json_file)
+
+def create_new_json(output_file, dict_data):
+    labels = {
+        1: "R",
+        2: "L",
+        3: "N",
+        4: "RLC",
+        5: "RNC",
+        6: "LNC"
+    }
+    result = {}
+    for key, point_coord in dict_data.items():
+        if isinstance(point_coord, np.ndarray):
+            point_coord = point_coord.tolist()
+        result[labels[key]] = point_coord
+
+    with open(output_file, 'w') as f:
+        json.dump(result, f, indent=4)
 
 
 def yaml_reader(path):

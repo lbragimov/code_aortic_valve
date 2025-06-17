@@ -84,10 +84,6 @@ class LandmarkCentersCalculator:
             if center_world is not None:
                 centers_of_mass[label] = center_world
 
-        # R_land, L_land, N_land, RLC_land, RNC_land, LNC_land
-        # measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
-        #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
-        # metrics = measurerer.compute_metrics()
         return centers_of_mass
 
     def extract_landmarks_com_npz(self, mask_nii, mask_npz):
@@ -109,10 +105,6 @@ class LandmarkCentersCalculator:
             if center_world is not None:
                 centers_of_mass[label] = center_world
 
-        # R_land, L_land, N_land, RLC_land, RNC_land, LNC_land
-        # measurerer = landmarking_computeMeasurements(centers_of_mass[1], centers_of_mass[2], centers_of_mass[3],
-        #                                              centers_of_mass[4], centers_of_mass[5], centers_of_mass[6])
-        # metrics = measurerer.compute_metrics()
         return centers_of_mass
 
     @staticmethod
