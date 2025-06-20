@@ -121,18 +121,20 @@ def get_json_dict(json_folder_path, nii_file_name):
             print("A file with that name and extension was not found in the json folder.")
             show_log_and_exit()
 
-    if nii_file_name[0] == "H":
-        json_path = os.path.join(json_folder_path, "Homburg pathology", f"{nii_file_name}.json")
-        return read_json(json_path)
-    elif nii_file_name[0] == "n":
-        json_path = os.path.join(json_folder_path, "Normal", f"{nii_file_name}.json")
-        return read_json(json_path)
-    elif nii_file_name[0] == "p":
-        json_path = os.path.join(json_folder_path, "Pathology", f"{nii_file_name}.json")
-        return read_json(json_path)
-    else:
-        print("A file with that name and extension was not found in the json folder.")
-        show_log_and_exit()
+    # if nii_file_name[0] == "H":
+    #     json_path = os.path.join(json_folder_path, "Homburg pathology", f"{nii_file_name}.json")
+    #     return read_json(json_path)
+    # elif nii_file_name[0] == "n":
+    #     json_path = os.path.join(json_folder_path, "Normal", f"{nii_file_name}.json")
+    #     return read_json(json_path)
+    # elif nii_file_name[0] == "p":
+    #     json_path = os.path.join(json_folder_path, "Pathology", f"{nii_file_name}.json")
+    #     return read_json(json_path)
+    # else:
+    #     print("A file with that name and extension was not found in the json folder.")
+    #     show_log_and_exit()
+    return read_json(os.path.join("C:/Users/Kamil/Aortic_valve/data/json_duplication_geometric_heights/result",
+                                  f"{nii_file_name}.json"))
 
 
 # === Функция: мировые координаты -> воксельные индексы ===

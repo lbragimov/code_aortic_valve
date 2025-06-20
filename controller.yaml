@@ -6,6 +6,7 @@ create_3D_UNet_data_base: true
 crop_images: true
 duplication_geometric_heights: true
 experiment: true
+find_geometric_heights: false
 json_landmarks_mask_coord: true
 landmarks_analysis: true
 markers_info: true

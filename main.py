@@ -3,6 +3,7 @@ import logging
 import shutil
 from pathlib import Path
 import platform
+import json
 
 import numpy as np
 import pandas as pd
@@ -23,7 +24,7 @@ from data_preprocessing.crop_nii import cropped_image, find_global_size, find_sh
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
                                                      find_morphometric_parameters, LandmarkCentersCalculator)
 from data_postprocessing.plotting_graphs import summarize_and_plot
-from data_postprocessing.coherent_point_drift import create_new_gh_json
+from data_postprocessing.coherent_point_drift import create_new_gh_json, find_new_curv
 from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers
 from models.controller_nnUnet import process_nnunet
@@ -597,6 +598,7 @@ def controller(data_path, cpus):
 
         type_set = "train"
         res_test = LandmarkCentersCalculator()
+        json_land_mask_org_coord_folder = os.path.join(json_land_mask_coord_path, "original")
         for cur_folder in cases_folders_list:
             if type_set == "train":
                 files = list(Path(cur_folder).glob("*.nii.gz"))
@@ -606,19 +608,90 @@ def controller(data_path, cpus):
                 json_land_mask_coord_folder = os.path.join(json_land_mask_coord_path, "test")
             for file in files:
                 json_dupl_file = os.path.join(json_land_mask_coord_folder, f"{file.name.split('.')[0]}.json")
+                pred_org = {}
                 if type_set == "train":
-                    labels = {1: "R",2: "L",3: "N",4: "RLC",5: "RNC",6: "LNC"}
+                    labels = {1: "R", 2: "L", 3: "N", 4: "RLC", 5: "RNC", 6: "LNC"}
                     pred = {}
                     for key, name in labels.items():
                         pred[key] = dict_all_case[file.name.split('.')[0]][name]
                 else:
                     file_name = file.name.split('.')[0] + ".nii.gz"
                     pred = res_test.extract_landmarks_com_npz(original_mask_folder_path / file_name, file)
+                    labels = {1: "R", 2: "L", 3: "N", 4: "RLC", 5: "RNC", 6: "LNC"}
+                    for key, name in labels.items():
+                        pred_org[key] = dict_all_case[file.name.split('.')[0]][name]
                 create_new_json(json_dupl_file, pred)
+                if pred_org:
+                    json_dupl_org_file = os.path.join(json_land_mask_org_coord_folder, f"{file.name.split('.')[0]}.json")
+                    create_new_json(json_dupl_org_file, pred_org)
             type_set = "test"
 
         controller_dump["json_landmarks_mask_coord"] = True
         yaml_save(controller_dump, controller_path)
+
+    if not controller_dump["find_geometric_heights"]:
+        ds_folder_name = "Dataset499_AortaLandmarks"
+        test_cases_path = os.path.join(json_land_mask_coord_path, "test")
+        train_cases_path = os.path.join(json_land_mask_coord_path, "train")
+        org_cases_path = os.path.join(json_land_mask_coord_path, "original")
+        list_test_cases = list(Path(test_cases_path).glob("*.json"))
+        list_train_cases = list(Path(train_cases_path).glob("*.json"))
+        test_curv_cases_path = os.path.join(json_duplication_g_h_path, "test")
+        train_curv_cases_path = os.path.join(json_duplication_g_h_path, "train")
+        result_curv_cases_path = os.path.join(json_duplication_g_h_path, "result")
+
+        errors = []  # сюда будем собирать результаты по кейсам
+
+        for cur_test_case in list_test_cases:
+            find_new_curv(cur_test_case, list_train_cases, train_curv_cases_path, result_curv_cases_path, org_cases_path)
+
+            # Сравнение предсказанных кривых с истинными
+            pred_json_path = Path(result_curv_cases_path) / cur_test_case.name
+            true_json_path = Path(test_curv_cases_path) / cur_test_case.name
+
+            def _load_curves(json_path):
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+                return {k: np.array(v) for k, v in data.items()}
+
+            pred_curves = _load_curves(pred_json_path)
+            true_curves = _load_curves(true_json_path)
+
+            combined_pred = []
+            combined_true = []
+
+            for name in ["RGH", "NGH", "LGH"]:
+
+                pred = pred_curves[name]
+                true = true_curves[name]
+
+                combined_pred.append(pred)
+                combined_true.append(true)
+
+            if combined_pred and combined_true:
+                all_pred = np.vstack(combined_pred)
+                all_gt = np.vstack(combined_true)
+
+                diff = all_pred - all_gt
+                mse = np.mean(np.square(diff))
+                rmse = np.sqrt(mse)
+
+                # Сохраняем ошибку в список
+                errors.append({"case": cur_test_case.name.split('.')[0], "rmse": rmse})
+
+        # После цикла создаем DataFrame
+        df_errors = pd.DataFrame(errors)
+
+        # Вычисляем среднее и std
+        mean_rmse = df_errors["rmse"].mean()
+        std_rmse = df_errors["rmse"].std()
+
+        print(f"Average RMSE across all cases: {mean_rmse:.3f}")
+        print(f"Standard Deviation RMSE: {std_rmse:.3f}")
+
+        # Сохраняем в CSV
+        csv_path = Path(result_path) / "rmse_errors_per_case.csv"
+        df_errors.to_csv(csv_path, index=False)
 
     # slices_with_markers(
     #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
