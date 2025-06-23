@@ -703,6 +703,21 @@ def controller(data_path, cpus):
     #     output=data_path + 'totalsegmentator_result/' + dir_structure['totalsegmentator_result'][0] + '/' + test_case_name,
     #     task="class_map_part_cardiac")
 
+    if not "mask_gh_marker_create" in controller_dump.keys() or not controller_dump["mask_gh_marker_create"]:
+        for sub_dir in list(dir_structure["nii_resample"]):
+            clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
+            for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
+                case_name = case[:-7]
+                radius = 6
+                nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
+                mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
+                process_markers(nii_resample_case_file_path,
+                                dict_all_case[case_name],
+                                mask_markers_img_path,
+                                radius)
+        controller_dump["mask_markers_create"] = True
+        yaml_save(controller_dump, controller_path)
+
     print('hi')
 
 
