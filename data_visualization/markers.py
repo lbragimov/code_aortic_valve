@@ -179,3 +179,30 @@ def slices_with_markers(nii_path: str, case_info: dict, save_path):
     # _extract_and_plot_slices(image, voxel_landmarks)
     _extract_and_save_slices(image, voxel_landmarks, save_path)
 
+
+def find_mean_gh_landmark(dict_points):
+    # Функция для подсчёта суммарного расстояния между тремя точками
+    def _sum_distances(p1, p2, p3):
+        p1 = np.array(p1)
+        p2 = np.array(p2)
+        p3 = np.array(p3)
+        return np.linalg.norm(p1 - p2) + np.linalg.norm(p1 - p3) + np.linalg.norm(p2 - p3)
+
+    # Берём первые и последние точки
+    first_points = (dict_points["RGH"][0], dict_points["LGH"][0], dict_points["NGH"][0])
+    last_points = (dict_points["RGH"][-1], dict_points["LGH"][-1], dict_points["NGH"][-1])
+
+    # Суммарные расстояния
+    sum_first = _sum_distances(*first_points)
+    sum_last = _sum_distances(*last_points)
+
+    # Выбор набора точек
+    if sum_first < sum_last:
+        chosen_points = first_points
+    else:
+        chosen_points = last_points
+
+    # Средняя точка
+    center_point = np.mean(np.array(chosen_points), axis=0)
+    return center_point
+

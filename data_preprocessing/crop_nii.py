@@ -117,7 +117,10 @@ def _crop_image(mask, image, size):
     z_min, z_max = bounds[0]
     y_min, y_max = bounds[1]
     x_min, x_max = bounds[2]
-    return image[z_min:z_max, y_min:y_max, x_min:x_max]
+
+    cropped = image[z_min:z_max, y_min:y_max, x_min:x_max]
+
+    return cropped, (z_min, y_min, x_min)
 
 
 def cropped_image(mask_image_path, input_image_path, output_image_path, size):
@@ -127,13 +130,23 @@ def cropped_image(mask_image_path, input_image_path, output_image_path, size):
     input_image = sitk.ReadImage(input_image_path)
     input_array = sitk.GetArrayFromImage(input_image)
 
-    # Обрезаем изображение (например, саму маску или другое изображение из кейса)
-    cropped_array_image = _crop_image(mask_array, input_array, size)
+    # Обрезаем изображение и получаем смещение
+    cropped_array_image, start_index = _crop_image(mask_array, input_array, size)
 
-    # Преобразование обрезанной маски обратно в SimpleITK формат
     cropped_image = sitk.GetImageFromArray(cropped_array_image)
     cropped_image.SetSpacing(input_image.GetSpacing())
-    cropped_image.SetOrigin(input_image.GetOrigin())
     cropped_image.SetDirection(input_image.GetDirection())
+
+    old_origin = input_image.GetOrigin()
+    spacing = input_image.GetSpacing()
+
+    # Важно! Индексы массива идут как (z, y, x), origin — в порядке (x, y, z)
+    new_origin = [
+        old_origin[0] + start_index[2] * spacing[0],  # x
+        old_origin[1] + start_index[1] * spacing[1],  # y
+        old_origin[2] + start_index[0] * spacing[2]  # z
+    ]
+
+    cropped_image.SetOrigin(new_origin)
 
     sitk.WriteImage(cropped_image, output_image_path)

@@ -26,7 +26,7 @@ from data_postprocessing.controller_analysis import (landmarks_analysis, experim
 from data_postprocessing.plotting_graphs import summarize_and_plot
 from data_postprocessing.coherent_point_drift import create_new_gh_json, find_new_curv
 from models.implementation_nnUnet import nnUnet_trainer
-from data_visualization.markers import slices_with_markers, process_markers
+from data_visualization.markers import slices_with_markers, process_markers, find_mean_gh_landmark
 from models.controller_nnUnet import process_nnunet
 
 from optimization.parallelization import division_processes
@@ -146,6 +146,7 @@ def controller(data_path, cpus):
     controller_path = os.path.join(script_dir, "controller.yaml")
     data_structure_path = os.path.join(script_dir, "dir_structure.json")
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
+    mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark_cut")
 
     dict_all_case = {}
     if os.path.isfile(controller_path):
@@ -191,6 +192,20 @@ def controller(data_path, cpus):
         controller_dump["convert"] = True
         controller_dump["resample"] = False
         yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("train_cases_list"):
+        # temp
+        ds_folder_name = "Dataset499_AortaLandmarks"
+        train_nnUNet_DS_landmarks_folder = Path(nnUNet_folder) / "nnUNet_raw" / ds_folder_name / "imagesTr"
+        trains_files = (list(train_nnUNet_DS_landmarks_folder.glob('*.nii')) +
+                        list(train_nnUNet_DS_landmarks_folder.glob('*.nii.gz')))
+        test_nnUNet_DS_landmarks_folder = Path(nnUNet_folder) / "nnUNet_raw" / ds_folder_name / "imagesTs"
+        test_files = (list(test_nnUNet_DS_landmarks_folder.glob('*.nii')) +
+                        list(test_nnUNet_DS_landmarks_folder.glob('*.nii.gz')))
+        controller_dump["train_cases_list"] = [f.name.split('.')[0][:-5] for f in trains_files]
+        controller_dump["test_cases_list"] = [f.name.split('.')[0][:-5] for f in test_files]
+        yaml_save(controller_dump, controller_path)
+        # temp
 
     if not dict_all_case:
         if os.path.isfile(dict_all_case_path):
@@ -703,19 +718,59 @@ def controller(data_path, cpus):
     #     output=data_path + 'totalsegmentator_result/' + dir_structure['totalsegmentator_result'][0] + '/' + test_case_name,
     #     task="class_map_part_cardiac")
 
-    if not "mask_gh_marker_create" in controller_dump.keys() or not controller_dump["mask_gh_marker_create"]:
-        for sub_dir in list(dir_structure["nii_resample"]):
-            clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
-            for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-                case_name = case[:-7]
-                radius = 6
-                nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
-                mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
+    if not controller_dump.get("mask_gh_marker_create"):
+        if controller_dump.get("crop_img_size"):
+            global_size = controller_dump["crop_img_size"]
+        else:
+            all_image_paths = []
+            for sub_dir in dir_structure["mask_aorta_segment_cut"]:
+                for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
+                    image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
+                    all_image_paths.append(image_path)
+
+            padding = 10
+            # Найти общий bounding box для всех изображений
+            global_size = find_global_size(all_image_paths, padding)
+            controller_dump["crop_img_size"] = [int(x) for x in global_size]
+            yaml_save(controller_dump, controller_path)
+        radius = 6
+        train_folder = os.path.join(mask_gh_landmark_folder, "train")
+        test_folder = os.path.join(mask_gh_landmark_folder, "test")
+        clear_folder(train_folder)
+        clear_folder(test_folder)
+        type_cases_list = [controller_dump["train_cases_list"], controller_dump["test_cases_list"]]
+        for n, case_list in enumerate(type_cases_list):
+            for file_name in case_list:
+                if file_name.startswith("H"):
+                    sub_dir_name = "Homburg pathology"
+                elif file_name.startswith("n"):
+                    sub_dir_name = "Normal"
+                else:
+                    sub_dir_name = "Pathology"
+                nii_resample_case_file_path = os.path.join(nii_resample_path,
+                                                           sub_dir_name,
+                                                           f"{file_name}.nii.gz")
+                mask_aorta_img_path = os.path.join(mask_aorta_segment_cut_path,
+                                                   sub_dir_name,
+                                                   f"{file_name}.nii.gz")
+                json_file_path = os.path.join(json_marker_path,
+                                         sub_dir_name,
+                                         f"{file_name}.json")
+                with open(json_file_path, 'r') as f:
+                    landmarks_coord_data = json.load(f)
+                if n == 0:
+                    mask_landmark_img_path = os.path.join(train_folder, f"{file_name}.nii.gz")
+                else:
+                    mask_landmark_img_path = os.path.join(test_folder, f"{file_name}.nii.gz")
                 process_markers(nii_resample_case_file_path,
-                                dict_all_case[case_name],
-                                mask_markers_img_path,
+                                {"GH": find_mean_gh_landmark(landmarks_coord_data)},
+                                mask_landmark_img_path,
                                 radius)
-        controller_dump["mask_markers_create"] = True
+                cropped_image(mask_image_path=mask_aorta_img_path,
+                              input_image_path=mask_landmark_img_path,
+                              output_image_path=mask_landmark_img_path,
+                              size=global_size)
+        controller_dump["mask_gh_marker_create"] = True
         yaml_save(controller_dump, controller_path)
 
     print('hi')
