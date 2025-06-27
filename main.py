@@ -420,17 +420,21 @@ def controller(data_path, cpus):
     #         all_image_paths.append(image_path)
     # add_info_logging(f"mask_aorta_segment_cut {find_shape_2(all_image_paths)}", "work_logger")
 
-    if not "crop_images" in controller_dump.keys() or not controller_dump["crop_images"]:
-        # Получаем все пути к изображениям в папке mask_aorta_segment_cut
-        all_image_paths = []
-        for sub_dir in dir_structure["mask_aorta_segment_cut"]:
-            for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-                all_image_paths.append(image_path)
+    if not controller_dump.get("crop_images"):
+        if controller_dump.get("crop_img_size"):
+            global_size = controller_dump["crop_img_size"]
+        else:
+            all_image_paths = []
+            for sub_dir in dir_structure["mask_aorta_segment_cut"]:
+                for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
+                    image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
+                    all_image_paths.append(image_path)
 
-        padding = 10
-        # Найти общий bounding box для всех изображений
-        global_size = find_global_size(all_image_paths, padding)
+            padding = 10
+            # Найти общий bounding box для всех изображений
+            global_size = find_global_size(all_image_paths, padding)
+            controller_dump["crop_img_size"] = [int(x) for x in global_size]
+            yaml_save(controller_dump, controller_path)
 
         for sub_dir in list(dir_structure["mask_aorta_segment_cut"]):
             clear_folder(os.path.join(crop_nii_image_path, sub_dir))
@@ -733,7 +737,7 @@ def controller(data_path, cpus):
             global_size = find_global_size(all_image_paths, padding)
             controller_dump["crop_img_size"] = [int(x) for x in global_size]
             yaml_save(controller_dump, controller_path)
-        radius = 6
+        radius = 9
         train_folder = os.path.join(mask_gh_landmark_folder, "train")
         test_folder = os.path.join(mask_gh_landmark_folder, "test")
         clear_folder(train_folder)
@@ -771,6 +775,58 @@ def controller(data_path, cpus):
                               output_image_path=mask_landmark_img_path,
                               size=global_size)
         controller_dump["mask_gh_marker_create"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("nnUNet_DS_gh"):
+        ds_folder_name = "Dataset479_GeometricHeight"
+        nnUNet_DS_gh_folder = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name)
+        img_train_folder = os.path.join(nnUNet_DS_gh_folder, "imagesTr")
+        clear_folder(img_train_folder)
+        mask_train_folder = os.path.join(nnUNet_DS_gh_folder, "labelsTr")
+        clear_folder(mask_train_folder)
+        img_test_folder = os.path.join(nnUNet_DS_gh_folder, "imagesTs")
+        clear_folder(img_test_folder)
+        mask_org_folder = os.path.join(nnUNet_folder, "original_mask", ds_folder_name)
+        clear_folder(mask_org_folder)
+        mask_gh_train_folder = os.path.join(mask_gh_landmark_folder, "train")
+        mask_gh_test_folder = os.path.join(mask_gh_landmark_folder, "test")
+        type_cases_list = [controller_dump["train_cases_list"], controller_dump["test_cases_list"]]
+        for n, case_list in enumerate(type_cases_list):
+            for file_name in case_list:
+                if file_name.startswith("H"):
+                    sub_dir_name = "Homburg pathology"
+                elif file_name.startswith("n"):
+                    sub_dir_name = "Normal"
+                else:
+                    sub_dir_name = "Pathology"
+
+                if n == 0:
+                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir_name, f"{file_name}.nii.gz")),
+                                str(os.path.join(img_train_folder, f"{file_name}_0000.nii.gz")))
+                    shutil.copy(str(os.path.join(mask_gh_train_folder, f"{file_name}.nii.gz")),
+                                str(os.path.join(mask_train_folder, f"{file_name}.gz")))
+                else:
+                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir_name, f"{file_name}.nii.gz")),
+                                str(os.path.join(img_test_folder, f"{file_name}_0000.nii.gz")))
+                    shutil.copy(str(os.path.join(mask_gh_test_folder, f"{file_name}.nii.gz")),
+                                str(os.path.join(mask_org_folder, f"{file_name}.gz")))
+        file_count = len([f for f in os.listdir(img_train_folder)])
+        generate_dataset_json(nnUNet_DS_gh_folder,
+                              channel_names={0: 'CT'},
+                              labels={'background': 0, 'gh': 1},
+                              num_training_cases=file_count,
+                              file_ending='.nii.gz')
+
+        controller_dump["nnUNet_DS_gh"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("nnUNet_gh_train_test"):
+        ds_folder_name = "Dataset479_GeometricHeight"
+        process_nnunet(folder=nnUNet_folder, ds_folder_name=ds_folder_name, id_case=479,
+                       folder_image_path=None, folder_mask_path=None,
+                       dict_dataset=None, pct_test=None, test_folder=None,
+                       create_ds=False, training_mod=True, testing_mod=True, save_probabilities=True)
+        controller_dump["nnUNet_gh_train_test"] = True
         yaml_save(controller_dump, controller_path)
 
     print('hi')
