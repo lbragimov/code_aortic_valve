@@ -451,20 +451,6 @@ def controller(data_path, cpus):
         controller_dump["crop_images"] = True
         yaml_save(controller_dump, controller_path)
 
-    # all_image_paths = []
-    # for sub_dir in dir_structure["crop_nii_image"]:
-    #     for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
-    #         image_path = os.path.join(crop_nii_image_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"crop_nii_image {find_shape_2(all_image_paths)}", "work_logger")
-    #
-    # all_image_paths = []
-    # for sub_dir in dir_structure["crop_markers_mask"]:
-    #     for case in os.listdir(os.path.join(crop_markers_mask_path, sub_dir)):
-    #         image_path = os.path.join(crop_markers_mask_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"crop_markers_mask {find_shape_2(all_image_paths)}", "work_logger")
-
     if (not "create_3D_UNet_data_base" in controller_dump.keys()
             or not controller_dump["create_3D_UNet_data_base"]):
         clear_folder(os.path.join(UNet_3D_folder, "data"))
@@ -712,16 +698,6 @@ def controller(data_path, cpus):
         csv_path = Path(result_path) / "rmse_errors_per_case.csv"
         df_errors.to_csv(csv_path, index=False)
 
-    # slices_with_markers(
-    #     nii_path=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
-    #     case_info=dict_all_case[test_case_name],
-    #     save_path=data_path + 'markers_visual/' + dir_structure['markers_visual'][0] + '/' + test_case_name)
-    #
-    # totalsegmentator(
-    #     input=data_path + 'nii_resample/' + dir_structure['nii_resample'][0] + '/' + test_case_name + '.nii',
-    #     output=data_path + 'totalsegmentator_result/' + dir_structure['totalsegmentator_result'][0] + '/' + test_case_name,
-    #     task="class_map_part_cardiac")
-
     if not controller_dump.get("mask_gh_marker_create"):
         if controller_dump.get("crop_img_size"):
             global_size = controller_dump["crop_img_size"]
@@ -804,12 +780,12 @@ def controller(data_path, cpus):
                     shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir_name, f"{file_name}.nii.gz")),
                                 str(os.path.join(img_train_folder, f"{file_name}_0000.nii.gz")))
                     shutil.copy(str(os.path.join(mask_gh_train_folder, f"{file_name}.nii.gz")),
-                                str(os.path.join(mask_train_folder, f"{file_name}.gz")))
+                                str(os.path.join(mask_train_folder, f"{file_name}.nii.gz")))
                 else:
                     shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir_name, f"{file_name}.nii.gz")),
                                 str(os.path.join(img_test_folder, f"{file_name}_0000.nii.gz")))
                     shutil.copy(str(os.path.join(mask_gh_test_folder, f"{file_name}.nii.gz")),
-                                str(os.path.join(mask_org_folder, f"{file_name}.gz")))
+                                str(os.path.join(mask_org_folder, f"{file_name}.nii.gz")))
         file_count = len([f for f in os.listdir(img_train_folder)])
         generate_dataset_json(nnUNet_DS_gh_folder,
                               channel_names={0: 'CT'},
