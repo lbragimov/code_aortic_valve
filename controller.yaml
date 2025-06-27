@@ -21,6 +21,7 @@ mask_markers_create: true
 nnUNet_DS_aorta: true
 nnUNet_DS_gh: true
 nnUNet_DS_landmarks: true
+nnUNet_gh_train_test: true
 nnUNet_lmk_ger_sep: true
 resample: true
 size_or_pixel: none
