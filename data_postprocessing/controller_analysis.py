@@ -152,7 +152,8 @@ def landmarks_analysis(data_path, ds_folder_name,
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
     json_path = data_path / "nnUNet_folder" / "json_info"
-    result_folder_path = data_path / "result"
+    result_folder_path = data_path / "result" / ds_folder_name
+    result_folder_path.mkdir(parents=True, exist_ok=True)
     results_csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
 
     if type_set == "six_landmarks":
@@ -184,8 +185,6 @@ def landmarks_analysis(data_path, ds_folder_name,
             if type_set == "six_landmarks":
                 r_errors, l_errors, n_errors = [], [], []
                 rlc_errors, rnc_errors, lnc_errors = [], [], []
-            r_errors, l_errors, n_errors = [], [], []
-            rlc_errors, rnc_errors, lnc_errors = [], [], []
             for file in files:
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
                 if len(landmarks_pred.keys()) < 5 and type_set == "six_landmarks":
@@ -276,19 +275,23 @@ def landmarks_analysis(data_path, ds_folder_name,
 
         if type_set == "six_landmarks":
             point_name = {"all": "All", "r": "R", "l": "L", "n": "N", "rlc": "RLC", "rnc": "RNC", "lnc": "LNC"}
+            graph_folder = result_folder_path / "six_landmarks_comparsion"
+            graph_folder.mkdir(parents=True, exist_ok=True)
         elif type_set == "gh_landmark":
             point_name = {"gh": "Geometric Height"}
+            graph_folder = result_folder_path / "gh_landmark_comparsion"
+            graph_folder.mkdir(parents=True, exist_ok=True)
         for key, type_name in type_label.items():
             err_std = results_df["error"].std(numeric_only=True)
             err_std_groupby = results_df.groupby("group")["error"].std(numeric_only=True)
             if key == "all":
                 data_for_plot = results_df[["point_id", "error"]].dropna(how='any')
                 plot_group_comparison("point_id", "error", point_name, data_for_plot,
-                                      str(result_folder_path / "landmarks_comparsion"), type_name)
+                                      str(graph_folder), type_name)
             else:
                 data_for_plot = results_df[results_df['group'] == key][["point_id", "error"]].dropna(how='any')
                 plot_group_comparison("point_id","error", point_name, data_for_plot,
-                                      str(result_folder_path / "landmarks_comparsion"), type_name)
+                                      str(graph_folder), type_name)
 
     if find_monte_carlo:
         arr_mean_angles_ger_pat = np.array([]).reshape(0, 3)
