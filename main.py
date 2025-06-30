@@ -195,7 +195,7 @@ def controller(data_path, cpus):
 
     if not controller_dump.get("train_cases_list"):
         # temp
-        ds_folder_name = "Dataset499_AortaLandmarks"
+        ds_folder_name = "Dataset489_AortaLandmarks"
         train_nnUNet_DS_landmarks_folder = Path(nnUNet_folder) / "nnUNet_raw" / ds_folder_name / "imagesTr"
         trains_files = (list(train_nnUNet_DS_landmarks_folder.glob('*.nii')) +
                         list(train_nnUNet_DS_landmarks_folder.glob('*.nii.gz')))
@@ -635,7 +635,6 @@ def controller(data_path, cpus):
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump["find_geometric_heights"]:
-        ds_folder_name = "Dataset499_AortaLandmarks"
         test_cases_path = os.path.join(json_land_mask_coord_path, "test")
         train_cases_path = os.path.join(json_land_mask_coord_path, "train")
         org_cases_path = os.path.join(json_land_mask_coord_path, "original")
@@ -803,6 +802,12 @@ def controller(data_path, cpus):
                        dict_dataset=None, pct_test=None, test_folder=None,
                        create_ds=False, training_mod=True, testing_mod=True, save_probabilities=True)
         controller_dump["nnUNet_gh_train_test"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("gh_landmark_analysis"):
+        landmarks_analysis(Path(data_path), ds_folder_name="Dataset479_GeometricHeight",
+                           find_center_mass=True, probabilities_map=True, type_set="gh_landmark")
+        controller_dump["gh_landmark_analysis"] = True
         yaml_save(controller_dump, controller_path)
 
     print('hi')

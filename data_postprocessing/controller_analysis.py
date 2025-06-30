@@ -88,7 +88,8 @@ def experiment_analysis(data_path,
 def landmarks_analysis(data_path, ds_folder_name,
                        find_center_mass=False,
                        find_monte_carlo=False,
-                       probabilities_map=False):
+                       probabilities_map=False,
+                       type_set="six_landmarks"):
 
     def process_file(file, original_mask_folder, probabilities_map):
         res_test = LandmarkCentersCalculator()
@@ -126,6 +127,26 @@ def landmarks_analysis(data_path, ds_folder_name,
                 not_found += 1
         return not_found
 
+    def compute_gh_errors(true, pred, error_list, results, file_name, group):
+        not_found = 0
+        for key in true:
+            if key in pred:
+                if file_name.endswith(".npz"):
+                    cur_file_name = file_name[:-4]
+                elif file_name.endswith(".nii.gz"):
+                    cur_file_name = file_name[:-7]
+                dist = np.linalg.norm(true[key] - pred[key]) # Евклидово расстояние
+                error_list.append(dist)
+                results.append({
+                    "filename": cur_file_name,
+                    "group": group,
+                    "point_id": point_name[key],
+                    "error": dist
+                })
+            else:
+                not_found += 1
+        return not_found
+
     # add_info_logging("start analysis", "work_logger")
     data_path = Path(data_path)
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
@@ -134,7 +155,10 @@ def landmarks_analysis(data_path, ds_folder_name,
     result_folder_path = data_path / "result"
     results_csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
 
-    point_name = {"all": "All", 1:"r", 2:"l", 3:"n", 4:"rlc", 5:"rnc", 6:"lnc"}
+    if type_set == "six_landmarks":
+        point_name = {"all": "All", 1:"r", 2:"l", 3:"n", 4:"rlc", 5:"rnc", 6:"lnc"}
+    elif type_set == "gh_landmark":
+        point_name = {1: "gh"}
     type_label = {
         "all": "All",
         "H": "Ger. path.",
@@ -157,32 +181,49 @@ def landmarks_analysis(data_path, ds_folder_name,
             errors_ger_pat, errors_slo_pat, errors_slo_norm = [], [], []
             not_found_ger_pat, not_found_slo_pat, not_found_slo_norm = 0, 0, 0
             num_img_ger_pat, num_img_slo_pat, num_img_slo_norm = 0, 0, 0
+            if type_set == "six_landmarks":
+                r_errors, l_errors, n_errors = [], [], []
+                rlc_errors, rnc_errors, lnc_errors = [], [], []
             r_errors, l_errors, n_errors = [], [], []
             rlc_errors, rnc_errors, lnc_errors = [], [], []
             for file in files:
                 landmarks_true, landmarks_pred = process_file(file, original_mask_folder, probabilities_map)
-                if len(landmarks_pred.keys()) < 5:
+                if len(landmarks_pred.keys()) < 5 and type_set == "six_landmarks":
                     add_info_logging(f"img: {file.name}, not found landmark: {6 - len(landmarks_pred.keys())}",
                                      "result_logger")
+                elif len(landmarks_pred.keys()) < 1 and type_set == "gh_landmark":
+                    add_info_logging(f"img: {file.name}, not found landmark", "result_logger")
 
                 first_char = file.name[0]
                 if first_char == "H":
                     num_img_ger_pat += 1
-                    not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
-                                                        r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                        results, file.name, "H")
+                    if type_set == "six_landmarks":
+                        not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,
+                                                            r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                            results, file.name, "H")
+                    elif type_set == "gh_landmark":
+                        not_found_ger_pat += compute_gh_errors(landmarks_true, landmarks_pred, errors_ger_pat,
+                                                               results, file.name, "H")
                 elif first_char == "p":
                     if file.name[1] == "9":
                         continue
                     num_img_slo_pat += 1
-                    not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
-                                                        r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                        results, file.name, "p")
+                    if type_set == "six_landmarks":
+                        not_found_slo_pat += compute_errors(landmarks_true, landmarks_pred, errors_slo_pat,
+                                                            r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                            results, file.name, "p")
+                    elif type_set == "gh_landmark":
+                        not_found_slo_pat += compute_gh_errors(landmarks_true, landmarks_pred, errors_slo_pat,
+                                                               results, file.name, "p")
                 elif first_char == "n":
                     num_img_slo_norm += 1
-                    not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
-                                                        r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
-                                                        results, file.name, "n")
+                    if type_set == "six_landmarks":
+                        not_found_slo_norm += compute_errors(landmarks_true, landmarks_pred, errors_slo_norm,
+                                                             r_errors, l_errors, n_errors, rlc_errors, rnc_errors, lnc_errors,
+                                                             results, file.name, "n")
+                    elif type_set == "gh_landmark":
+                        not_found_slo_norm += compute_gh_errors(landmarks_true, landmarks_pred, errors_slo_norm,
+                                                                results, file.name, "n")
 
             # Сохраняем подробный CSV
             results_df = pd.DataFrame(results)
@@ -201,12 +242,13 @@ def landmarks_analysis(data_path, ds_folder_name,
             num_img = num_img_ger_pat + num_img_slo_pat + num_img_slo_norm
             not_found = ((not_found_ger_pat + not_found_slo_pat + not_found_slo_norm) / (num_img * 6)) * 100
             # add_info_logging("finish analysis", "work_logger")
-            mean_r_error = np.mean(r_errors) if r_errors else None
-            mean_l_error = np.mean(l_errors) if l_errors else None
-            mean_n_error = np.mean(n_errors) if n_errors else None
-            mean_rlc_error = np.mean(rlc_errors) if rlc_errors else None
-            mean_rnc_error = np.mean(rnc_errors) if rnc_errors else None
-            mean_lnc_error = np.mean(lnc_errors) if lnc_errors else None
+            if type_set == "six_landmarks":
+                mean_r_error = np.mean(r_errors) if r_errors else None
+                mean_l_error = np.mean(l_errors) if l_errors else None
+                mean_n_error = np.mean(n_errors) if n_errors else None
+                mean_rlc_error = np.mean(rlc_errors) if rlc_errors else None
+                mean_rnc_error = np.mean(rnc_errors) if rnc_errors else None
+                mean_lnc_error = np.mean(lnc_errors) if lnc_errors else None
 
             add_info_logging("German pathology", "result_logger")
             add_info_logging(
@@ -224,14 +266,18 @@ def landmarks_analysis(data_path, ds_folder_name,
             add_info_logging(
                 f"Mean Euclidean Distance: {mean_error:.4f} mm, not found: {not_found: .2f}%. Number of images:{num_img}",
                 "result_logger")
-            add_info_logging(f"Mean Euclidean Distance 'R' point: {mean_r_error}", "result_logger")
-            add_info_logging(f"Mean Euclidean Distance 'L' point: {mean_l_error}", "result_logger")
-            add_info_logging(f"Mean Euclidean Distance 'N' point: {mean_n_error}", "result_logger")
-            add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}", "result_logger")
-            add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
-            add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
+            if type_set == "six_landmarks":
+                add_info_logging(f"Mean Euclidean Distance 'R' point: {mean_r_error}", "result_logger")
+                add_info_logging(f"Mean Euclidean Distance 'L' point: {mean_l_error}", "result_logger")
+                add_info_logging(f"Mean Euclidean Distance 'N' point: {mean_n_error}", "result_logger")
+                add_info_logging(f"Mean Euclidean Distance 'RLC' point: {mean_rlc_error}", "result_logger")
+                add_info_logging(f"Mean Euclidean Distance 'RNC' point: {mean_rnc_error}", "result_logger")
+                add_info_logging(f"Mean Euclidean Distance 'LNC' point: {mean_lnc_error}", "result_logger")
 
-        point_name = {"all": "All", "r": "R", "l": "L", "n": "N", "rlc": "RLC", "rnc": "RNC", "lnc": "LNC"}
+        if type_set == "six_landmarks":
+            point_name = {"all": "All", "r": "R", "l": "L", "n": "N", "rlc": "RLC", "rnc": "RNC", "lnc": "LNC"}
+        elif type_set == "gh_landmark":
+            point_name = {"gh": "Geometric Height"}
         for key, type_name in type_label.items():
             err_std = results_df["error"].std(numeric_only=True)
             err_std_groupby = results_df.groupby("group")["error"].std(numeric_only=True)
