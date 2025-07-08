@@ -557,25 +557,26 @@ def controller(data_path, cpus):
     if not controller_dump["experiment"]:
         _experiment_training(create_img=False, create_models=True)
         experiment_analysis(data_path=data_path,
-                            dict_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494})
+                            dict_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486, 5: 485, 4: 484})
 
     if not controller_dump["aorta_mask_analysis"]:
         mask_analysis(data_path, result_path, type_mask="aortic_valve", folder_name="Dataset401_AorticValve")
 
     if not controller_dump["landmarks_analysis"]:
-        landmarks_analysis(Path(data_path), ds_folder_name="Dataset499_AortaLandmarks",
+        landmarks_analysis(Path(data_path), ds_folder_name="Dataset489_AortaLandmarks",
                            find_center_mass=True, probabilities_map=True)
 
     if not controller_dump["calc_morphometric"]:
         find_morphometric_parameters(data_path, ds_folder_name="Dataset499_AortaLandmarks")
 
     if not controller_dump["duplication_geometric_heights"]:
-        ds_folder_name = "Dataset499_AortaLandmarks"
+        ds_folder_name = "Dataset489_AortaLandmarks"
         train_nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name, "imagesTr")
         test_nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name, "imagesTs")
         cases_folders_list = [train_nnUNet_DS_landmarks_path, test_nnUNet_DS_landmarks_path]
         json_dupl_folder = os.path.join(json_duplication_g_h_path, "train")
         for cur_folder in cases_folders_list:
+            clear_folder(json_dupl_folder)
             for file in os.listdir(cur_folder):
                 file_name = file[:-12]
                 first_letter = file[:1]
@@ -594,12 +595,16 @@ def controller(data_path, cpus):
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump["json_landmarks_mask_coord"]:
-        ds_folder_name = "Dataset499_AortaLandmarks"
+        ds_folder_name_ldms = "Dataset489_AortaLandmarks"
+        ds_folder_name_gh = "Dataset479_GeometricHeight"
         cur_nnUNet_folder_path = Path(nnUNet_folder)
-        train_mask_folder_path = cur_nnUNet_folder_path / "nnUNet_raw" / ds_folder_name / "labelsTr"
-        test_mask_folder_path = cur_nnUNet_folder_path / "nnUNet_test" / ds_folder_name
-        original_mask_folder_path = cur_nnUNet_folder_path / "original_mask" / ds_folder_name
-        cases_folders_list = [train_mask_folder_path, test_mask_folder_path]
+        train_mask_ldms_folder_path = cur_nnUNet_folder_path / "nnUNet_raw" / ds_folder_name_ldms / "labelsTr"
+        test_mask_ldms_folder_path = cur_nnUNet_folder_path / "nnUNet_test" / ds_folder_name_ldms
+        original_mask_ldms_folder_path = cur_nnUNet_folder_path / "original_mask" / ds_folder_name_ldms
+        mask_gh_train_folder = cur_nnUNet_folder_path / "nnUNet_raw" / ds_folder_name_gh / "labelsTr"
+        mask_gh_org_folder = cur_nnUNet_folder_path / "original_mask" / ds_folder_name_gh
+        mask_gh_test_folder = cur_nnUNet_folder_path / "nnUNet_test" / ds_folder_name_gh
+        cases_folders_list = [train_mask_ldms_folder_path, test_mask_ldms_folder_path]
 
         type_set = "train"
         res_test = LandmarkCentersCalculator()
@@ -614,17 +619,27 @@ def controller(data_path, cpus):
             for file in files:
                 json_dupl_file = os.path.join(json_land_mask_coord_folder, f"{file.name.split('.')[0]}.json")
                 pred_org = {}
+                file_name = file.name.split('.')[0] + ".nii.gz"
                 if type_set == "train":
+                    mask_gh_org_file = mask_gh_train_folder / file_name
                     labels = {1: "R", 2: "L", 3: "N", 4: "RLC", 5: "RNC", 6: "LNC"}
                     pred = {}
                     for key, name in labels.items():
                         pred[key] = dict_all_case[file.name.split('.')[0]][name]
+                    pred_gh_train = res_test.extract_landmarks_com_nii(mask_gh_org_file)
+                    pred[7] = pred_gh_train[1]
                 else:
-                    file_name = file.name.split('.')[0] + ".nii.gz"
-                    pred = res_test.extract_landmarks_com_npz(original_mask_folder_path / file_name, file)
+                    mask_gh_org_file = mask_gh_org_folder / file_name
+                    mask_gh_test_file = mask_gh_test_folder / str(file.name.split('.')[0] + ".npz")
+                    pred = res_test.extract_landmarks_com_npz(original_mask_ldms_folder_path / file_name, file)
                     labels = {1: "R", 2: "L", 3: "N", 4: "RLC", 5: "RNC", 6: "LNC"}
                     for key, name in labels.items():
                         pred_org[key] = dict_all_case[file.name.split('.')[0]][name]
+                    pred_gh_test = res_test.extract_landmarks_com_npz(original_mask_ldms_folder_path / file_name,
+                                                                      mask_gh_test_file)
+                    pred[7] = pred_gh_test[1]
+                    pred_gh_org = res_test.extract_landmarks_com_nii(mask_gh_org_file)
+                    pred_org[7] = pred_gh_org[1]
                 create_new_json(json_dupl_file, pred)
                 if pred_org:
                     json_dupl_org_file = os.path.join(json_land_mask_org_coord_folder, f"{file.name.split('.')[0]}.json")
@@ -643,6 +658,7 @@ def controller(data_path, cpus):
         test_curv_cases_path = os.path.join(json_duplication_g_h_path, "test")
         train_curv_cases_path = os.path.join(json_duplication_g_h_path, "train")
         result_curv_cases_path = os.path.join(json_duplication_g_h_path, "result")
+        clear_folder(result_curv_cases_path)
 
         errors = []  # сюда будем собирать результаты по кейсам
 

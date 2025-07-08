@@ -72,7 +72,7 @@ def find_new_curv(cur_case, list_train_cases, train_curv_folder, result_curv_fol
     def _load_landmarks(json_path):
         with open(json_path, 'r') as f:
             data = json.load(f)
-        return np.array([data['R'], data['L'], data['N'], data['RLC'], data['RNC'], data['LNC']])
+        return np.array([data['R'], data['L'], data['N'], data['RLC'], data['RNC'], data['LNC'], data['GH']])
 
     def _load_curves(json_path):
         with open(json_path, 'r') as f:
@@ -80,14 +80,20 @@ def find_new_curv(cur_case, list_train_cases, train_curv_folder, result_curv_fol
         return {k: np.array(v) for k, v in data.items()}
 
     def _find_deformable(source_points,target_points,
-                         beta_range=(0.5, 2.5, 0.1),  # (start, stop, step)
-                         alpha_range=(0.01, 0.3, 0.02),  # (start, stop, step)
-                         mse_threshold=4.0, max_trials=300):
+                         # beta_range=(0.5, 2.5, 0.1),  # (start, stop, step)
+                         # beta_range=(0.5, 10.0, 0.5),
+                         # alpha_range=(0.01, 0.3, 0.02),  # (start, stop, step)
+                         # alpha_range=(0.05, 1.0, 0.05),
+                         beta_range=(0.5, 3.0, 0.25),
+                         alpha_range = (0.01, 0.3, 0.02),
+                         mse_threshold=1.0, max_trials=600):
 
         best_TY = None
         best_reg = None
         best_mse = float("inf")
         is_acceptable = False
+        best_alpha = None
+        best_beta = None
 
         beta_vals = np.arange(*beta_range)
         alpha_vals = np.arange(*alpha_range)
@@ -153,10 +159,11 @@ def find_new_curv(cur_case, list_train_cases, train_curv_folder, result_curv_fol
         return np.mean(np.stack(curves_list), axis=0)
 
     test_pts = _load_landmarks(cur_case)
-    org_pts = _load_landmarks(Path(org_cases_folder) / cur_case.name)
+    # org_pts = _load_landmarks(Path(org_cases_folder) / cur_case.name)
     collected_curves = {"RGH": [], "LGH": [], "NGH": []}
     weights = []
     errors = []  # сюда будем сохранять ошибки
+    results_meta = [] # для сохранения информации по каждому кейсу
 
     for train_case in list_train_cases:
         train_pts = _load_landmarks(train_case)
@@ -170,6 +177,13 @@ def find_new_curv(cur_case, list_train_cases, train_curv_folder, result_curv_fol
         except Exception as e:
             add_info_logging(f"CPD failed for {train_case.name}: {e}", "work_logger")
             continue
+
+        # # Сохраняем параметры для этого кейса
+        # results_meta.append({
+        #     "case_name": train_case.name,
+        #     "beta": beta,
+        #     "alpha": alpha
+        # })
 
         # Вычисляем ошибку между трансформированными точками и тестовыми
         # diff = TY - test_pts
@@ -213,3 +227,7 @@ def find_new_curv(cur_case, list_train_cases, train_curv_folder, result_curv_fol
 
     with open(Path(result_curv_folder) / cur_case.name, 'w') as f:
         json.dump(result, f, indent=4)
+
+    # df = pd.DataFrame(results_meta)
+    # csv_path = Path(result_curv_folder) / f"{cur_case.stem}_deformable_params.csv"
+    # df.to_csv(csv_path, index=False)

@@ -1,48 +1,54 @@
 from data_preprocessing.text_worker import add_info_logging
 import os
-from pathlib import Path
-import json
+import shutil
+import math
 import numpy as np
-from pycpd import AffineRegistration
+import SimpleITK as sitk
+from pathlib import Path
+from data_preprocessing.text_worker import yaml_reader
+
+
+def clear_folder(folder_path):
+    """Очищает папку, удаляя все файлы и подпапки"""
+    folder = Path(folder_path)
+    if not folder.exists():
+        folder.mkdir(parents=True, exist_ok=True)
+        # add_info_logging(f"The folder '{folder_path}' did not exist, so it was created.",
+        #                  "work_logger")
+        return
+
+    for item in folder.iterdir():
+        if item.is_file() or item.is_symlink():
+            item.unlink()  # Удаляем файл или символическую ссылку
+        elif item.is_dir():
+            shutil.rmtree(item)  # Удаляем папку рекурсивно
 
 
 
-def controller(data_path):
-    ds_folder_name = "Dataset499_AortaLandmarks"
+def controller():
 
-    # if controller_dump.get("crop_img_size"):
-    #     global_size = controller_dump["crop_img_size"]
-    # else:
-    #     all_image_paths = []
-    #     for sub_dir in dir_structure["mask_aorta_segment_cut"]:
-    #         for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-    #             image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-    #             all_image_paths.append(image_path)
-    #
-    #     padding = 10
-    #     # Найти общий bounding box для всех изображений
-    #     global_size = find_global_size(all_image_paths, padding)
-    #     controller_dump["crop_img_size"] = [int(x) for x in global_size]
-    #     yaml_save(controller_dump, controller_path)
-    #
-    # for sub_dir in list(dir_structure["mask_aorta_segment_cut"]):
-    #     clear_folder(os.path.join(crop_nii_image_path, sub_dir))
-    #     clear_folder(os.path.join(crop_markers_mask_path, sub_dir))
-    #     for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-    #         cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-    #                       input_image_path=str(os.path.join(nii_resample_path, sub_dir, case)),
-    #                       output_image_path=str(os.path.join(crop_nii_image_path, sub_dir, case)),
-    #                       size=global_size)
-    #         cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-    #                       input_image_path=str(os.path.join(mask_markers_visual_path, sub_dir, case)),
-    #                       output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-    #                       size=global_size)
-    # controller_dump["crop_images"] = True
-    # yaml_save(controller_dump, controller_path)
+    for file_name in controller_dump["train_cases_list"]:
+        if file_name.startswith("H"):
+            sub_dir_name = "Homburg pathology"
+        elif file_name.startswith("n"):
+            sub_dir_name = "Normal"
+        else:
+            sub_dir_name = "Pathology"
 
-    add_info_logging("Finish", "work_logger")
+        shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir_name, f"{file_name}.nii.gz")),
+                    str(os.path.join(mask_train_folder, f"{file_name}.nii.gz")))
+
+    # add_info_logging("Finish", "work_logger")
 
 
 if __name__ == "__main__":
     data_path = "C:/Users/Kamil/Aortic_valve/data/"
-    controller(data_path)
+    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
+    controller_path = "C:/Users/Kamil/Aortic_valve/code_aortic_valve/controller.yaml"
+    crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
+    ds_folder_name = "Dataset489_AortaLandmarks"
+    mask_org_folder = os.path.join(nnUNet_folder, "original_mask", ds_folder_name)
+    mask_train_folder = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name, "labelsTr")
+    clear_folder(mask_train_folder)
+    controller_dump = yaml_reader(controller_path)
+    controller()

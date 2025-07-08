@@ -33,7 +33,8 @@ def create_new_json(output_file, dict_data):
         3: "N",
         4: "RLC",
         5: "RNC",
-        6: "LNC"
+        6: "LNC",
+        7: "GH"
     }
     result = {}
     for key, point_coord in dict_data.items():

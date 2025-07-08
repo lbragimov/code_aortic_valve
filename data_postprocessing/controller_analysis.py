@@ -195,6 +195,8 @@ def landmarks_analysis(data_path, ds_folder_name,
 
                 first_char = file.name[0]
                 if first_char == "H":
+                    if file.name[1] == "HOM_M23_H175_W68_YA":
+                        continue
                     num_img_ger_pat += 1
                     if type_set == "six_landmarks":
                         not_found_ger_pat += compute_errors(landmarks_true, landmarks_pred, errors_ger_pat,

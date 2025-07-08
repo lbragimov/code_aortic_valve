@@ -133,6 +133,8 @@ def get_json_dict(json_folder_path, nii_file_name):
     # else:
     #     print("A file with that name and extension was not found in the json folder.")
     #     show_log_and_exit()
+    # return read_json(os.path.join("C:/Users/Kamil/Aortic_valve/data/json_duplication_geometric_heights/test",
+    #                               f"{nii_file_name}.json"))
     return read_json(os.path.join("C:/Users/Kamil/Aortic_valve/data/json_duplication_geometric_heights/result",
                                   f"{nii_file_name}.json"))
 
@@ -157,14 +159,16 @@ def add_point_to_mask_sitk(mask, voxel_coord, radius=3):
 
 def controller(data_path):
     result_path = os.path.join(data_path, "result")
-    json_folder_path = os.path.join(data_path, "json_markers_info")
+    # json_folder_path = os.path.join(data_path, "json_markers_info")
+    # json_folder_path = os.path.join(data_path, "json_duplication_geometric_heights/test")
+    json_folder_path = os.path.join(data_path, "json_duplication_geometric_heights/result")
     output_folder_path = os.path.join(data_path, "temp_all_points_mask")
     nii_file_path = select_nii_file()
     input_nii_file_name = get_file_name(nii_file_path)
     points_cord = get_json_dict(json_folder_path=json_folder_path,
                                 nii_file_name=input_nii_file_name)
 
-    radius = 3  # радиус сферы вокселей
+    radius = 1  # радиус сферы вокселей
 
     # === Загрузка данных ===
     img = sitk.ReadImage(nii_file_path)

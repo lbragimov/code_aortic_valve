@@ -150,3 +150,38 @@ def cropped_image(mask_image_path, input_image_path, output_image_path, size):
     cropped_image.SetOrigin(new_origin)
 
     sitk.WriteImage(cropped_image, output_image_path)
+
+
+def fix_origin_cropped_image(cropped_image_path, mask_image_path, original_image_path, size, output_image_path):
+    """
+    Корректирует origin у уже обрезанного изображения, используя маску и предполагаемый размер обрезки.
+
+    :param cropped_image_path: Путь к уже обрезанному изображению (но с origin как у полного).
+    :param mask_image_path: Путь к маске, по которой делалась обрезка.
+    :param original_image_path: Путь к полному исходному изображению.
+    :param size: Размер обрезаемого участка [z, y, x].
+    :param output_image_path: Путь для сохранения изображения с исправленным origin.
+    """
+    mask_image = sitk.ReadImage(mask_image_path)
+    mask_array = sitk.GetArrayFromImage(mask_image)
+
+    original_image = sitk.ReadImage(original_image_path)
+    old_origin = original_image.GetOrigin()
+    spacing = original_image.GetSpacing()
+
+    # Вычисляем границы и смещение, как если бы делали обрезку
+    _, start_index = _crop_image(mask_array, sitk.GetArrayFromImage(original_image), size)
+
+    # Загружаем уже обрезанное изображение
+    cropped_image = sitk.ReadImage(cropped_image_path)
+
+    # Считаем новое origin
+    new_origin = [
+        old_origin[0] + start_index[2] * spacing[0],  # x
+        old_origin[1] + start_index[1] * spacing[1],  # y
+        old_origin[2] + start_index[0] * spacing[2]  # z
+    ]
+
+    cropped_image.SetOrigin(new_origin)
+
+    sitk.WriteImage(cropped_image, output_image_path)
