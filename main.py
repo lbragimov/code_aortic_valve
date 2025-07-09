@@ -19,6 +19,7 @@ from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_ma
 from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging, create_new_json)
+from data_preprocessing.csv_worker import write_csv, read_csv
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 # from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
@@ -156,7 +157,7 @@ def controller(data_path, cpus):
     dir_structure = json_reader(data_structure_path)
     # create_directory_structure(data_path, dir_structure)
 
-    if not "check_dicom" in controller_dump.keys() or not controller_dump["check_dicom"]:
+    if not controller_dump.get("check_metadata_dicom"):
         summary_info = []
         for sub_dir in list(dir_structure['dicom']):
             for case in os.listdir(os.path.join(dicom_path, sub_dir)):
@@ -168,7 +169,9 @@ def controller(data_path, cpus):
         yaml_save(controller_dump, controller_path)
 
         df = pd.DataFrame(summary_info)
-        df.to_csv(os.path.join(result_path, "cases_info.csv"), index=False)
+        write_csv(df, result_path, "dicom_metadata_info.csv")
+
+    # if not
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         for sub_dir in list(dir_structure['dicom']):

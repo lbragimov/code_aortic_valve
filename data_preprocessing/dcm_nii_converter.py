@@ -6,7 +6,7 @@ import pydicom
 from datetime import datetime
 
 
-def calculate_age(birth_date_str, study_date_str):
+def _calculate_age(birth_date_str, study_date_str):
     """Вычисляет возраст пациента на момент исследования."""
     try:
         birth_date = datetime.strptime(birth_date_str, "%Y%m%d")
@@ -17,35 +17,72 @@ def calculate_age(birth_date_str, study_date_str):
         return "Unknown"
 
 
+def _compute_slice_nonuniformity(dicom_series):
+    z_positions = []
+
+    for file in dicom_series:
+        try:
+            ds = pydicom.dcmread(file, stop_before_pixels=True)
+            ipp = ds.get("ImagePositionPatient", None)
+            if ipp:
+                z_positions.append(ipp[2])  # Z-координата
+        except Exception:
+            continue
+
+    if len(z_positions) < 2:
+        return "Insufficient slices"
+
+    z_positions = sorted(z_positions)
+    diffs = np.diff(z_positions)
+
+    max_diff = np.max(diffs)
+    min_diff = np.min(diffs)
+    nonuniformity = max_diff - min_diff
+
+    return round(nonuniformity, 5)
+
+
 def check_dcm_info(dicom_folder: str):
 
-    # Reading a series of DICOM files
     reader = sitk.ImageSeriesReader()
-
-    # Getting a list of DICOM files in the specified folder
     dicom_series = reader.GetGDCMSeriesFileNames(dicom_folder)
 
-    # Читаем первый файл серии для извлечения метаданных
-    first_file = dicom_series[0]
-    ds = pydicom.dcmread(first_file)
+    if not dicom_series:
+        return {"error": "No DICOM files found."}
 
-    # Извлекаем данные
+    # Читаем метаданные через pydicom (первый файл)
+    ds = pydicom.dcmread(dicom_series[0])
     birth_date = ds.get("PatientBirthDate", "")
     study_date = ds.get("StudyDate", ds.get("SeriesDate", ""))
-    age = calculate_age(birth_date, study_date)
-
-    # Извлекаем необходимые поля
+    age = _calculate_age(birth_date, study_date)
     sex = ds.get("PatientSex", "Unknown")
-    slice_thickness = ds.get("SliceThickness", "Unknown")
     manufacturer = ds.get("Manufacturer", "Unknown")
     model = ds.get("ManufacturerModelName", "Unknown")
+    slice_thickness = ds.get("SliceThickness", "Unknown")
+
+    # Вычисляем неравномерность по оси Z
+    z_nonuniformity = _compute_slice_nonuniformity(dicom_series)
+
+    # Загружаем изображение и получаем геометрию через SimpleITK
+    reader.SetFileNames(dicom_series)
+    image = reader.Execute()
+
+    img_size = image.GetSize()
+    img_spacing = image.GetSpacing()
+    img_origin = image.GetOrigin()
+    img_direction = image.GetDirection()
 
     return {
         "PatientAge": age,
         "PatientSex": sex,
-        "SliceThickness": slice_thickness,
         "Manufacturer": manufacturer,
-        "Model": model
+        "Model": model,
+        "SliceThickness": slice_thickness,
+        "ImageSize": img_size,
+        "ImageSpacing": img_spacing,
+        "ImageOrigin": img_origin,
+        "ImageDirection": img_direction,
+        "ZSpacingNonuniformity": z_nonuniformity
     }
 
 

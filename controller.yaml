@@ -1,6 +1,6 @@
 aorta_mask_analysis: true
 calc_morphometric: true
-check_dicom: true
+check_metadata_dicom: true
 convert: true
 create_3D_UNet_data_base: true
 crop_images: true
