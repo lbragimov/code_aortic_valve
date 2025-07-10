@@ -171,7 +171,34 @@ def controller(data_path, cpus):
         df = pd.DataFrame(summary_info)
         write_csv(df, result_path, "dicom_metadata_info.csv")
 
-    # if not
+    if not controller_dump.get("create_train_test_lists"):
+        df = read_csv(result_path, "dicom_metadata_info.csv")
+
+        result_rows = []
+
+        h_cases = df[df['case_name'].str.startswith('H')].copy()
+        np_cases = df[df['case_name'].str.startswith(('n', 'p'))].copy()
+
+        for idx, row in enumerate(h_cases.itertuples(index=False), start=1):
+            result_rows.append({
+                'case_name': row.case_name,
+                'used_case_name': f'g{idx}',
+                'type_series': 'test'
+            })
+
+        for letter in ['n', 'p']:
+            group = np_cases[np_cases['case_name'].str.startswith(letter)].copy()
+            n_total = len(group)
+            n_test = int(round(n_total * 0.1))  # 10%
+
+            shuffled = group.sample(frac=1, random_state=42).reset_index(drop=True)
+            shuffled['type_series'] = ['test'] * n_test + ['train'] * (n_total - n_test)
+            shuffled['used_case_name'] = shuffled['case_name']
+
+            result_rows.extend(shuffled[['case_name', 'used_case_name', 'type_series']].to_dict(orient='records'))
+
+        result_df = pd.DataFrame(result_rows)
+        write_csv(result_df, result_path, "train_test_lists.csv")
 
     if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
         for sub_dir in list(dir_structure['dicom']):
