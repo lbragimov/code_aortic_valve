@@ -14,7 +14,7 @@ import nibabel as nib
 from totalsegmentator.python_api import totalsegmentator
 
 from configurator.equipment_analysis import get_free_cpus
-from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, resample_nii, reader_dcm, check_dcm_info
+from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, reader_dcm, check_dcm_info
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
@@ -39,6 +39,12 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
 def controller(data_path, cpus):
+    def _find_dicom_series_folders(dicom_root):
+        series_folders = set()
+        for dcm_file in Path(dicom_root).rglob("*.dcm"):
+            series_folders.add(dcm_file.parent)
+        return list(series_folders)
+
     def clear_folder(folder_path):
         """Очищает папку, удаляя все файлы и подпапки"""
         folder = Path(folder_path)
@@ -118,15 +124,12 @@ def controller(data_path, cpus):
                                folder_mask_path=cur_crop_markers_mask_path, dict_dataset=dict_dataset,
                                num_test=15, test_folder="Homburg pathology", create_ds=True, training_mod=True)
 
-
-
-    script_dir = Path(__file__).resolve().parent
-
     temp_path = os.path.join(data_path, "temp")
     # temp = np.load(os.path.join(temp_path, "p9.npz"))
 
-    result_path = os.path.join(data_path, "result")
-    dicom_path = os.path.join(data_path, "dicom")
+    result_folder = os.path.join(data_path, "result")
+    dicom_folder = os.path.join(data_path, "dicom")
+    image_folder = os.path.join(data_path, "image_nii")
     json_marker_path = os.path.join(data_path, "json_markers_info")
     txt_marker_path = os.path.join(data_path, "markers_info")
     stl_aorta_segment_path = os.path.join(data_path, "stl_aorta_segment")
@@ -145,7 +148,6 @@ def controller(data_path, cpus):
     json_land_mask_coord_path = os.path.join(data_path, "json_landmarks_mask_coord")
 
     controller_path = os.path.join(script_dir, "controller.yaml")
-    data_structure_path = os.path.join(script_dir, "dir_structure.json")
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
     mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark_cut")
 
@@ -154,25 +156,40 @@ def controller(data_path, cpus):
         controller_dump = yaml_reader(controller_path)
     else:
         controller_dump = {}
-    dir_structure = json_reader(data_structure_path)
-    # create_directory_structure(data_path, dir_structure)
 
     if not controller_dump.get("check_metadata_dicom"):
         summary_info = []
-        for sub_dir in list(dir_structure['dicom']):
-            for case in os.listdir(os.path.join(dicom_path, sub_dir)):
-                dcm_case_path = os.path.join(dicom_path, sub_dir, case)
-                info = check_dcm_info(dcm_case_path)
-                info["case_name"] = case
-                summary_info.append(info)
+        dicom_folders = _find_dicom_series_folders(dicom_folder)
+
+        for folder_path in dicom_folders:
+            case_name = folder_path.name
+            info = check_dcm_info(folder_path)
+            info["case_name"] = case_name
+            summary_info.append(info)
+        df = pd.DataFrame(summary_info)
+        write_csv(df, result_folder, "dicom_metadata_info.csv")
+
+        # 📄 Сохраняем JSON с уникальными значениями по каждому столбцу (кроме case_name)
+        unique_info = {
+            col: sorted([str(x) for x in df[col].dropna().unique().tolist()])
+            for col in df.columns if col != "case_name"
+        }
+
+        # Преобразуем к сериализуемым типам
+        def convert(o):
+            if isinstance(o, (tuple, list)):
+                return list(o)
+            return str(o)
+
+        json_path = os.path.join(result_folder, "dicom_metadata_info_summary.json")
+        with open(json_path, "w") as f:
+            json.dump(unique_info, f, indent=4, default=convert)
+
         controller_dump["check_dicom"] = True
         yaml_save(controller_dump, controller_path)
 
-        df = pd.DataFrame(summary_info)
-        write_csv(df, result_path, "dicom_metadata_info.csv")
-
     if not controller_dump.get("create_train_test_lists"):
-        df = read_csv(result_path, "dicom_metadata_info.csv")
+        df = read_csv(result_folder, "dicom_metadata_info.csv")
 
         result_rows = []
 
@@ -198,29 +215,30 @@ def controller(data_path, cpus):
             result_rows.extend(shuffled[['case_name', 'used_case_name', 'type_series']].to_dict(orient='records'))
 
         result_df = pd.DataFrame(result_rows)
-        write_csv(result_df, result_path, "train_test_lists.csv")
+        write_csv(result_df, result_folder, "train_test_lists.csv")
 
-    if not "convert" in controller_dump.keys() or not controller_dump["convert"]:
-        for sub_dir in list(dir_structure['dicom']):
-            clear_folder(os.path.join(nii_convert_path, sub_dir))
-            for case in os.listdir(os.path.join(dicom_path, sub_dir)):
-                dcm_case_path = os.path.join(dicom_path, sub_dir, case)
-                if sub_dir == "Homburg pathology":
-                    case = case[:-3]
-                nii_convert_case_file = os.path.join(nii_convert_path, sub_dir, case)
-                img_size, img_origin, img_spacing, img_direction = convert_dcm_to_nii(dcm_case_path,
-                                                                                      nii_convert_case_file,
-                                                                                      zip=True)
-                dict_all_case.setdefault(case, {})
-                dict_all_case[case] |= {
-                    "img_size": img_size,
-                    "img_origin": img_origin,
-                    "img_spacing": img_spacing,
-                    "img_direction": img_direction
-                }
-        json_save(dict_all_case, dict_all_case_path)
-        controller_dump["convert"] = True
-        controller_dump["resample"] = False
+    train_test_lists = read_csv(result_folder, "train_test_lists.csv")
+    test_cases = train_test_lists[train_test_lists['type_series'] == 'test']['used_case_name'].tolist()
+    train_cases = train_test_lists[train_test_lists['type_series'] == 'train']['used_case_name'].tolist()
+
+    if not controller_dump.get("convert_resample_dicom"):
+        clear_folder(image_folder)
+        dicom_folders = _find_dicom_series_folders(dicom_folder)
+
+        for folder_path in dicom_folders:
+            org_folder_name = folder_path.name
+            try:
+                new_file_name = train_test_lists.loc[
+                    train_test_lists['case_name'] == org_folder_name, 'used_case_name'
+                ].values[0]
+            except IndexError:
+                add_info_logging(f"'{org_folder_name}' not found in CSV.")
+                continue
+
+            img_convert_path = os.path.join(image_folder, new_file_name)
+            convert_dcm_to_nii(str(folder_path), img_convert_path, zip=True)
+
+        controller_dump["convert_resample_dicom"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("train_cases_list"):
@@ -242,8 +260,8 @@ def controller(data_path, cpus):
             dict_all_case = json_reader(dict_all_case_path)
         else:
             for sub_dir in list(dir_structure['dicom']):
-                for case in os.listdir(os.path.join(dicom_path, sub_dir)):
-                    dcm_case_path = os.path.join(dicom_path, sub_dir, case)
+                for case in os.listdir(os.path.join(dicom_folder, sub_dir)):
+                    dcm_case_path = os.path.join(dicom_folder, sub_dir, case)
                     if sub_dir == "Homburg pathology":
                         case = case[:-3]
                     img_size, img_origin, img_spacing, img_direction = reader_dcm(dcm_case_path)
@@ -268,60 +286,6 @@ def controller(data_path, cpus):
                             "LNC": data["LNC"]
                         }
             json_save(dict_all_case, dict_all_case_path)
-
-    if not "resample" in controller_dump.keys() or not controller_dump["resample"]:
-
-        if controller_dump["size_or_pixel"]:
-            all_shapes = []
-            nii_convert_file_paths = collect_file_paths(nii_convert_path, dir_structure["nii_convert"])
-            for sub_dir in dir_structure["nii_convert"]:
-                for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
-                    image_path = os.path.join(nii_convert_path, sub_dir, case)
-                    all_shapes.append(find_shape(image_path, controller_dump["size_or_pixel"]))
-            # add_info_logging(f"all_shapes {set(all_shapes)}", "work_logger")
-
-            # Extract the first elements of "img_spacing" and store them in a list
-            # img_spac_0 = [case['img_spacing'][0] for case in dict_all_case.values()]
-            img_spac_0 = [case[0] for case in all_shapes]
-            # Find the minimum value and the average of the first elements
-            min_img_spac_0 = min(img_spac_0)
-            max_img_spac_0 = max(img_spac_0)
-            avg_img_spac_0 = sum(img_spac_0) / len(img_spac_0)
-            most_img_spac_0 = float(mode(img_spac_0))
-
-            # Extract the first elements of "img_spacing" and store them in a list
-            # img_spac_1 = [case['img_spacing'][1] for case in dict_all_case.values()]
-            img_spac_1 = [case[1] for case in all_shapes]
-            # Find the minimum value and the average of the first elements
-            min_img_spac_1 = min(img_spac_1)
-            max_img_spac_1 = max(img_spac_1)
-            avg_img_spac_1 = sum(img_spac_1) / len(img_spac_1)
-            most_img_spac_1 = float(mode(img_spac_1))
-
-            # Extract the first elements of "img_spacing" and store them in a list
-            # img_spac_2 = [case['img_spacing'][2] for case in dict_all_case.values()]
-            img_spac_2 = [case[2] for case in all_shapes]
-            # Find the minimum value and the average of the first elements
-            min_img_spac_2 = min(img_spac_2)
-            max_img_spac_2 = max(img_spac_2)
-            avg_img_spac_2 = sum(img_spac_2) / len(img_spac_2)
-            most_img_spac_2 = float(mode(img_spac_2))
-
-        for sub_dir in list(dir_structure["nii_convert"]):
-            clear_folder(os.path.join(nii_resample_path, sub_dir))
-            for case in os.listdir(os.path.join(nii_convert_path, sub_dir)):
-                nii_convert_case_file_path = os.path.join(nii_convert_path, sub_dir, case)
-                nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
-                if controller_dump["size_or_pixel"]:
-                    resample_nii(nii_convert_case_file_path,
-                                 nii_resample_case_file_path,
-                                 controller_dump["size_or_pixel"],
-                                 [most_img_spac_0, most_img_spac_1, most_img_spac_2])
-                else:
-                    resample_nii(nii_convert_case_file_path,
-                                 nii_resample_case_file_path)
-        controller_dump["resample"] = True
-        yaml_save(controller_dump, controller_path)
 
     # all_image_paths = []
     # for sub_dir in dir_structure["nii_resample"]:
@@ -590,7 +554,7 @@ def controller(data_path, cpus):
                             dict_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486, 5: 485, 4: 484})
 
     if not controller_dump["aorta_mask_analysis"]:
-        mask_analysis(data_path, result_path, type_mask="aortic_valve", folder_name="Dataset401_AorticValve")
+        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name="Dataset401_AorticValve")
 
     if not controller_dump["landmarks_analysis"]:
         landmarks_analysis(Path(data_path), ds_folder_name="Dataset489_AortaLandmarks",
@@ -740,7 +704,7 @@ def controller(data_path, cpus):
         print(f"Standard Deviation RMSE: {std_rmse:.3f}")
 
         # Сохраняем в CSV
-        csv_path = Path(result_path) / "rmse_errors_per_case.csv"
+        csv_path = Path(result_folder) / "rmse_errors_per_case.csv"
         df_errors.to_csv(csv_path, index=False)
 
     if not controller_dump.get("mask_gh_marker_create"):
@@ -872,19 +836,18 @@ if __name__ == "__main__":
     else:
         data_path = None
 
+    script_dir = Path(__file__).resolve().parent
+    data_structure_path = os.path.join(script_dir, "dir_structure.json")
+    dir_structure = json_reader(data_structure_path)
+    create_directory_structure(data_path, json_reader(data_structure_path))
+
     if data_path:
         free_cpus = get_free_cpus()
         current_time = datetime.now()
-        log_file_name = current_time.strftime("log_%H_%M__%d_%m_%Y.log")
-        log_path = os.path.join(data_path, log_file_name)
-        logging.basicConfig(level=logging.INFO, filename=log_path, filemode="w")
-        result_file_name = current_time.strftime("result_%H_%M__%d_%m_%Y.log")
-        result_path = os.path.join(data_path, result_file_name)
-        logging.basicConfig(level=logging.INFO, filename=result_path, filemode="w")
 
         # Логгер для хода программы
-        log_file_name = current_time.strftime("log_%H_%M__%d_%m_%Y.log")
-        work_log_path = os.path.join(data_path, log_file_name)
+        log_file_name = current_time.strftime("log_%d-%m-%Y__%H-%M.log")
+        work_log_path = os.path.join(data_path, "result/log", log_file_name)
         work_logger = logging.getLogger("work_logger")
         work_logger.setLevel(logging.INFO)
         work_handler = logging.FileHandler(work_log_path, mode='w')
@@ -892,8 +855,8 @@ if __name__ == "__main__":
         work_logger.addHandler(work_handler)
 
         # Логгер для результатов
-        result_file_name = current_time.strftime("result_%H_%M__%d_%m_%Y.log")
-        result_log_path = os.path.join(data_path, result_file_name)
+        result_file_name = current_time.strftime("result_%d-%m-%Y__%H-%M.log")
+        result_log_path = os.path.join(data_path, "result/log", result_file_name)
         result_logger = logging.getLogger("result_logger")
         result_logger.setLevel(logging.INFO)
         result_handler = logging.FileHandler(result_log_path, mode='w')

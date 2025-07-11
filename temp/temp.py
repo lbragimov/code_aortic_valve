@@ -8,6 +8,31 @@ from pathlib import Path
 from data_preprocessing.text_worker import yaml_reader
 
 
+def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
+
+    if zip:
+        output_nii_file = nii_folder + ".nii.gz"
+    else:
+        output_nii_file = nii_folder + ".nii"
+
+    new_spacing = [0.4, 0.4, 0.4]
+
+    # Reading a series of DICOM files
+    reader = sitk.ImageSeriesReader()
+
+    # Getting a list of DICOM files in the specified folder
+    dicom_series = reader.GetGDCMSeriesFileNames(dicom_folder)
+
+    # Installing files in the reader
+    reader.SetFileNames(dicom_series)
+
+    # Reading images
+    image = reader.Execute()
+
+    # Saving an image in NIfTI format
+    sitk.WriteImage(image, output_nii_file)
+
+
 def clear_folder(folder_path):
     """Очищает папку, удаляя все файлы и подпапки"""
     folder = Path(folder_path)
@@ -26,29 +51,26 @@ def clear_folder(folder_path):
 
 
 def controller():
+    dicom_folder = os.path.join(data_path, "dicom")
+    result_folder = os.path.join(data_path, "result")
+    img_folder = os.path.join(data_path, "img_nii")
+    train_test_lists = read_csv(result_folder, "train_test_lists.csv") # дата фрейм
 
-    for file_name in controller_dump["train_cases_list"]:
-        if file_name.startswith("H"):
-            sub_dir_name = "Homburg pathology"
-        elif file_name.startswith("n"):
-            sub_dir_name = "Normal"
-        else:
-            sub_dir_name = "Pathology"
+    dicom_folders = [p for p in Path(dicom_folder).iterdir() if p.is_dir()]
 
-        shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir_name, f"{file_name}.nii.gz")),
-                    str(os.path.join(mask_train_folder, f"{file_name}.nii.gz")))
+    clear_folder(img_folder)
+
+    for folder_path in dicom_folders:
+        org_folder_name = folder_path.name
+        new_file_name = train_test_lists[train_test_lists['case_name'] == org_folder_name]['used_case_name']
+        img_convert_path = os.path.join(img_folder, new_file_name)
+        convert_dcm_to_nii(file_path, img_convert_path, zip=True)
 
     # add_info_logging("Finish", "work_logger")
 
 
 if __name__ == "__main__":
     data_path = "C:/Users/Kamil/Aortic_valve/data/"
-    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     controller_path = "C:/Users/Kamil/Aortic_valve/code_aortic_valve/controller.yaml"
-    crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
-    ds_folder_name = "Dataset489_AortaLandmarks"
-    mask_org_folder = os.path.join(nnUNet_folder, "original_mask", ds_folder_name)
-    mask_train_folder = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name, "labelsTr")
-    clear_folder(mask_train_folder)
     controller_dump = yaml_reader(controller_path)
     controller()

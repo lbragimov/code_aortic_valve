@@ -71,6 +71,7 @@ def check_dcm_info(dicom_folder: str):
     img_spacing = image.GetSpacing()
     img_origin = image.GetOrigin()
     img_direction = image.GetDirection()
+    pixel_type = sitk.GetPixelIDValueAsString(image.GetPixelID())
 
     return {
         "PatientAge": age,
@@ -82,38 +83,51 @@ def check_dcm_info(dicom_folder: str):
         "ImageSpacing": img_spacing,
         "ImageOrigin": img_origin,
         "ImageDirection": img_direction,
+        "PixelType": pixel_type,
         "ZSpacingNonuniformity": z_nonuniformity
     }
 
 
-def convert_dcm_to_nii(dicom_folder: str, nii_folder: str, zip: bool = False):
-
-    if zip:
-        output_nii_file = nii_folder + ".nii.gz"
-    else:
-        output_nii_file = nii_folder + ".nii"
-
-    # Reading a series of DICOM files
+def convert_dcm_to_nii(dicom_folder: str, nii_path: str, zip: bool = False):
     reader = sitk.ImageSeriesReader()
-
-    # Getting a list of DICOM files in the specified folder
     dicom_series = reader.GetGDCMSeriesFileNames(dicom_folder)
-
-    # Installing files in the reader
     reader.SetFileNames(dicom_series)
-
-    # Reading images
     image = reader.Execute()
 
-    img_size = image.GetSize()
-    img_origin = image.GetOrigin()
-    img_spacing = image.GetSpacing()
-    img_direction = image.GetDirection()
+    # Приведение к стандартной ориентации и direction
+    identity_direction = (1.0, 0.0, 0.0,
+                          0.0, 1.0, 0.0,
+                          0.0, 0.0, 1.0)
+    if image.GetDirection() != identity_direction:
+        image = sitk.DICOMOrient(image, 'LPS')
+        image.SetDirection(identity_direction)
 
-    # Saving an image in NIfTI format
-    sitk.WriteImage(image, output_nii_file)
+    # Приведение к float32
+    image = sitk.Cast(image, sitk.sitkInt16)
 
-    return img_size, img_origin, img_spacing, img_direction
+    # Приведение к новому spacing
+    new_spacing = [0.4, 0.4, 0.4]
+    original_spacing = image.GetSpacing()
+    original_size = image.GetSize()
+    new_size = [
+        int(round(original_size[i] * (original_spacing[i] / new_spacing[i])))
+        for i in range(3)
+    ]
+
+    resampled = sitk.Resample(
+        image,
+        new_size,
+        sitk.Transform(),
+        sitk.sitkLinear,
+        image.GetOrigin(),  # origin не трогаем
+        new_spacing,
+        image.GetDirection(),
+        0.0,
+        image.GetPixelID()
+    )
+
+    out_path = nii_path + ".nii.gz" if zip else nii_path + ".nii"
+    sitk.WriteImage(resampled, out_path)
 
 
 def reader_dcm(dicom_folder: str):

@@ -3,6 +3,7 @@ import nibabel as nib
 from pathlib import Path
 import SimpleITK as sitk
 import json
+import pandas as pd
 
 
 def min_max_value(folder_path):
@@ -35,34 +36,59 @@ def min_max_value(folder_path):
 
 
 def _extract_image_info(nii_path):
-    """Извлекает параметры изображения из .nii файла"""
+    """Извлекает параметры изображения из .nii/.nii.gz файла"""
     image = sitk.ReadImage(str(nii_path))
+    size = image.GetSize()
+    spacing = image.GetSpacing()
+    origin = image.GetOrigin()
+
     info = {
-        "shape": list(reversed(image.GetSize())),  # Z, Y, X
-        "spacing": list(image.GetSpacing()),  # X, Y, Z
-        "origin": list(image.GetOrigin()),
-        "direction": list(image.GetDirection())
+        "filename": nii_path.name,
+        "shape": tuple(reversed(size)),       # (Z, Y, X)
+        "spacing": spacing,                   # (X, Y, Z)
+        "origin": origin,                     # (X, Y, Z)
+        "direction": image.GetDirection(),    # 3x3 flattened
+        "pixel_type": sitk.GetPixelIDValueAsString(image.GetPixelID())
     }
     return info
 
 
-def check_files_in_folder(folder_path):
-    folder_path = Path(folder_path)
-    nii_files = list(folder_path.glob("*.nii")) + list(folder_path.glob("*.nii.gz"))
+def check_files_in_folder(check_folder, result_folder):
+    nii_files = list(check_folder.rglob("*.nii")) + list(check_folder.rglob("*.nii.gz"))
 
-    all_info = {}
+    info_list = []
 
     for nii_file in nii_files:
         info = _extract_image_info(nii_file)
-        all_info[nii_file.name] = info
+        info_list.append(info)
 
-    output_path = folder_path / "image_info.json"
-    with open(output_path, 'w') as f:
-        json.dump(all_info, f, indent=4)
+    df = pd.DataFrame(info_list)
+    csv_path = result_folder / f"{check_folder.name}_image_info.csv"
+    df.to_csv(csv_path, index=False)
+
+    # 🔍 Собираем уникальные значения по каждому столбцу
+    unique_info = {
+        col: sorted(df[col].dropna().unique().tolist())
+        for col in df.columns
+        if col not in ['filename']
+    }
+
+    # Преобразуем к JSON-сериализуемым типам
+    def convert(o):
+        if isinstance(o, tuple):
+            return list(o)
+        if isinstance(o, Path):
+            return str(o)
+        return o
+
+    json_path = result_folder / f"{check_folder.name}_image_info_summary.json"
+    with open(json_path, 'w') as f:
+        json.dump(unique_info, f, indent=4, default=convert)
 
 
 if __name__ == "__main__":
     data_path = "C:/Users/Kamil/Aortic_valve/data/"
-    check_folder = Path(data_path) / "temp_check_info_nii"
+    check_folder = Path(data_path) / "nii_resample"
+    result_folder = Path(data_path) / "temp" / "temp_check_info_nii"
     # min_max_value(check_folder)
-    check_files_in_folder(check_folder)
+    check_files_in_folder(check_folder, result_folder)

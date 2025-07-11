@@ -1,9 +1,10 @@
 aorta_mask_analysis: true
 calc_morphometric: true
-check_metadata_dicom: true
-convert: true
-create_train_test_lists: true
+check_dicom: true
+check_metadata_dicom: false
+convert_resample_dicom: true
 create_3D_UNet_data_base: true
+create_train_test_lists: true
 crop_images: true
 crop_img_size:
 - 180
@@ -25,7 +26,6 @@ nnUNet_DS_gh: true
 nnUNet_DS_landmarks: true
 nnUNet_gh_train_test: true
 nnUNet_lmk_ger_sep: true
-resample: true
 size_or_pixel: none
 test_cases_list:
 - HOM_M19_H217_W96_YA
