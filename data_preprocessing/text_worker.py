@@ -95,3 +95,27 @@ def txt_json_convert(txt_file_path: str, json_file_path: str):
     with open(json_file_path, 'w') as json_file:
         json.dump(data, json_file, indent=4)
     return data
+
+
+def parse_txt_file(filepath):
+    with open(filepath, "r") as f:
+        lines = [line.strip() for line in f if line.strip()]
+
+    data = {}
+    current_label = None
+    points = []
+
+    for line in lines[1:]:  # пропускаем первую строку — это имя кейса
+        if not any(c.isdigit() for c in line):  # это заголовок (например, R, NCI и т.п.)
+            if current_label and points:
+                data[current_label] = points
+            current_label = line
+            points = []
+        else:
+            coords = list(map(float, line.split()))
+            points.append(coords)
+
+    if current_label and points:
+        data[current_label] = points  # добавить последнюю группу
+
+    return data

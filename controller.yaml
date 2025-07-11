@@ -1,9 +1,10 @@
 aorta_mask_analysis: true
 calc_morphometric: true
 check_dicom: true
-check_metadata_dicom: false
+check_metadata_dicom: true
 convert_resample_dicom: true
 create_3D_UNet_data_base: true
+create_dict_all_case: true
 create_train_test_lists: true
 crop_images: true
 crop_img_size:
@@ -16,7 +17,6 @@ find_geometric_heights: true
 gh_landmark_analysis: true
 json_landmarks_mask_coord: true
 landmarks_analysis: true
-markers_info: true
 mask_aorta_segment: true
 mask_aorta_segment_cut: true
 mask_gh_marker_create: true

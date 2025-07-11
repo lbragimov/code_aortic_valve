@@ -18,7 +18,7 @@ from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, reader_dcm,
 from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
 from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
-                                            add_info_logging, create_new_json)
+                                            add_info_logging, create_new_json, parse_txt_file)
 from data_preprocessing.csv_worker import write_csv, read_csv
 from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
 # from data_postprocessing.evaluation_analysis import landmarking_testing
@@ -39,10 +39,16 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
 def controller(data_path, cpus):
-    def _find_dicom_series_folders(dicom_root):
+    def _find_series_folders(root_folder, types_file, parent=False):
+        if isinstance(types_file, str):
+            types_file = [types_file]
         series_folders = set()
-        for dcm_file in Path(dicom_root).rglob("*.dcm"):
-            series_folders.add(dcm_file.parent)
+        for ext in types_file:
+            for file_path in Path(root_folder).rglob(f"*.{ext}"):
+                if parent:
+                    series_folders.add(file_path.parent)
+                else:
+                    series_folders.add(file_path)
         return list(series_folders)
 
     def clear_folder(folder_path):
@@ -131,7 +137,7 @@ def controller(data_path, cpus):
     dicom_folder = os.path.join(data_path, "dicom")
     image_folder = os.path.join(data_path, "image_nii")
     json_marker_path = os.path.join(data_path, "json_markers_info")
-    txt_marker_path = os.path.join(data_path, "markers_info")
+    txt_points_folder = os.path.join(data_path, "txt_points")
     stl_aorta_segment_path = os.path.join(data_path, "stl_aorta_segment")
     mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
     nii_resample_path = os.path.join(data_path, "nii_resample")
@@ -159,7 +165,7 @@ def controller(data_path, cpus):
 
     if not controller_dump.get("check_metadata_dicom"):
         summary_info = []
-        dicom_folders = _find_dicom_series_folders(dicom_folder)
+        dicom_folders = _find_series_folders(dicom_folder, "dcm", parent=True)
 
         for folder_path in dicom_folders:
             case_name = folder_path.name
@@ -185,7 +191,7 @@ def controller(data_path, cpus):
         with open(json_path, "w") as f:
             json.dump(unique_info, f, indent=4, default=convert)
 
-        controller_dump["check_dicom"] = True
+        controller_dump["check_metadata_dicom"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("create_train_test_lists"):
@@ -223,7 +229,7 @@ def controller(data_path, cpus):
 
     if not controller_dump.get("convert_resample_dicom"):
         clear_folder(image_folder)
-        dicom_folders = _find_dicom_series_folders(dicom_folder)
+        dicom_folders = _find_series_folders(dicom_folder, "dcm", parent=True)
 
         for folder_path in dicom_folders:
             org_folder_name = folder_path.name
@@ -259,59 +265,34 @@ def controller(data_path, cpus):
         if os.path.isfile(dict_all_case_path):
             dict_all_case = json_reader(dict_all_case_path)
         else:
-            for sub_dir in list(dir_structure['dicom']):
-                for case in os.listdir(os.path.join(dicom_folder, sub_dir)):
-                    dcm_case_path = os.path.join(dicom_folder, sub_dir, case)
-                    if sub_dir == "Homburg pathology":
-                        case = case[:-3]
-                    img_size, img_origin, img_spacing, img_direction = reader_dcm(dcm_case_path)
-                    dict_all_case[case] = {
-                        "img_size": img_size,
-                        "img_origin": img_origin,
-                        "img_spacing": img_spacing,
-                        "img_direction": img_direction
-                    }
-            if os.path.exists(json_marker_path):
-                for sub_dir in list(dir_structure["json_markers_info"]):
-                    for case in os.listdir(os.path.join(json_marker_path, sub_dir)):
-                        json_marker_case_file = os.path.join(json_marker_path, sub_dir, case)
-                        case_name = case[:-5]
-                        data = json_reader(json_marker_case_file)
-                        dict_all_case[case_name] |= {
-                            "R": data["R"],
-                            "L": data["L"],
-                            "N": data["N"],
-                            "RLC": data["RLC"],
-                            "RNC": data["RNC"],
-                            "LNC": data["LNC"]
-                        }
-            json_save(dict_all_case, dict_all_case_path)
+            controller_dump["create_dict_all_case"] = False
+            yaml_save(controller_dump, controller_path)
+            add_info_logging("There is no data dictionary for all cases. The dictionary will be regenerated.")
 
-    # all_image_paths = []
-    # for sub_dir in dir_structure["nii_resample"]:
-    #     for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-    #         image_path = os.path.join(nii_resample_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"nii_resample {find_shape_2(all_image_paths)}", "work_logger")
+    if not controller_dump.get("create_dict_all_case"):
+        txt_files = _find_series_folders(txt_points_folder, "txt")
+        all_cases_data = {}
 
-    if not "markers_info" in controller_dump.keys() or not controller_dump["markers_info"]:
-        for sub_dir in list(dir_structure["markers_info"]):
-            for case in os.listdir(os.path.join(txt_marker_path, sub_dir)):
-                txt_marker_case_file = os.path.join(txt_marker_path, sub_dir, case)
-                case = case[2:-4]
-                json_marker_case_file = os.path.join(json_marker_path, sub_dir, f"{case}.json")
-                data = txt_json_convert(txt_marker_case_file, json_marker_case_file)
-                dict_all_case[case] |= {
-                    "R": data["R"],
-                    "L": data["L"],
-                    "N": data["N"],
-                    "RLC": data["RLC"],
-                    "RNC": data["RNC"],
-                    "LNC": data["LNC"]
-                }
-        controller_dump["markers_info"] = True
+        for txt_path in txt_files:
+            case_base_name = txt_path.stem[2:]  # Удаляем первые 2 символа
+
+            # Найти в датафрейме
+            match = train_test_lists[train_test_lists["case_name"].str.contains(case_base_name, na=False)]
+            if match.empty:
+                add_info_logging(f" Not found: {case_base_name} in dict cases")
+                continue
+
+            used_case_name = match.iloc[0]["used_case_name"]
+            type_series = match.iloc[0]["type_series"]
+
+            parsed_data = parse_txt_file(txt_path)
+            parsed_data["type_series"] = type_series
+
+            all_cases_data[used_case_name] = parsed_data
+
+        json_save(all_cases_data, dict_all_case_path)
+        controller_dump["create_dict_all_case"] = True
         yaml_save(controller_dump, controller_path)
-        json_save(dict_all_case, dict_all_case_path)
 
     if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
         for sub_dir in list(dir_structure["stl_aorta_segment"]):
