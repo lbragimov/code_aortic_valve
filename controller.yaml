@@ -17,10 +17,12 @@ find_geometric_heights: true
 gh_landmark_analysis: true
 json_landmarks_mask_coord: true
 landmarks_analysis: true
+mask_6_landmarks: true
 mask_aorta_segment: true
 mask_aorta_segment_cut: true
 mask_gh_marker_create: true
 mask_markers_create: true
+nnUNet_6_landmarks_train: false
 nnUNet_DS_aorta: true
 nnUNet_DS_gh: true
 nnUNet_DS_landmarks: true

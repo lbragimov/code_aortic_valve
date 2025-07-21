@@ -7,32 +7,25 @@ import json
 
 import numpy as np
 import pandas as pd
-from statistics import mode
 from datetime import datetime
 
-import nibabel as nib
-from totalsegmentator.python_api import totalsegmentator
-
 from configurator.equipment_analysis import get_free_cpus
-from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, reader_dcm, check_dcm_info
+from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, check_dcm_info
 from data_preprocessing.stl_nii_converter import convert_and_cut_stl
-from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
-from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
+from data_preprocessing.check_structure import create_directory_structure
+from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save,
                                             add_info_logging, create_new_json, parse_txt_file)
 from data_preprocessing.csv_worker import write_csv, read_csv
 from data_preprocessing.crop_nii import cropped_image, find_global_size
 # from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
                                                      find_morphometric_parameters, LandmarkCentersCalculator)
-from data_postprocessing.plotting_graphs import summarize_and_plot
 from data_postprocessing.coherent_point_drift import create_new_gh_json, find_new_curv
-from models.implementation_nnUnet import nnUnet_trainer
 from data_visualization.markers import slices_with_markers, process_markers, find_mean_gh_landmark
 from models.controller_nnUnet import process_nnunet
+from experiments.nnUnet_experiments import experiment_training
 
-from optimization.parallelization import division_processes
-
-from models.implementation_3D_Unet import WrapperUnet
+# from optimization.parallelization import division_processes
 
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
@@ -66,72 +59,7 @@ def controller(data_path, cpus):
             elif item.is_dir():
                 shutil.rmtree(item)  # Удаляем папку рекурсивно
 
-    def _experiment_training(create_img=False, create_models=False):
-        # list_radius = [10, 9, 8, 7, 6, 5, 4]
-        # list_radius = [10, 9, 8, 7, 6]
-        list_radius = [7, 6]
-        if create_img:
-            for radius in list_radius:
-                cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
-                for sub_dir in list(dir_structure["nii_resample"]):
-                    clear_folder(os.path.join(cur_mask_markers_visual_path, sub_dir))
-                    for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-                        case_name = case[:-7]
-                        nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
-                        mask_markers_img_path = os.path.join(cur_mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
-                        process_markers(nii_resample_case_file_path,
-                                        dict_all_case[case_name],
-                                        mask_markers_img_path,
-                                        radius)
-
-            # Получаем все пути к изображениям в папке mask_aorta_segment_cut
-            all_image_paths = []
-            for sub_dir in dir_structure["mask_aorta_segment_cut"]:
-                for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                    image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-                    all_image_paths.append(image_path)
-
-            padding = 10
-            # Найти общий bounding box для всех изображений
-            global_size = find_global_size(all_image_paths, padding)
-            add_info_logging(f"global size: {global_size}", "work_logger")
-
-            for radius in list_radius:
-                cur_mask_markers_visual_path = os.path.join(data_path, f"markers_visual_{radius}")
-                cur_crop_markers_mask_path = os.path.join(data_path, f"crop_markers_mask_{radius}")
-                for sub_dir in os.listdir(cur_mask_markers_visual_path):
-                    clear_folder(os.path.join(cur_crop_markers_mask_path, sub_dir))
-                    for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                        cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-                                      input_image_path=str(os.path.join(cur_mask_markers_visual_path, sub_dir, case)),
-                                      output_image_path=str(os.path.join(cur_crop_markers_mask_path, sub_dir, case)),
-                                      size=global_size)
-
-        if create_models:
-            # dict_id_case = {10: 491, 9: 499, 8: 498, 7: 497, 6: 496, 5: 495, 4: 494}
-            dict_id_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486}
-            for radius in list_radius:
-                cur_crop_markers_mask_path = os.path.join(data_path, f"crop_markers_mask_{radius}")
-                dict_dataset = {
-                    "channel_names": {0: "CT"},
-                    "labels": {
-                        "background": 0,
-                        "R": 1,
-                        "L": 2,
-                        "N": 3,
-                        "RLC": 4,
-                        "RNC": 5,
-                        "LNC": 6
-                    },
-                    "file_ending": ".nii.gz"
-                }
-                process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{dict_id_case[radius]}_AortaLandmarks",
-                               id_case=dict_id_case[radius], folder_image_path=crop_nii_image_path,
-                               folder_mask_path=cur_crop_markers_mask_path, dict_dataset=dict_dataset,
-                               num_test=15, test_folder="Homburg pathology", create_ds=True, training_mod=True)
-
     temp_path = os.path.join(data_path, "temp")
-    # temp = np.load(os.path.join(temp_path, "p9.npz"))
 
     result_folder = os.path.join(data_path, "result")
     dicom_folder = os.path.join(data_path, "dicom")
@@ -140,18 +68,13 @@ def controller(data_path, cpus):
     json_marker_folder = os.path.join(data_path, "json_markers_info")
     txt_points_folder = os.path.join(data_path, "txt_points")
     stl_aorta_segment_folder = os.path.join(data_path, "stl_aorta_segment")
+    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
+    mask_6_landmarks_folder = os.path.join(data_path, "mask_6_landmarks")
 
     nii_resample_path = os.path.join(data_path, "nii_resample")
-    nii_convert_path = os.path.join(data_path, "nii_convert")
     mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
-    mask_markers_visual_path = os.path.join(data_path, "markers_visual")
-    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
-    nnUNet_DS_aorta_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset401_AorticValve")
-    nnUNet_DS_landmarks_path = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks")
     crop_nii_image_path = os.path.join(data_path, "crop_nii_image")
-    crop_markers_mask_path = os.path.join(data_path, "crop_markers_mask")
-    UNet_3D_folder = os.path.join(data_path, "3DUNet_folder")
     json_duplication_g_h_path = os.path.join(data_path, "json_duplication_geometric_heights")
     json_land_mask_coord_path = os.path.join(data_path, "json_landmarks_mask_coord")
 
@@ -351,10 +274,10 @@ def controller(data_path, cpus):
         global_size = find_global_size(all_image_paths, padding)
         controller_dump["crop_img_size"] = [round(x) for x in global_size]
         yaml_save(controller_dump, controller_path)
-
-    if not controller_dump.get("crop_images"):
+    else:
         global_size = controller_dump["crop_img_size"]
 
+    if not controller_dump.get("crop_images"):
         clear_folder(os.path.join(image_crop_folder))
 
         for case in os.listdir(os.path.join(image_folder)):
@@ -365,79 +288,31 @@ def controller(data_path, cpus):
         controller_dump["crop_images"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
-        for sub_dir in list(dir_structure["nii_resample"]):
-            clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
-            for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-                case_name = case[:-7]
-                radius = 6
-                nii_resample_case_file_path = os.path.join(nii_resample_path, sub_dir, case)
-                mask_markers_img_path = os.path.join(mask_markers_visual_path, sub_dir, f"{case_name}.nii.gz")
-                process_markers(nii_resample_case_file_path,
-                                dict_all_case[case_name],
-                                mask_markers_img_path,
-                                radius)
-        controller_dump["mask_markers_create"] = True
+    if not controller_dump.get("mask_6_landmarks"):
+        clear_folder(os.path.join(mask_6_landmarks_folder))
+        for case_name, points_dict in dict_all_case.items():
+            process_markers(image_path=os.path.join(image_crop_folder, f"{case_name}.nii.gz"),
+                            dict_case=points_dict,
+                            output_path=os.path.join(mask_6_landmarks_folder, f"{case_name}.nii.gz"),
+                            radius=9, keys_to_need={'R': 1, 'L': 2, 'N': 3, 'RLC': 4, 'RNC': 5, 'LNC': 6})
+        controller_dump["mask_6_landmarks"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not "nnUNet_DS_landmarks" in controller_dump.keys() or not controller_dump["nnUNet_DS_landmarks"]:
-        clear_folder(os.path.join(nnUNet_DS_landmarks_path, "imagesTr"))
-        clear_folder(os.path.join(nnUNet_DS_landmarks_path, "labelsTr"))
-        clear_folder(os.path.join(nnUNet_DS_landmarks_path, "imagesTs"))
-        for sub_dir in list(dir_structure["crop_nii_image"]):
-            file_count = len([f for f in os.listdir(os.path.join(crop_nii_image_path, sub_dir))])
-            n = 0
-            for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
-                case_name = case[:-7]
-                if int(file_count*0.8) >= n:
-                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_landmarks_path, "imagesTr", f"{case_name}_0000.nii.gz")))
-                    shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_landmarks_path, "labelsTr", f"{case}")))
-                else:
-                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_landmarks_path, "imagesTs", f"{case_name}_0000.nii.gz")))
-                n += 1
-        controller_dump["nnUNet_DS_landmarks"] = True
-        yaml_save(controller_dump, controller_path)
-
-        if os.path.exists(nnUNet_DS_aorta_path):
-            if not os.path.isfile(os.path.join(nnUNet_DS_landmarks_path, "dataset.json")):
-                file_count = len([f for f in os.listdir(os.path.join(nnUNet_DS_landmarks_path, "imagesTr"))])
-                generate_dataset_json(nnUNet_DS_landmarks_path,
-                                      channel_names={0: 'CT'},
-                                      labels={'background': 0, 'R': 1, 'L': 2, 'N': 3, 'RLC': 4, 'RNC': 5, 'LNC': 6},
-                                      num_training_cases=file_count,
-                                      file_ending='.nii.gz')
-                controller_dump["nnUNet_DS_json_landmarks"] = True
-                yaml_save(controller_dump, controller_path)
-        else:
-            add_info_logging("No folder to save to dataset.json", "work_logger")
-            return
-
-    if not "nnUNet_lmk_ger_sep" in controller_dump.keys() or not controller_dump["nnUNet_lmk_ger_sep"]:
+    if not controller_dump.get("nnUNet_6_landmarks_train"):
         dict_dataset = {
             "channel_names": {0: "CT"},
-            "labels": {
-                "background": 0,
-                "R": 1,
-                "L": 2,
-                "N": 3,
-                "RLC": 4,
-                "RNC": 5,
-                "LNC": 6
-            },
+            "labels": {"background": 0, "R": 1, "L": 2, "N": 3, "RLC": 4, "RNC": 5, "LNC": 6},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset403_AortaLandmarks", id_case=403,
-                       folder_image_path=crop_nii_image_path, folder_mask_path=crop_markers_mask_path,
-                       dict_dataset=dict_dataset, pct_test=0.15, test_folder="Homburg pathology",
-                       create_ds=True, training_mod=True)
-        controller_dump["nnUNet_lmk_ger_sep"] = True
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset489_SixAortaLandmarks", id_case=489,
+                       folder_image_path=image_crop_folder, folder_mask_path=mask_6_landmarks_folder,
+                       dict_dataset=dict_dataset, train_test_lists=train_test_lists,
+                       create_ds=True, training_mod=True, predicting_mod=True)
+        controller_dump["nnUNet_6_landmarks_train"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump["experiment"]:
-        _experiment_training(create_img=False, create_models=True)
+        experiment_training(create_img=False, create_models=True)
         experiment_analysis(data_path=data_path,
                             dict_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486, 5: 485, 4: 484})
 

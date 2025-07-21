@@ -19,10 +19,11 @@ def _create_sphere_mask(shape, center, radius):#, spacing):
     Creates a sphere at the given point with the given radius.
     :param shape: Mask dimensions (voxels).
     :param center: Center coordinates (voxels).
-    :param radius: Sphere radius (in millimeters).
+    :param radius: Sphere radius (in voxels).
     :param spacing: Voxel dimensions (image spacing).
     :return: SimpleITK image with mask.
     """
+    # center is expected as (X, Y, Z) — so we access center[2]=Z, [1]=Y, [0]=X
     z, y, x = np.ogrid[:shape[0], :shape[1], :shape[2]]  # Z, Y, X
     distance = np.sqrt((z - center[2]) ** 2 + (y - center[1]) ** 2 + (x - center[0]) ** 2)
     sphere = distance <= radius
@@ -40,6 +41,7 @@ def _world_to_voxel(coord, image):
     spacing = np.array(image.GetSpacing())  # Размер вокселя
     direction = np.array(image.GetDirection()).reshape(3, 3)  # Ориентация
 
+    coord = np.array(coord).reshape(-1)  # гарантируем форму (3,)
     # Преобразование
     voxel_coord = np.linalg.inv(direction).dot(np.array(coord) - origin) / spacing
     return np.round(voxel_coord).astype(int)
@@ -61,7 +63,7 @@ def process_markers(image_path, dict_case, output_path, radius, keys_to_need=Non
     #     'R': 1, 'L': 2, 'N': 3,
     #     'RLC': 4, 'RNC': 5, 'LNC': 6
     # }
-    keys_to_need = {'GH': 1}
+    # keys_to_need = {'GH': 1}
     for key, coord in dict_case.items():
         if key not in keys_to_need:
             continue
