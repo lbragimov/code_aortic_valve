@@ -15,7 +15,7 @@ from totalsegmentator.python_api import totalsegmentator
 
 from configurator.equipment_analysis import get_free_cpus
 from data_preprocessing.dcm_nii_converter import convert_dcm_to_nii, reader_dcm, check_dcm_info
-from data_preprocessing.stl_nii_converter import convert_stl_to_mask_nii, cut_mask_using_points
+from data_preprocessing.stl_nii_converter import convert_and_cut_stl
 from data_preprocessing.check_structure import create_directory_structure, collect_file_paths
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging, create_new_json, parse_txt_file)
@@ -138,8 +138,8 @@ def controller(data_path, cpus):
     image_folder = os.path.join(data_path, "image_nii")
     json_marker_path = os.path.join(data_path, "json_markers_info")
     txt_points_folder = os.path.join(data_path, "txt_points")
-    stl_aorta_segment_path = os.path.join(data_path, "stl_aorta_segment")
-    mask_aorta_segment_path = os.path.join(data_path, "mask_aorta_segment")
+    stl_aorta_segment_folder = os.path.join(data_path, "stl_aorta_segment")
+    mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
     nii_resample_path = os.path.join(data_path, "nii_resample")
     nii_convert_path = os.path.join(data_path, "nii_convert")
     mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
@@ -276,8 +276,10 @@ def controller(data_path, cpus):
         for txt_path in txt_files:
             case_base_name = txt_path.stem[2:]  # Удаляем первые 2 символа
 
+            if case_base_name[0] == "H":
+                case_base_name = case_base_name + "_MJ"
             # Найти в датафрейме
-            match = train_test_lists[train_test_lists["case_name"].str.contains(case_base_name, na=False)]
+            match = train_test_lists[train_test_lists["case_name"] == case_base_name]
             if match.empty:
                 add_info_logging(f" Not found: {case_base_name} in dict cases")
                 continue
@@ -294,45 +296,33 @@ def controller(data_path, cpus):
         controller_dump["create_dict_all_case"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not "mask_aorta_segment" in controller_dump.keys() or not controller_dump["mask_aorta_segment"]:
-        for sub_dir in list(dir_structure["stl_aorta_segment"]):
-            clear_folder(os.path.join(mask_aorta_segment_path, sub_dir))
-            for case in os.listdir(os.path.join(stl_aorta_segment_path, sub_dir)):
-                stl_aorta_segment_file = os.path.join(stl_aorta_segment_path, sub_dir, case)
-                case_name = case[:-4]
-                mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, f"{case_name}.nii.gz")
-                nii_resample_file = os.path.join(nii_resample_path, sub_dir, f"{case_name}.nii.gz")
-                convert_stl_to_mask_nii(stl_aorta_segment_file,
-                                        nii_resample_file,
-                                        mask_aorta_segment_file)
-        controller_dump["mask_aorta_segment"] = True
-        yaml_save(controller_dump, controller_path)
+    if not controller_dump.get("mask_aorta_segment"):
+        stl_files = _find_series_folders(stl_aorta_segment_folder, "stl")
+        clear_folder(mask_aorta_segment_folder)
+        for stl_path in stl_files:
+            case_base_name = stl_path.stem
 
-    # all_image_paths = []
-    # for sub_dir in dir_structure["mask_aorta_segment"]:
-    #     for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
-    #         image_path = os.path.join(mask_aorta_segment_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"mask_aorta_segment {find_shape_2(all_image_paths)}", "work_logger")
+            if case_base_name[0] == "H":
+                case_base_name = case_base_name + "_MJ"
+            match = train_test_lists[train_test_lists["case_name"] == case_base_name]
+            if match.empty:
+                add_info_logging(f" Not found: {case_base_name} in dict cases")
+                continue
 
-    if not "mask_aorta_segment_cut" in controller_dump.keys() or not controller_dump["mask_aorta_segment_cut"]:
-        for sub_dir in list(dir_structure["stl_aorta_segment"]):
-            clear_folder(os.path.join(mask_aorta_segment_cut_path, sub_dir))
-            for case in os.listdir(os.path.join(mask_aorta_segment_path, sub_dir)):
-                mask_aorta_segment_file = os.path.join(mask_aorta_segment_path, sub_dir, case)
-                mask_aorta_segment_cut_file = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-                case_name = case[:-7]
-                top_points = [dict_all_case[case_name]['R'],
-                              dict_all_case[case_name]['L'],
-                              dict_all_case[case_name]['N']]
-                bottom_points = [dict_all_case[case_name]['RLC'],
-                                 dict_all_case[case_name]['RNC'],
-                                 dict_all_case[case_name]['LNC']]
-                cut_mask_using_points(mask_aorta_segment_file,
-                                      mask_aorta_segment_cut_file,
-                                      top_points, bottom_points, margin=2)
-        controller_dump["mask_aorta_segment_cut"] = True
-        yaml_save(controller_dump, controller_path)
+            used_case_name = match.iloc[0]["used_case_name"]
+
+            mask_aorta_segment_path = os.path.join(mask_aorta_segment_folder, f"{used_case_name}.nii.gz")
+            image_path = os.path.join(image_folder, f"{used_case_name}.nii.gz")
+            nadir_points = [dict_all_case[used_case_name]['R'][0],
+                            dict_all_case[used_case_name]['L'][0],
+                            dict_all_case[used_case_name]['N'][0]]
+            commissural_points = [dict_all_case[used_case_name]['RLC'][0],
+                                  dict_all_case[used_case_name]['RNC'][0],
+                                  dict_all_case[used_case_name]['LNC'][0]]
+            convert_and_cut_stl(stl_path, image_path, mask_aorta_segment_path,
+                                nadir_points, commissural_points, margin=2)
+            controller_dump["mask_aorta_segment"] = True
+            yaml_save(controller_dump, controller_path)
 
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
