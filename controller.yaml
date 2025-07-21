@@ -9,7 +9,7 @@ create_train_test_lists: true
 crop_images: true
 crop_img_size:
 - 180
-- 244
+- 246
 - 196
 duplication_geometric_heights: true
 experiment: true

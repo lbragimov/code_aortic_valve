@@ -338,6 +338,19 @@ def controller(data_path, cpus):
         controller_dump["nnUNet_aorta_segment_train"] = True
         yaml_save(controller_dump, controller_path)
 
+    if not controller_dump.get("crop_img_size"):
+        all_image_paths = [
+            os.path.join(mask_aorta_segment_folder, f)
+            for f in os.listdir(mask_aorta_segment_folder)
+            if os.path.isfile(os.path.join(mask_aorta_segment_folder, f))
+        ]
+
+        padding = 10
+        # Найти общий bounding box для всех изображений
+        global_size = find_global_size(all_image_paths, padding)
+        controller_dump["crop_img_size"] = [round(x) for x in global_size]
+        yaml_save(controller_dump, controller_path)
+
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
             clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
@@ -387,17 +400,6 @@ def controller(data_path, cpus):
     else:
         add_info_logging("No folder to save to dataset.json", "work_logger")
         return
-
-    # test_case_name = list(dict_all_case.keys())[0]
-
-    # model_nnUnet = nnUnet_trainer(nnUNet_folder)
-    # model_nnUnet.train_nnUnet(task_id=401, nnUnet_path=nnUNet_folder)
-    # all_image_paths = []
-    # for sub_dir in dir_structure["mask_aorta_segment_cut"]:
-    #     for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-    #         image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-    #         all_image_paths.append(image_path)
-    # add_info_logging(f"mask_aorta_segment_cut {find_shape_2(all_image_paths)}", "work_logger")
 
     if not controller_dump.get("crop_images"):
         if controller_dump.get("crop_img_size"):
