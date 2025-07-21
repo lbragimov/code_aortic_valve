@@ -136,10 +136,11 @@ def controller(data_path, cpus):
     result_folder = os.path.join(data_path, "result")
     dicom_folder = os.path.join(data_path, "dicom")
     image_folder = os.path.join(data_path, "image_nii")
-    json_marker_path = os.path.join(data_path, "json_markers_info")
+    json_marker_folder = os.path.join(data_path, "json_markers_info")
     txt_points_folder = os.path.join(data_path, "txt_points")
     stl_aorta_segment_folder = os.path.join(data_path, "stl_aorta_segment")
     mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
+
     nii_resample_path = os.path.join(data_path, "nii_resample")
     nii_convert_path = os.path.join(data_path, "nii_convert")
     mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
@@ -324,6 +325,19 @@ def controller(data_path, cpus):
             controller_dump["mask_aorta_segment"] = True
             yaml_save(controller_dump, controller_path)
 
+    if not controller_dump.get("nnUNet_aorta_segment_train"):
+        dict_dataset = {
+            "channel_names": {0: "CT"},
+            "labels": {'background': 0, 'aortic_valve': 1},
+            "file_ending": ".nii.gz"
+        }
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset401_AortaSegment", id_case=401,
+                       folder_image_path=image_folder, folder_mask_path=mask_aorta_segment_folder,
+                       dict_dataset=dict_dataset, train_test_lists=train_test_lists,
+                       create_ds=True, training_mod=True, predicting_mod=True)
+        controller_dump["nnUNet_aorta_segment_train"] = True
+        yaml_save(controller_dump, controller_path)
+
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
             clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
@@ -497,28 +511,6 @@ def controller(data_path, cpus):
         controller_dump["nnUNet_lmk_ger_sep"] = True
         yaml_save(controller_dump, controller_path)
 
-    # model_3D_Unet = WrapperUnet()
-    # model_3D_Unet.try_unet3d_training(UNet_3D_folder)
-    # model_3D_Unet.try_unet3d_testing(UNet_3D_folder)
-
-    # input_folder = os.path.join(nnUNet_folder, "nnUNet_raw", "Dataset402_AortaLandmarks", "imagesTs")
-    # output_folder = os.path.join(nnUNet_folder, "nnUNet_test", "Dataset402_AortaLandmarks")
-    # model_nnUnet_402 = nnUnet_trainer(nnUNet_folder)
-    # model_nnUnet_402.preprocessing(task_id=402)
-    # model_nnUnet_402.train(task_id=402, fold="all")
-    # # model_nnUnet_402.reassembling_model(nnUnet_path=nnUNet_folder, case_path="Dataset402_AortaLandmarks")
-    # model_nnUnet_402.predicting(input_folder=input_folder,
-    #                             output_folder=output_folder,
-    #                             task_id=402, fold="all")
-
-    # process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset404_AortaLandmarks", id_case=404,
-    #                folder_image_path=None, folder_mask_path=None, dict_dataset=None, pct_test=None,
-    #                testing_mod=True, save_probabilities=True)
-    #
-    # ds_folder_name = "Dataset404_AortaLandmarks"
-    # data_path_2 = Path(data_path)
-    # process_analysis(data_path=data_path_2, ds_folder_name=ds_folder_name, find_center_mass=True, probabilities_map=True)
-
     if not controller_dump["experiment"]:
         _experiment_training(create_img=False, create_models=True)
         experiment_analysis(data_path=data_path,
@@ -546,11 +538,11 @@ def controller(data_path, cpus):
                 file_name = file[:-12]
                 first_letter = file[:1]
                 if first_letter == "H":
-                    json_org_file = os.path.join(json_marker_path, "Homburg pathology", f"{file_name}.json")
+                    json_org_file = os.path.join(json_marker_folder, "Homburg pathology", f"{file_name}.json")
                 elif first_letter == "n":
-                    json_org_file = os.path.join(json_marker_path, "Normal", f"{file_name}.json")
+                    json_org_file = os.path.join(json_marker_folder, "Normal", f"{file_name}.json")
                 else:
-                    json_org_file = os.path.join(json_marker_path, "Pathology", f"{file_name}.json")
+                    json_org_file = os.path.join(json_marker_folder, "Pathology", f"{file_name}.json")
                 json_dupl_file = os.path.join(json_dupl_folder, f"{file_name}.json")
 
                 create_new_gh_json(json_org_file, json_dupl_file, n_points=10)
@@ -713,7 +705,7 @@ def controller(data_path, cpus):
                 mask_aorta_img_path = os.path.join(mask_aorta_segment_cut_path,
                                                    sub_dir_name,
                                                    f"{file_name}.nii.gz")
-                json_file_path = os.path.join(json_marker_path,
+                json_file_path = os.path.join(json_marker_folder,
                                          sub_dir_name,
                                          f"{file_name}.json")
                 with open(json_file_path, 'r') as f:

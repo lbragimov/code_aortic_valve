@@ -73,7 +73,7 @@ def experiment_analysis(data_path,
             if generate_result:
                 process_nnunet(folder=nnUNet_folder, ds_folder_name=ds_folder_name,
                                id_case=case_name, folder_image_path=None, folder_mask_path=None, dict_dataset={},
-                               pct_test=None, testing_mod=True, save_probabilities=save_probabilities)
+                               predicting_mod=True, save_probabilities=save_probabilities)
                 add_info_logging(f"radius: {radius}, type predicting: {type_map}", "result_logger")
             landmarks_analysis(data_path, ds_folder_name,
                              find_center_mass=find_center_mass,

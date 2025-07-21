@@ -24,14 +24,23 @@ def _configure_folder(base_folder, ds_folder_name):
     subfolders = ["imagesTr", "imagesTs", "labelsTr"]
 
     (base_folder/"nnUNet_preprocessed").mkdir(exist_ok=True)
+    _clear_folder(base_folder/"nnUNet_raw"/ds_folder_name)
     (base_folder/"nnUNet_raw"/ds_folder_name).mkdir(parents=True, exist_ok=True)
     (base_folder/"nnUNet_results").mkdir(exist_ok=True)
     (base_folder/"nnUNet_test").mkdir(exist_ok=True)
+    _clear_folder(base_folder/"original_mask"/ds_folder_name)
     (base_folder/"original_mask"/ds_folder_name).mkdir(parents=True, exist_ok=True)
 
     # Создаем папки, если их нет
     for subfolder in subfolders:
         (base_folder/"nnUNet_raw"/ds_folder_name/subfolder).mkdir(exist_ok=True)
+
+
+def _get_file_list(df, series_type, column, suffix, base_path):
+    return [
+        base_path / f"{name}{suffix}"
+        for name in df[df["type_series"] == series_type][column].dropna()
+    ]
 
 
 def _copy_img(input_imgs_path, output_folder, rename=False):
@@ -45,8 +54,8 @@ def _copy_img(input_imgs_path, output_folder, rename=False):
 
 
 def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
-                   folder_mask_path, dict_dataset, pct_test=0.15, num_test=None, test_folder=None, create_ds=False,
-                   training_mod=False, testing_mod=False, save_probabilities=False):
+                   folder_mask_path, dict_dataset, train_test_lists, create_ds=False,
+                   training_mod=False, predicting_mod=False, save_probabilities=True):
 
     folder = Path(folder)
 
@@ -55,29 +64,10 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
         folder_mask_path = Path(folder_mask_path)
         _configure_folder(folder, ds_folder_name)
 
-        list_train_case, list_test_case = [], []
-        list_train_mask, list_test_mask = [], []
-        for subfolder in folder_image_path.iterdir():
-            if subfolder.is_dir():
-                if subfolder.name == test_folder:
-                    for case in (folder_image_path / subfolder).iterdir():
-                        list_test_case.append(case)
-                        list_test_mask.append(folder_mask_path / subfolder.name / case.name)
-                else:
-                    file_count = len([f for f in (folder_image_path/subfolder).iterdir()])
-                    if not num_test:
-                        limit_files = file_count - num_test
-                    else:
-                        limit_files = int(file_count * (1.0 - pct_test))
-                    n = 0
-                    for case in (folder_image_path/subfolder).iterdir():
-                        if limit_files >= n:
-                            list_train_case.append(case)
-                            list_train_mask.append(folder_mask_path / subfolder.name / case.name)
-                        else:
-                            list_test_case.append(case)
-                            list_test_mask.append(folder_mask_path / subfolder.name / case.name)
-                        n += 1
+        list_train_case = _get_file_list(train_test_lists, "train", "used_case_name", ".nii.gz", folder_image_path)
+        list_train_mask = _get_file_list(train_test_lists, "train", "used_case_name", ".nii.gz", folder_mask_path)
+        list_test_case = _get_file_list(train_test_lists, "test", "used_case_name", ".nii.gz", folder_image_path)
+        list_test_mask = _get_file_list(train_test_lists, "test", "used_case_name", ".nii.gz", folder_mask_path)
 
         _copy_img(list_train_case, folder/ "nnUNet_raw" / ds_folder_name / "imagesTr", rename=True)
         _copy_img(list_train_mask, folder / "nnUNet_raw" / ds_folder_name / "labelsTr")
@@ -95,7 +85,7 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
         model_nnUnet.preprocessing(task_id=id_case)
         model_nnUnet.train(task_id=id_case, fold="all")
 
-    if testing_mod:
+    if predicting_mod:
         input_folder = Path(folder / "nnUNet_raw" / ds_folder_name / "imagesTs")
         output_folder = Path(folder / "nnUNet_test" / ds_folder_name)
         model_nnUnet = nnUnet_trainer(str(folder))
