@@ -3,25 +3,6 @@ import numpy as np
 import SimpleITK as sitk
 
 
-def find_shape(image_path, size_or_pixel):
-    # shapes = []
-    # for image_path in image_paths:
-    image = sitk.ReadImage(image_path)
-    if size_or_pixel == "size":
-        variable = image.GetSize()
-    else:
-        variable = image.GetSpacing()
-    return variable
-
-
-def find_shape_2(image_paths):
-    shapes = []
-    for image_path in image_paths:
-        image = sitk.ReadImage(image_path)
-        shapes.append(image.GetSize())
-    return set(shapes)
-
-
 def find_global_size(image_paths, padding=16):
     """
     Находит общий size box для всех изображений.

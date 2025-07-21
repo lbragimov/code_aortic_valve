@@ -20,7 +20,7 @@ from data_preprocessing.check_structure import create_directory_structure, colle
 from data_preprocessing.text_worker import (json_reader, yaml_reader, yaml_save, json_save, txt_json_convert,
                                             add_info_logging, create_new_json, parse_txt_file)
 from data_preprocessing.csv_worker import write_csv, read_csv
-from data_preprocessing.crop_nii import cropped_image, find_global_size, find_shape, find_shape_2
+from data_preprocessing.crop_nii import cropped_image, find_global_size
 # from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
                                                      find_morphometric_parameters, LandmarkCentersCalculator)
@@ -136,6 +136,7 @@ def controller(data_path, cpus):
     result_folder = os.path.join(data_path, "result")
     dicom_folder = os.path.join(data_path, "dicom")
     image_folder = os.path.join(data_path, "image_nii")
+    image_crop_folder = os.path.join(data_path, "image_nii_crop")
     json_marker_folder = os.path.join(data_path, "json_markers_info")
     txt_points_folder = os.path.join(data_path, "txt_points")
     stl_aorta_segment_folder = os.path.join(data_path, "stl_aorta_segment")
@@ -351,6 +352,19 @@ def controller(data_path, cpus):
         controller_dump["crop_img_size"] = [round(x) for x in global_size]
         yaml_save(controller_dump, controller_path)
 
+    if not controller_dump.get("crop_images"):
+        global_size = controller_dump["crop_img_size"]
+
+        clear_folder(os.path.join(image_crop_folder))
+
+        for case in os.listdir(os.path.join(image_folder)):
+            cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_folder, case)),
+                          input_image_path=str(os.path.join(image_folder, case)),
+                          output_image_path=str(os.path.join(image_crop_folder, case)),
+                          size=global_size)
+        controller_dump["crop_images"] = True
+        yaml_save(controller_dump, controller_path)
+
     if not "mask_markers_create" in controller_dump.keys() or not controller_dump["mask_markers_create"]:
         for sub_dir in list(dir_structure["nii_resample"]):
             clear_folder(os.path.join(mask_markers_visual_path, sub_dir))
@@ -364,97 +378,6 @@ def controller(data_path, cpus):
                                 mask_markers_img_path,
                                 radius)
         controller_dump["mask_markers_create"] = True
-        yaml_save(controller_dump, controller_path)
-
-    if not "nnUNet_DS_aorta" in controller_dump.keys() or not controller_dump["nnUNet_DS_aorta"]:
-        clear_folder(os.path.join(nnUNet_DS_aorta_path, "imagesTr"))
-        clear_folder(os.path.join(nnUNet_DS_aorta_path, "labelsTr"))
-        clear_folder(os.path.join(nnUNet_DS_aorta_path, "imagesTs"))
-        for sub_dir in list(dir_structure["nii_resample"]):
-            file_count = len([f for f in os.listdir(os.path.join(nii_resample_path, sub_dir))])
-            n = 0
-            for case in os.listdir(os.path.join(nii_resample_path, sub_dir)):
-                case_name = case[:-7]
-                if int(file_count*0.8) >= n:
-                    shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_aorta_path, "imagesTr", f"{case_name}_0000.nii.gz")))
-                    shutil.copy(str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_aorta_path, "labelsTr", f"{case}.gz")))
-                else:
-                    shutil.copy(str(os.path.join(nii_resample_path, sub_dir, case)),
-                                str(os.path.join(nnUNet_DS_aorta_path, "imagesTs", f"{case_name}_0000.nii.gz")))
-                n += 1
-        controller_dump["nnUNet_DS_aorta"] = True
-        yaml_save(controller_dump, controller_path)
-
-    if os.path.exists(nnUNet_DS_aorta_path):
-        if not os.path.isfile(os.path.join(nnUNet_DS_aorta_path, "dataset.json")):
-            file_count = len([f for f in os.listdir(os.path.join(nnUNet_DS_aorta_path, "imagesTr"))])
-            generate_dataset_json(nnUNet_DS_aorta_path,
-                                  channel_names={0: 'CT'},
-                                  labels={'background': 0, 'aortic_valve': 1},
-                                  num_training_cases=file_count,
-                                  file_ending='.nii.gz')
-            controller_dump["nnUNet_DS_json_aorta"] = True
-            yaml_save(controller_dump, controller_path)
-    else:
-        add_info_logging("No folder to save to dataset.json", "work_logger")
-        return
-
-    if not controller_dump.get("crop_images"):
-        if controller_dump.get("crop_img_size"):
-            global_size = controller_dump["crop_img_size"]
-        else:
-            all_image_paths = []
-            for sub_dir in dir_structure["mask_aorta_segment_cut"]:
-                for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                    image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-                    all_image_paths.append(image_path)
-
-            padding = 10
-            # Найти общий bounding box для всех изображений
-            global_size = find_global_size(all_image_paths, padding)
-            controller_dump["crop_img_size"] = [int(x) for x in global_size]
-            yaml_save(controller_dump, controller_path)
-
-        for sub_dir in list(dir_structure["mask_aorta_segment_cut"]):
-            clear_folder(os.path.join(crop_nii_image_path, sub_dir))
-            clear_folder(os.path.join(crop_markers_mask_path, sub_dir))
-            for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-                              input_image_path=str(os.path.join(nii_resample_path, sub_dir, case)),
-                              output_image_path=str(os.path.join(crop_nii_image_path, sub_dir, case)),
-                              size=global_size)
-                cropped_image(mask_image_path=str(os.path.join(mask_aorta_segment_cut_path, sub_dir, case)),
-                              input_image_path=str(os.path.join(mask_markers_visual_path, sub_dir, case)),
-                              output_image_path=str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-                              size=global_size)
-        controller_dump["crop_images"] = True
-        yaml_save(controller_dump, controller_path)
-
-    if (not "create_3D_UNet_data_base" in controller_dump.keys()
-            or not controller_dump["create_3D_UNet_data_base"]):
-        clear_folder(os.path.join(UNet_3D_folder, "data"))
-        clear_folder(os.path.join(UNet_3D_folder, "test_data"))
-        for sub_dir in list(dir_structure["crop_nii_image"]):
-            file_count = len([f for f in os.listdir(os.path.join(crop_nii_image_path, sub_dir))])
-            n = 0
-            for case in os.listdir(os.path.join(crop_nii_image_path, sub_dir)):
-                case_name = case[:-7]
-                if int(file_count*0.8) >= n:
-                    Path(os.path.join(UNet_3D_folder, "data", case_name)).mkdir(parents=True, exist_ok=True)
-                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
-                                str(os.path.join(UNet_3D_folder, "data", case_name, "image.nii.gz")))
-                    shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-                                str(os.path.join(UNet_3D_folder, "data", case_name, "mask.nii.gz")))
-                else:
-                    Path(os.path.join(UNet_3D_folder, "test_data", case_name)).mkdir(parents=True, exist_ok=True)
-                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir, case)),
-                                str(os.path.join(UNet_3D_folder, "test_data", case_name, "image.nii.gz")))
-                    shutil.copy(str(os.path.join(crop_markers_mask_path, sub_dir, case)),
-                                str(os.path.join(UNet_3D_folder, "test_data", case_name, "mask.nii.gz")))
-                n += 1
-        controller_dump["create_3D_UNet_data_base"] = True
         yaml_save(controller_dump, controller_path)
 
     if not "nnUNet_DS_landmarks" in controller_dump.keys() or not controller_dump["nnUNet_DS_landmarks"]:
