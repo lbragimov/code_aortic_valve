@@ -1,3 +1,6 @@
+analys_result_aorta_segment: true
+analys_result_gh_landmark: true
+analys_result_6_landmarks: true
 aorta_mask_analysis: true
 calc_morphometric: true
 check_dicom: true
@@ -13,6 +16,7 @@ crop_img_size:
 - 196
 duplication_geometric_heights: true
 experiment: true
+find_and_create_mask_gh_landmark: true
 find_geometric_heights: true
 gh_landmark_analysis: true
 json_landmarks_mask_coord: true
@@ -22,11 +26,12 @@ mask_aorta_segment: true
 mask_aorta_segment_cut: true
 mask_gh_marker_create: true
 mask_markers_create: true
-nnUNet_6_landmarks_train: false
+nnUNet_6_landmarks_train: true
 nnUNet_DS_aorta: true
 nnUNet_DS_gh: true
 nnUNet_DS_landmarks: true
 nnUNet_aorta_segment_train: true
+nnUNet_gh_landmark_train: true
 nnUNet_gh_train_test: true
 nnUNet_lmk_ger_sep: true
 size_or_pixel: none

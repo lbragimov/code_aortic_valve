@@ -27,9 +27,6 @@ from experiments.nnUnet_experiments import experiment_training
 
 # from optimization.parallelization import division_processes
 
-from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
-
 
 def controller(data_path, cpus):
     def _find_series_folders(root_folder, types_file, parent=False):
@@ -65,22 +62,19 @@ def controller(data_path, cpus):
     dicom_folder = os.path.join(data_path, "dicom")
     image_folder = os.path.join(data_path, "image_nii")
     image_crop_folder = os.path.join(data_path, "image_nii_crop")
-    json_marker_folder = os.path.join(data_path, "json_markers_info")
     txt_points_folder = os.path.join(data_path, "txt_points")
     stl_aorta_segment_folder = os.path.join(data_path, "stl_aorta_segment")
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
     mask_6_landmarks_folder = os.path.join(data_path, "mask_6_landmarks")
+    mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark")
 
-    nii_resample_path = os.path.join(data_path, "nii_resample")
-    mask_aorta_segment_cut_path = os.path.join(data_path, "mask_aorta_segment_cut")
-    crop_nii_image_path = os.path.join(data_path, "crop_nii_image")
+    json_marker_folder = os.path.join(data_path, "json_markers_info")
     json_duplication_g_h_path = os.path.join(data_path, "json_duplication_geometric_heights")
     json_land_mask_coord_path = os.path.join(data_path, "json_landmarks_mask_coord")
 
     controller_path = os.path.join(script_dir, "controller.yaml")
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
-    mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark_cut")
 
     dict_all_case = {}
     if os.path.isfile(controller_path):
@@ -255,7 +249,7 @@ def controller(data_path, cpus):
             "labels": {'background': 0, 'aortic_valve': 1},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset401_AortaSegment", id_case=401,
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset411_AortaSegment", id_case=401,
                        folder_image_path=image_folder, folder_mask_path=mask_aorta_segment_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
@@ -304,27 +298,36 @@ def controller(data_path, cpus):
             "labels": {"background": 0, "R": 1, "L": 2, "N": 3, "RLC": 4, "RNC": 5, "LNC": 6},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset489_SixAortaLandmarks", id_case=489,
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset412_SixAortaLandmarks", id_case=489,
                        folder_image_path=image_crop_folder, folder_mask_path=mask_6_landmarks_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
         controller_dump["nnUNet_6_landmarks_train"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not controller_dump["experiment"]:
-        experiment_training(create_img=False, create_models=True)
-        experiment_analysis(data_path=data_path,
-                            dict_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486, 5: 485, 4: 484})
+    if not controller_dump.get("find_and_create_mask_gh_landmark"):
+        clear_folder(mask_gh_landmark_folder)
+        for case_name, points_dict in dict_all_case.items():
+            dict_all_case[case_name]["GH"] = [find_mean_gh_landmark(points_dict)]
+            process_markers(image_path=os.path.join(image_crop_folder, f"{case_name}.nii.gz"),
+                            dict_case=points_dict,
+                            output_path=os.path.join(mask_gh_landmark_folder, f"{case_name}.nii.gz"),
+                            radius=9, keys_to_need={'GH': 1})
+        controller_dump["find_and_create_mask_gh_landmark"] = True
+        yaml_save(controller_dump, controller_path)
 
-    if not controller_dump["aorta_mask_analysis"]:
-        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name="Dataset401_AorticValve")
-
-    if not controller_dump["landmarks_analysis"]:
-        landmarks_analysis(Path(data_path), ds_folder_name="Dataset489_AortaLandmarks",
-                           find_center_mass=True, probabilities_map=True)
-
-    if not controller_dump["calc_morphometric"]:
-        find_morphometric_parameters(data_path, ds_folder_name="Dataset499_AortaLandmarks")
+    if not controller_dump.get("nnUNet_gh_landmark_train"):
+        dict_dataset = {
+            "channel_names": {0: "CT"},
+            "labels": {'background': 0, 'gh': 1},
+            "file_ending": ".nii.gz"
+        }
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset413_GhLandmark", id_case=413,
+                       folder_image_path=image_crop_folder, folder_mask_path=mask_gh_landmark_folder,
+                       dict_dataset=dict_dataset, train_test_lists=train_test_lists,
+                       create_ds=True, training_mod=True, predicting_mod=True)
+        controller_dump["nnUNet_gh_landmark_train"] = True
+        yaml_save(controller_dump, controller_path)
 
     if not controller_dump["duplication_geometric_heights"]:
         ds_folder_name = "Dataset489_AortaLandmarks"
@@ -470,118 +473,32 @@ def controller(data_path, cpus):
         csv_path = Path(result_folder) / "rmse_errors_per_case.csv"
         df_errors.to_csv(csv_path, index=False)
 
-    if not controller_dump.get("mask_gh_marker_create"):
-        if controller_dump.get("crop_img_size"):
-            global_size = controller_dump["crop_img_size"]
-        else:
-            all_image_paths = []
-            for sub_dir in dir_structure["mask_aorta_segment_cut"]:
-                for case in os.listdir(os.path.join(mask_aorta_segment_cut_path, sub_dir)):
-                    image_path = os.path.join(mask_aorta_segment_cut_path, sub_dir, case)
-                    all_image_paths.append(image_path)
-
-            padding = 10
-            # Найти общий bounding box для всех изображений
-            global_size = find_global_size(all_image_paths, padding)
-            controller_dump["crop_img_size"] = [int(x) for x in global_size]
-            yaml_save(controller_dump, controller_path)
-        radius = 9
-        train_folder = os.path.join(mask_gh_landmark_folder, "train")
-        test_folder = os.path.join(mask_gh_landmark_folder, "test")
-        clear_folder(train_folder)
-        clear_folder(test_folder)
-        type_cases_list = [controller_dump["train_cases_list"], controller_dump["test_cases_list"]]
-        for n, case_list in enumerate(type_cases_list):
-            for file_name in case_list:
-                if file_name.startswith("H"):
-                    sub_dir_name = "Homburg pathology"
-                elif file_name.startswith("n"):
-                    sub_dir_name = "Normal"
-                else:
-                    sub_dir_name = "Pathology"
-                nii_resample_case_file_path = os.path.join(nii_resample_path,
-                                                           sub_dir_name,
-                                                           f"{file_name}.nii.gz")
-                mask_aorta_img_path = os.path.join(mask_aorta_segment_cut_path,
-                                                   sub_dir_name,
-                                                   f"{file_name}.nii.gz")
-                json_file_path = os.path.join(json_marker_folder,
-                                         sub_dir_name,
-                                         f"{file_name}.json")
-                with open(json_file_path, 'r') as f:
-                    landmarks_coord_data = json.load(f)
-                if n == 0:
-                    mask_landmark_img_path = os.path.join(train_folder, f"{file_name}.nii.gz")
-                else:
-                    mask_landmark_img_path = os.path.join(test_folder, f"{file_name}.nii.gz")
-                process_markers(nii_resample_case_file_path,
-                                {"GH": find_mean_gh_landmark(landmarks_coord_data)},
-                                mask_landmark_img_path,
-                                radius)
-                cropped_image(mask_image_path=mask_aorta_img_path,
-                              input_image_path=mask_landmark_img_path,
-                              output_image_path=mask_landmark_img_path,
-                              size=global_size)
-        controller_dump["mask_gh_marker_create"] = True
+    if not controller_dump.get("analys_result_aorta_segment"):
+        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name="Dataset411_AortaSegment")
+        controller_dump["analys_result_aorta_segment"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not controller_dump.get("nnUNet_DS_gh"):
-        ds_folder_name = "Dataset479_GeometricHeight"
-        nnUNet_DS_gh_folder = os.path.join(nnUNet_folder, "nnUNet_raw", ds_folder_name)
-        img_train_folder = os.path.join(nnUNet_DS_gh_folder, "imagesTr")
-        clear_folder(img_train_folder)
-        mask_train_folder = os.path.join(nnUNet_DS_gh_folder, "labelsTr")
-        clear_folder(mask_train_folder)
-        img_test_folder = os.path.join(nnUNet_DS_gh_folder, "imagesTs")
-        clear_folder(img_test_folder)
-        mask_org_folder = os.path.join(nnUNet_folder, "original_mask", ds_folder_name)
-        clear_folder(mask_org_folder)
-        mask_gh_train_folder = os.path.join(mask_gh_landmark_folder, "train")
-        mask_gh_test_folder = os.path.join(mask_gh_landmark_folder, "test")
-        type_cases_list = [controller_dump["train_cases_list"], controller_dump["test_cases_list"]]
-        for n, case_list in enumerate(type_cases_list):
-            for file_name in case_list:
-                if file_name.startswith("H"):
-                    sub_dir_name = "Homburg pathology"
-                elif file_name.startswith("n"):
-                    sub_dir_name = "Normal"
-                else:
-                    sub_dir_name = "Pathology"
-
-                if n == 0:
-                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir_name, f"{file_name}.nii.gz")),
-                                str(os.path.join(img_train_folder, f"{file_name}_0000.nii.gz")))
-                    shutil.copy(str(os.path.join(mask_gh_train_folder, f"{file_name}.nii.gz")),
-                                str(os.path.join(mask_train_folder, f"{file_name}.nii.gz")))
-                else:
-                    shutil.copy(str(os.path.join(crop_nii_image_path, sub_dir_name, f"{file_name}.nii.gz")),
-                                str(os.path.join(img_test_folder, f"{file_name}_0000.nii.gz")))
-                    shutil.copy(str(os.path.join(mask_gh_test_folder, f"{file_name}.nii.gz")),
-                                str(os.path.join(mask_org_folder, f"{file_name}.nii.gz")))
-        file_count = len([f for f in os.listdir(img_train_folder)])
-        generate_dataset_json(nnUNet_DS_gh_folder,
-                              channel_names={0: 'CT'},
-                              labels={'background': 0, 'gh': 1},
-                              num_training_cases=file_count,
-                              file_ending='.nii.gz')
-
-        controller_dump["nnUNet_DS_gh"] = True
+    if not controller_dump.get("analys_result_6_landmarks"):
+        landmarks_analysis(Path(data_path), ds_folder_name="Dataset412_SixAortaLandmarks",
+                           find_center_mass=True, probabilities_map=True)
+        controller_dump["analys_result_6_landmarks"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not controller_dump.get("nnUNet_gh_train_test"):
-        ds_folder_name = "Dataset479_GeometricHeight"
-        process_nnunet(folder=nnUNet_folder, ds_folder_name=ds_folder_name, id_case=479,
-                       folder_image_path=None, folder_mask_path=None,
-                       dict_dataset=None, pct_test=None, test_folder=None,
-                       create_ds=False, training_mod=True, testing_mod=True, save_probabilities=True)
-        controller_dump["nnUNet_gh_train_test"] = True
-        yaml_save(controller_dump, controller_path)
-
-    if not controller_dump.get("gh_landmark_analysis"):
-        landmarks_analysis(Path(data_path), ds_folder_name="Dataset479_GeometricHeight",
+    if not controller_dump.get("analys_result_gh_landmark"):
+        landmarks_analysis(Path(data_path), ds_folder_name="Dataset413_GhLandmark",
                            find_center_mass=True, probabilities_map=True, type_set="gh_landmark")
-        controller_dump["gh_landmark_analysis"] = True
+        controller_dump["analys_result_gh_landmark"] = True
         yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("calc_morphometric"):
+        find_morphometric_parameters(data_path, ds_folder_name="Dataset412_SixAortaLandmarks")
+        controller_dump["calc_morphometric"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump["experiment"]:
+        experiment_training(create_img=False, create_models=True)
+        experiment_analysis(data_path=data_path,
+                            dict_case = {10: 481, 9: 489, 8: 488, 7: 487, 6: 486, 5: 485, 4: 484})
 
     print('hi')
 
