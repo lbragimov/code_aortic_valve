@@ -166,20 +166,6 @@ def controller(data_path, cpus):
         controller_dump["convert_resample_dicom"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not controller_dump.get("train_cases_list"):
-        # temp
-        ds_folder_name = "Dataset489_AortaLandmarks"
-        train_nnUNet_DS_landmarks_folder = Path(nnUNet_folder) / "nnUNet_raw" / ds_folder_name / "imagesTr"
-        trains_files = (list(train_nnUNet_DS_landmarks_folder.glob('*.nii')) +
-                        list(train_nnUNet_DS_landmarks_folder.glob('*.nii.gz')))
-        test_nnUNet_DS_landmarks_folder = Path(nnUNet_folder) / "nnUNet_raw" / ds_folder_name / "imagesTs"
-        test_files = (list(test_nnUNet_DS_landmarks_folder.glob('*.nii')) +
-                        list(test_nnUNet_DS_landmarks_folder.glob('*.nii.gz')))
-        controller_dump["train_cases_list"] = [f.name.split('.')[0][:-5] for f in trains_files]
-        controller_dump["test_cases_list"] = [f.name.split('.')[0][:-5] for f in test_files]
-        yaml_save(controller_dump, controller_path)
-        # temp
-
     if not dict_all_case:
         if os.path.isfile(dict_all_case_path):
             dict_all_case = json_reader(dict_all_case_path)
