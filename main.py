@@ -503,9 +503,9 @@ if __name__ == "__main__":
         data_path = None
 
     script_dir = Path(__file__).resolve().parent
-    data_structure_path = os.path.join(script_dir, "dir_structure.json")
-    dir_structure = json_reader(data_structure_path)
-    create_directory_structure(data_path, json_reader(data_structure_path))
+    # data_structure_path = os.path.join(script_dir, "dir_structure.json")
+    # dir_structure = json_reader(data_structure_path)
+    # create_directory_structure(data_path, json_reader(data_structure_path))
 
     if data_path:
         free_cpus = get_free_cpus()
