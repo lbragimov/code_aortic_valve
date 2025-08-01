@@ -494,9 +494,9 @@ if __name__ == "__main__":
     script_dir = Path(__file__).resolve().parent
 
     if current_os == "Windows":
-        data_path = "C:/Users/Kamil/Aortic_valve/data/"
+        # data_path = "C:/Users/Kamil/Aortic_valve/data/"
         # data_path = "C:/Users/Kamil/Aortic_valve/data/temp"
-        # data_path = "D:/science/Aortic_valve/data_short"
+        data_path = "D:/science/Aortic_valve/data/"
     elif current_os == "Linux":
         data_path = "/home/kamili/data/data_aortic_valve/"
     else:
