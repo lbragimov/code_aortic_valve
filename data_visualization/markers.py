@@ -207,5 +207,6 @@ def find_mean_gh_landmark(dict_points):
 
     # Средняя точка
     center_point = np.mean(np.array(chosen_points), axis=0)
+    center_point = [round(x, 2) for x in center_point.tolist()]
     return center_point
 

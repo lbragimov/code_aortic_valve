@@ -99,3 +99,21 @@ def plot_group_comparison(filter_column, metric_name, group_label_map, data_pd, 
 
     plt.savefig(os.path.join(save_dir, f"{label_file_name}.png"), dpi=300)
     plt.close()
+
+def plot_table(data, columns, table_path):
+    fig, ax = plt.subplots()
+    ax.axis("off")  # убираем оси
+
+    # Создаем таблицу
+    table = ax.table(
+        cellText=data,
+        colLabels=columns,
+        cellLoc="center",
+        loc="center"
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    table.scale(1.3, 2.3)
+
+    plt.savefig(table_path, dpi=300, bbox_inches="tight")  # сохраняем в PNG

@@ -176,7 +176,7 @@ def controller(data_path, cpus):
 
     if not controller_dump.get("create_dict_all_case"):
         txt_files = _find_series_folders(txt_points_folder, "txt")
-        all_cases_data = {}
+        dict_all_case = {}
 
         for txt_path in txt_files:
             case_base_name = txt_path.stem[2:]  # Удаляем первые 2 символа
@@ -195,9 +195,9 @@ def controller(data_path, cpus):
             parsed_data = parse_txt_file(txt_path)
             parsed_data["type_series"] = type_series
 
-            all_cases_data[used_case_name] = parsed_data
+            dict_all_case[used_case_name] = parsed_data
 
-        json_save(all_cases_data, dict_all_case_path)
+        json_save(dict_all_case, dict_all_case_path)
         controller_dump["create_dict_all_case"] = True
         yaml_save(controller_dump, controller_path)
 
@@ -235,7 +235,7 @@ def controller(data_path, cpus):
             "labels": {'background': 0, 'aortic_valve': 1},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset411_AortaSegment", id_case=401,
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset411_AortaSegment", id_case=411,
                        folder_image_path=image_folder, folder_mask_path=mask_aorta_segment_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
@@ -284,7 +284,7 @@ def controller(data_path, cpus):
             "labels": {"background": 0, "R": 1, "L": 2, "N": 3, "RLC": 4, "RNC": 5, "LNC": 6},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset412_SixAortaLandmarks", id_case=489,
+        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset412_SixAortaLandmarks", id_case=412,
                        folder_image_path=image_crop_folder, folder_mask_path=mask_6_landmarks_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
@@ -299,6 +299,7 @@ def controller(data_path, cpus):
                             dict_case=points_dict,
                             output_path=os.path.join(mask_gh_landmark_folder, f"{case_name}.nii.gz"),
                             radius=9, keys_to_need={'GH': 1})
+        json_save(dict_all_case, dict_all_case_path)
         controller_dump["find_and_create_mask_gh_landmark"] = True
         yaml_save(controller_dump, controller_path)
 
@@ -465,13 +466,13 @@ def controller(data_path, cpus):
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("analys_result_6_landmarks"):
-        landmarks_analysis(Path(data_path), ds_folder_name="Dataset412_SixAortaLandmarks",
+        landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name="Dataset412_SixAortaLandmarks",
                            find_center_mass=True, probabilities_map=True)
         controller_dump["analys_result_6_landmarks"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("analys_result_gh_landmark"):
-        landmarks_analysis(Path(data_path), ds_folder_name="Dataset413_GhLandmark",
+        landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name="Dataset413_GhLandmark",
                            find_center_mass=True, probabilities_map=True, type_set="gh_landmark")
         controller_dump["analys_result_gh_landmark"] = True
         yaml_save(controller_dump, controller_path)
