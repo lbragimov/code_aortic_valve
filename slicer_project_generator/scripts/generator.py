@@ -64,17 +64,20 @@ def ref_points(case_data, template):
     return template
 
 
-def convert_nii_to_nrrd(input_path, output_path, check=True):
+def convert_nii_to_nrrd(input_path, output_path, check=True, is_mask=False):
     image = sitk.ReadImage(input_path)
 
-    sitk.WriteImage(image, output_path)
+    if is_mask:
+        image = sitk.Cast(image, sitk.sitkUInt8)
 
+    sitk.WriteImage(image, output_path, useCompression=True)
+
+    attention = ""
     if check:
         # Read back the saved NRRD
         converted = sitk.ReadImage(output_path)
 
         # Checking for property matches
-        attention = ""
         checks = {
             "Size": image.GetSize() == converted.GetSize(),
             "Spacing": all(abs(a - b) < 1e-6 for a, b in zip(image.GetSpacing(), converted.GetSpacing())),
@@ -86,8 +89,6 @@ def convert_nii_to_nrrd(input_path, output_path, check=True):
             if not result:
                 attention = "ATTENTION: there are discrepancies between NIfTI and NRRD!"
                 break
-    else:
-        attention = ""
     return attention
 
 
@@ -135,7 +136,7 @@ class ProjectGenerator:
             self.attentions.append(f"CT_img.nrrd: {attention}")
         attention = convert_nii_to_nrrd(
             os.path.join(self.original_aorta_mask_folder, self.case_name + ".nii.gz"),
-            os.path.join(case_folder_path, "SegMask.seg.nrrd")
+            os.path.join(case_folder_path, "SegMask.seg.nrrd"), is_mask=True
         )
         if attention:
             self.attentions.append(f"SegMask.seg.nrrd: {attention}")
