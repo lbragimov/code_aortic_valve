@@ -4,6 +4,7 @@ import copy
 import SimpleITK as sitk
 from tkinter import messagebox, Tk
 from slicer_project_generator.scripts.utils import json_reader, json_save
+import re
 
 # from pyarrow import output_stream
 
@@ -91,6 +92,31 @@ def convert_nii_to_nrrd(input_path, output_path, check=True, is_mask=False):
                 break
     return attention
 
+def mrml_generator(file_path, nii_img_path, output_file_path):
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+
+    # читаем данные из nii
+    image = sitk.ReadImage(nii_img_path)
+    origin = image.GetOrigin()
+    spacing = image.GetSpacing()
+
+    new_origin = f'{origin[0]} {origin[1]} {origin[2]}'
+    new_spacing = f'{spacing[0]} {spacing[1]} {spacing[2]}'
+
+    new_lines = []
+    for line in lines:
+        if "<Volume " in line and "vtkMRMLScalarVolumeNode1" in line:
+            # заменяем spacing
+            line = re.sub(r'spacing="[^"]+"', f'spacing="{new_spacing}"', line)
+            # заменяем origin
+            line = re.sub(r'origin="[^"]+"', f'origin="{new_origin}"', line)
+        new_lines.append(line)
+
+    # сохраняем изменения обратно
+    with open(output_file_path, "w") as f:
+        f.writelines(new_lines)
+
 
 class ProjectGenerator:
     def __init__(self, case_name, output_folder, original_img_folder, original_aorta_mask_folder, case_data,
@@ -143,6 +169,9 @@ class ProjectGenerator:
 
         for filename in os.listdir(self.templates_folder):
             if filename.endswith(".mrml"):
+                mrml_generator(os.path.join(self.templates_folder, filename),
+                               os.path.join(self.original_img_folder, self.case_name + ".nii.gz"),
+                               os.path.join(case_folder_path, filename))
                 continue
             elif filename.endswith(".json"):
                 template = json_reader(os.path.join(self.templates_folder, filename))
