@@ -6,7 +6,7 @@ from scripts.utils import get_available_cases, json_reader
 def main(data_path):
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
     output_folder = os.path.join(data_path, "result", "cases_visualization")
-    original_img_folder = os.path.join(data_path, "image_nii_crop")
+    original_img_folder = os.path.join(data_path, "image_nii")
     original_aorta_mask_folder = os.path.join(data_path, "mask_aorta_segment")
     dict_all_case = json_reader(dict_all_case_path)
     # get a list of cases
