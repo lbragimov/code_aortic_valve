@@ -60,6 +60,16 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
     folder = Path(folder)
 
     if create_ds:
+        paths_to_check = [
+            folder / "nnUNet_raw" / ds_folder_name,
+            folder / "original_mask" / ds_folder_name,
+        ]
+
+        for p in paths_to_check:
+            if p.exists():
+                add_info_logging(f"Folder already exists: {p}. Please choose a different name ds_folder_name.")
+                raise FileExistsError(f"Folder already exists: {p}. Please choose a different name ds_folder_name.")
+
         folder_image_path = Path(folder_image_path)
         folder_mask_path = Path(folder_mask_path)
         _configure_folder(folder, ds_folder_name)

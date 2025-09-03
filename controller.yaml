@@ -5,6 +5,7 @@ calc_morphometric: true
 check_metadata_dicom: true
 convert_resample_dicom: true
 create_dict_all_case: true
+create_new_train_test_lists: true
 create_train_test_lists: true
 crop_images: true
 crop_img_size:
@@ -21,3 +22,9 @@ mask_aorta_segment: true
 nnUNet_6_landmarks_train: true
 nnUNet_aorta_segment_train: true
 nnUNet_gh_landmark_train: true
+name_aorta_segment: "AortaSegment"
+number_aorta_segment: 421
+name_6_landmarks: "SixAortaLandmarks"
+number_6_landmarks: 422
+name_gh_landmark: "GhLandmark"
+number_gh_landmark: 423

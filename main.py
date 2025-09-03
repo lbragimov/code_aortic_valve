@@ -142,6 +142,33 @@ def controller(data_path, cpus):
         result_df = pd.DataFrame(result_rows)
         write_csv(result_df, result_folder, "train_test_lists.csv")
 
+        controller_dump["create_train_test_lists"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("create_new_train_test_lists"):
+        df = pd.read_csv(f"{result_folder}/train_test_lists.csv")
+
+        # 1. для случайных 80% кейсов с used_case_name начинающимся на 'g' → train
+        g_mask = df['used_case_name'].str.startswith('g')
+        g_cases = df[g_mask].sample(frac=0.8, random_state=42)  # 80%
+        df.loc[g_cases.index, 'type_series'] = 'train'
+
+        # 2. для случайных 15 кейсов с used_case_name начинающимся на 'n' и имеющих type_series == 'train' → test
+        n_mask = (df['used_case_name'].str.startswith('n')) & (df['type_series'] == 'train')
+        n_cases = df[n_mask].sample(n=min(15, n_mask.sum()), random_state=42)
+        df.loc[n_cases.index, 'type_series'] = 'test'
+
+        # 3. для случайных 6 кейсов с used_case_name начинающимся на 'p' и имеющих type_series == 'train' → test
+        p_mask = (df['used_case_name'].str.startswith('p')) & (df['type_series'] == 'train')
+        p_cases = df[p_mask].sample(n=min(6, p_mask.sum()), random_state=42)
+        df.loc[p_cases.index, 'type_series'] = 'test'
+
+        # сохраняем в новый файл
+        df.to_csv(f"{result_folder}/train_test_lists_2.csv", index=False)
+
+        controller_dump["create_new_train_test_lists"] = True
+        yaml_save(controller_dump, controller_path)
+
     train_test_lists = read_csv(result_folder, "train_test_lists.csv")
     test_cases = train_test_lists[train_test_lists['type_series'] == 'test']['used_case_name'].tolist()
     train_cases = train_test_lists[train_test_lists['type_series'] == 'train']['used_case_name'].tolist()
@@ -235,7 +262,9 @@ def controller(data_path, cpus):
             "labels": {'background': 0, 'aortic_valve': 1},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset411_AortaSegment", id_case=411,
+        num = controller_dump["number_aorta_segment"]
+        name = controller_dump["name_aorta_segment"]
+        process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{num}_{name}", id_case=num,
                        folder_image_path=image_folder, folder_mask_path=mask_aorta_segment_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
@@ -284,7 +313,9 @@ def controller(data_path, cpus):
             "labels": {"background": 0, "R": 1, "L": 2, "N": 3, "RLC": 4, "RNC": 5, "LNC": 6},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset412_SixAortaLandmarks", id_case=412,
+        num = controller_dump["number_6_landmarks"]
+        name = controller_dump["name_6_landmarks"]
+        process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{num}_{name}", id_case=num,
                        folder_image_path=image_crop_folder, folder_mask_path=mask_6_landmarks_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
@@ -309,7 +340,9 @@ def controller(data_path, cpus):
             "labels": {'background': 0, 'gh': 1},
             "file_ending": ".nii.gz"
         }
-        process_nnunet(folder=nnUNet_folder, ds_folder_name="Dataset413_GhLandmark", id_case=413,
+        num = controller_dump["number_gh_landmark"]
+        name = controller_dump["name_gh_landmark"]
+        process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{num}_{name}", id_case=num,
                        folder_image_path=image_crop_folder, folder_mask_path=mask_gh_landmark_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
