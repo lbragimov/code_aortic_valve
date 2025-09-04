@@ -196,6 +196,8 @@ class ProjectGenerator:
                 template = json_reader(os.path.join(self.templates_folder, filename))
                 if filename in TEMPLATE_MAP:
                     key, label_prefix = TEMPLATE_MAP[filename]
+                    if key not in self.case_data:
+                        continue
                     new_json = fill_template(self.case_data, template, key, label_prefix)
                 elif filename == 'RefPoints.json':
                     new_json = ref_points(self.case_data, template)
