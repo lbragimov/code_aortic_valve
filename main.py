@@ -494,18 +494,24 @@ def controller(data_path, cpus):
         df_errors.to_csv(csv_path, index=False)
 
     if not controller_dump.get("analys_result_aorta_segment"):
-        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name="Dataset411_AortaSegment")
+        num = controller_dump["number_aorta_segment"]
+        name = controller_dump["name_aorta_segment"]
+        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name=f"Dataset{num}_{name}")
         controller_dump["analys_result_aorta_segment"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("analys_result_6_landmarks"):
-        landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name="Dataset412_SixAortaLandmarks",
+        num = controller_dump["number_6_landmarks"]
+        name = controller_dump["name_6_landmarks"]
+        landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name=f"Dataset{num}_{name}",
                            find_center_mass=True, probabilities_map=True)
         controller_dump["analys_result_6_landmarks"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("analys_result_gh_landmark"):
-        landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name="Dataset413_GhLandmark",
+        num = controller_dump["number_gh_landmark"]
+        name = controller_dump["name_gh_landmark"]
+        landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name=f"Dataset{num}_{name}",
                            find_center_mass=True, probabilities_map=True, type_set="gh_landmark")
         controller_dump["analys_result_gh_landmark"] = True
         yaml_save(controller_dump, controller_path)
