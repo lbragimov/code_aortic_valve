@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, List
 from data_postprocessing.evaluation_analysis import evaluate_segmentation
 from data_postprocessing.montecarlo import LandmarkingMonteCarlo
@@ -17,7 +18,8 @@ from data_postprocessing.geometric_metrics import controller_metrics
 
 
 def mask_analysis(data_path, result_path, type_mask, folder_name):
-    result_folder_path = os.path.join(result_path, folder_name)
+    date_str = datetime.now().strftime("%d_%m_%y")
+    result_folder_path = os.path.join(result_path, f"{folder_name}_{date_str}")
     os.makedirs(result_folder_path, exist_ok=True)
     per_case_csv = os.path.join(str(result_folder_path), "per_case_metrics.csv")
 
@@ -128,7 +130,8 @@ def landmarks_analysis(data_path, dict_all_case,
     result_landmarks_folder = data_path / "nnUNet_folder" / "nnUNet_test" / ds_folder_name
     original_mask_folder = data_path / "nnUNet_folder" / "original_mask" / ds_folder_name
     json_path = data_path / "nnUNet_folder" / "json_info"
-    result_folder_path = data_path / "result" / ds_folder_name
+    date_str = datetime.now().strftime("%d_%m_%y")
+    result_folder_path = data_path / "result" / f"{ds_folder_name}_{date_str}"
     result_folder_path.mkdir(parents=True, exist_ok=True)
     results_csv_path = result_folder_path / f"landmark_errors_{ds_folder_name}.csv"
 
