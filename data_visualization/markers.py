@@ -3,6 +3,8 @@ import SimpleITK as sitk
 import matplotlib.pyplot as plt
 from pathlib import Path
 from data_preprocessing.text_worker import add_info_logging
+from scipy.interpolate import splprep, splev
+from scipy.ndimage import binary_dilation
 
 
 def _load_image(image_path):
@@ -45,6 +47,78 @@ def _world_to_voxel(coord, image):
     # Преобразование
     voxel_coord = np.linalg.inv(direction).dot(np.array(coord) - origin) / spacing
     return np.round(voxel_coord).astype(int)
+
+
+def process_mask_gh_lines(image_path, dict_case, output_path, radius, keys_to_need=None, step_vox=0.5):
+    """
+    Creates a mask with multiple curves, where each curve has its own mask value.
+
+    :param image_path: path to the original .nii file
+    :param dict_case: dictionary with point coordinates (in world coordinates)
+    :param output_path: path to save the mask
+    :param radius: tube radius (in pixels)
+    :param keys_to_need: dictionary { 'RGH':1, 'LGH':2, ... }
+    :param step_vox: step along the curve (in pixels)
+    """
+    # --- загрузка изображения ---
+    image = _load_image(image_path)
+    shape = image.GetSize()  # (x, y, z)
+    mask = np.zeros(shape[::-1], dtype=np.uint8)  # (z, y, x)
+
+    # --- структурный элемент для утолщения ---
+    rad = int(np.ceil(radius))
+    zz, yy, xx = np.ogrid[-rad:rad + 1, -rad:rad + 1, -rad:rad + 1]
+    struct = xx ** 2 + yy ** 2 + zz ** 2 <= radius ** 2
+
+    # --- проход по кривым ---
+    for key, point_list in dict_case.items():
+        if not keys_to_need or key not in keys_to_need:
+            continue
+        if len(point_list) < 2:
+            continue
+
+        label_value = keys_to_need[key]  # значение, которое запишем в маску
+
+        # --- перевод точек в воксели ---
+        vox_points = np.array([_world_to_voxel(p, image) for p in point_list])
+        if vox_points.shape[0] < 2:
+            continue
+
+        # --- построение сплайна ---
+        try:
+            tck, _ = splprep(vox_points.T, s=0)
+        except Exception as e:
+            print(f"Ошибка сплайна для {key}: {e}")
+            continue
+
+        # --- вычисляем длину кривой и число точек ---
+        u_vals = np.linspace(0, 1, 100)
+        pts = np.array(splev(u_vals, tck)).T
+        dists = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+        total_len = np.sum(dists)
+
+        n_points = max(2, int(total_len / step_vox))
+        u_new = np.linspace(0, 1, n_points)
+        interp_points = np.array(splev(u_new, tck)).T
+
+        # --- временная маска для одной кривой ---
+        curve_mask = np.zeros_like(mask, dtype=bool)
+
+        # --- рисуем тонкую линию ---
+        for p in interp_points:
+            x, y, z = np.round(p).astype(int)
+            if (0 <= x < shape[0]) and (0 <= y < shape[1]) and (0 <= z < shape[2]):
+                curve_mask[z, y, x] = True
+
+        # --- утолщаем до трубки ---
+        curve_mask = binary_dilation(curve_mask, structure=struct)
+
+        # --- записываем в итоговую маску ---
+        mask[curve_mask] = label_value
+
+    mask_image = sitk.GetImageFromArray(mask)
+    mask_image.CopyInformation(image)
+    _save_image(mask_image, output_path)
 
 
 def process_markers(image_path, dict_case, output_path, radius, keys_to_need=None):

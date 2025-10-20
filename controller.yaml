@@ -19,12 +19,16 @@ find_geometric_heights: true
 json_landmarks_mask_coord: true
 mask_6_landmarks: true
 mask_aorta_segment: true
+mask_gh_lines: true
 name_6_landmarks: SixAortaLandmarks
 name_aorta_segment: AortaSegment
 name_gh_landmark: GhLandmark
+name_gh_lines: GhLines
 nnUNet_6_landmarks_train: true
 nnUNet_aorta_segment_train: true
 nnUNet_gh_landmark_train: true
+nnUNet_gh_lines_train: true
 number_6_landmarks: 422
 number_aorta_segment: 421
 number_gh_landmark: 423
+number_gh_lines: 424

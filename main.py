@@ -21,7 +21,8 @@ from data_preprocessing.crop_nii import cropped_image, find_global_size
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
                                                      find_morphometric_parameters, LandmarkCentersCalculator)
 from data_postprocessing.coherent_point_drift import create_new_gh_json, find_new_curv
-from data_visualization.markers import slices_with_markers, process_markers, find_mean_gh_landmark
+from data_visualization.markers import (slices_with_markers, process_markers, find_mean_gh_landmark,
+                                        process_mask_gh_lines)
 from models.controller_nnUnet import process_nnunet
 from experiments.nnUnet_experiments import experiment_training
 
@@ -68,6 +69,7 @@ def controller(data_path, cpus):
     mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
     mask_6_landmarks_folder = os.path.join(data_path, "mask_6_landmarks")
     mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark")
+    mask_gh_lines_folder = os.path.join(data_path, "mask_gh_lines")
 
     json_marker_folder = os.path.join(data_path, "json_markers_info")
     json_duplication_g_h_path = os.path.join(data_path, "json_duplication_geometric_heights")
@@ -347,6 +349,31 @@ def controller(data_path, cpus):
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
         controller_dump["nnUNet_gh_landmark_train"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump["mask_gh_lines"]:
+        clear_folder(os.path.join(mask_gh_lines_folder))
+        for case_name, points_dict in dict_all_case.items():
+            process_mask_gh_lines(image_path=os.path.join(image_crop_folder, f"{case_name}.nii.gz"),
+                                  dict_case=points_dict,
+                                  output_path=os.path.join(mask_gh_lines_folder, f"{case_name}.nii.gz"),
+                                  radius=2, keys_to_need={'RGH': 1, 'LGH': 2, 'NGH': 3})
+        controller_dump["mask_gh_lines"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("nnUNet_gh_lines_train"):
+        dict_dataset = {
+            "channel_names": {0: "CT"},
+            "labels": {'background': 0, 'RGH': 1, 'LGH': 2, 'NGH': 3},
+            "file_ending": ".nii.gz"
+        }
+        num = controller_dump["number_gh_lines"]
+        name = controller_dump["name_gh_lines"]
+        process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{num}_{name}", id_case=num,
+                       folder_image_path=image_crop_folder, folder_mask_path=mask_gh_lines_folder,
+                       dict_dataset=dict_dataset, train_test_lists=train_test_lists,
+                       create_ds=True, training_mod=True, predicting_mod=True)
+        controller_dump["nnUNet_gh_lines_train"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump["duplication_geometric_heights"]:
