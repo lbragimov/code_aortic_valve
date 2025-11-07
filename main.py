@@ -19,7 +19,8 @@ from data_preprocessing.csv_worker import write_csv, read_csv
 from data_preprocessing.crop_nii import cropped_image, find_global_size
 # from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
-                                                     find_morphometric_parameters, LandmarkCentersCalculator)
+                                                     find_morphometric_parameters, LandmarkCentersCalculator,
+                                                     gh_lines_analysis)
 from data_postprocessing.coherent_point_drift import create_new_gh_json, find_new_curv
 from data_visualization.markers import (slices_with_markers, process_markers, find_mean_gh_landmark,
                                         process_mask_gh_lines)
@@ -541,6 +542,14 @@ def controller(data_path, cpus):
         landmarks_analysis(Path(data_path), dict_all_case, ds_folder_name=f"Dataset{num}_{name}",
                            find_center_mass=True, probabilities_map=True, type_set="gh_landmark")
         controller_dump["analys_result_gh_landmark"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("analys_result_gh_lines"):
+        num = controller_dump["number_gh_lines"]
+        name = controller_dump["name_gh_lines"]
+        gh_lines_analysis(data_path, result_folder, folder_name=f"Dataset{num}_{name}",
+                          dict_cases=dict_all_case, probabilities_map=False, original_mask=True)
+        controller_dump["analys_result_gh_lines"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("calc_morphometric"):

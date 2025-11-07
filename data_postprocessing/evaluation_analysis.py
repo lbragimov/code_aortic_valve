@@ -5,6 +5,30 @@ from typing import Literal, Tuple
 from medpy.metric.binary import hd, assd
 
 
+def compute_metrics_gh_line(coord_org, coord_pred):
+    def _mean_euclidean_distance(A, B):
+        return np.mean(np.linalg.norm(A - B, axis=1))
+
+    def _rmsd(A, B):
+        A, B = np.asarray(A), np.asarray(B)
+        return np.sqrt(np.mean(np.sum((A - B) ** 2, axis=1)))
+
+    def _std_distance(A, B):
+        """
+        Стандартное отклонение расстояний между парами точек.
+        A, B — массивы размером (N, 3)
+        """
+        assert A.shape == B.shape, "Наборы точек должны иметь одинаковую форму"
+        distances = np.linalg.norm(A - B, axis=1)
+        return np.std(distances)
+
+    return {
+        "RMSD": _rmsd(coord_org, coord_pred),
+        "MED": _mean_euclidean_distance(coord_org, coord_pred),
+        "SD": _std_distance(coord_org, coord_pred)
+    }
+
+
 class landmarking_locked:
     """пока не используется"""
 

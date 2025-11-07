@@ -4,6 +4,156 @@ import numpy as np
 import SimpleITK as sitk
 from data_postprocessing.evaluation_analysis import  evaluate_segmentation
 from data_preprocessing.text_worker import add_info_logging
+from skimage.morphology import skeletonize_3d
+from scipy.interpolate import splprep, splev
+from scipy.ndimage import gaussian_filter, label, generate_binary_structure
+from skimage.filters import threshold_otsu
+
+
+def load_new_coords_org(mask_path, label, coord_org, original_mask):
+    if original_mask:
+        org_mask = sitk.ReadImage(str(mask_path))
+        org_map_all = sitk.GetArrayFromImage(org_mask)
+        binary_mask_org = (org_map_all == label).astype(np.uint8)
+        voxels_org = extract_centerline_from_heatmap(heatmap=binary_mask_org)
+        return new_spline_from_pixel_coord(voxels_org, str(mask_path))
+    else:
+        return new_spline_from_world_coord(coord_org)
+
+
+def new_spline_from_world_coord(points, n_samples=10, smoothing=0.0):
+    """
+    points: np.ndarray (N,3) — точки в мировых координатах
+    n_samples: количество равномерно распределённых точек по длине сплайна
+    smoothing: параметр сглаживания (0 — проходит через все точки)
+    """
+    points = np.asarray(points, dtype=float)
+    if points.shape[0] < 2:
+        raise ValueError("Нужно хотя бы две точки")
+
+    # параметризация по длине дуги
+    d = np.linalg.norm(np.diff(points, axis=0), axis=1)
+    t = np.concatenate([[0], np.cumsum(d)])
+    t /= t[-1]  # нормализация в [0,1]
+
+    # строим сплайн
+    tck, _ = splprep(points.T, u=t, s=smoothing, k=min(3, len(points)-1))
+
+    # равномерные точки по длине дуги
+    u_new = np.linspace(0, 1, n_samples)
+    new_points = np.array(splev(u_new, tck)).T
+    return new_points
+
+def new_spline_from_pixel_coord(mask, nii_path, n_samples=10, smoothing=10.0):
+    def _voxel_to_world_batch(indices, image):
+        """
+        Преобразует индексы пикселей (i,j,k) в мировые координаты (x,y,z).
+        """
+        origin = np.array(image.GetOrigin())
+        spacing = np.array(image.GetSpacing())
+        direction = np.array(image.GetDirection()).reshape(3, 3)
+        indices = np.asarray(indices, dtype=float)
+        world = (indices * spacing) @ direction.T + origin
+        return world
+
+    """
+    points: np.ndarray (N,3) — точки в мировых координатах
+    n_samples: количество точек для равномерного сэмплирования
+    """
+    pixel_points = extract_centerline_from_heatmap(mask)
+    image = sitk.ReadImage(nii_path)
+    points = _voxel_to_world_batch(pixel_points, image)
+
+    if points.shape[0] < 2:
+        raise ValueError("Нужно хотя бы две точки")
+
+    d = np.linalg.norm(np.diff(points, axis=0), axis=1)
+    t = np.concatenate([[0], np.cumsum(d)])
+    t /= t[-1]
+
+    tck, _ = splprep(points.T, u=t, s=smoothing, k=3)
+    u_new = np.linspace(0, 1, n_samples)
+    new_points = np.array(splev(u_new, tck)).T
+    return new_points
+
+
+def extract_centerline_from_heatmap(
+        heatmap,  # np.ndarray (Z,Y,X), values ~[0,1]
+        sigma=0.8,  # gaussian sigma in voxels
+        thresh=None,  # if None, compute candidate thresholds automatically
+        perc=90,  # percentile used for fallback threshold selection
+):
+    assert heatmap.ndim == 3
+
+    # 1. сглаживание
+    sm = gaussian_filter(heatmap.astype(np.float32), sigma=sigma)
+
+    # 2. варианты порога
+    if thresh is None:
+        # 2a. Otsu (вдруг распределение бимодальное)
+        try:
+            flat = sm.ravel()
+            # Otsu может быть плох на сильно несбалансированных данных, но попробуем
+            flat = flat[flat > np.percentile(flat, 99)]  # отсечь нижние %
+            otsu_t = threshold_otsu(flat)
+        except Exception:
+            otsu_t = None
+
+        # 2b. percentile (80-й, например)
+        perc_t = float(np.percentile(sm, perc))
+
+        # 2c. fallback heuristics: ограничим percentile в разумных пределах
+        # (если perc_t слишком велик — возможно шум; ограничим 0.05..0.6)
+        perc_t = float(np.clip(perc_t, 0.01, 0.8))
+
+        # choose threshold: если Otsu в разумных границах, используем его, иначе percentile
+        if otsu_t is not None and otsu_t > perc_t:
+            chosen = float(otsu_t)
+        else:
+            chosen = perc_t
+    else:
+        chosen = float(thresh)
+
+    # chosen = 0.9
+
+    # 3. бинаризация
+    binary = sm > chosen
+
+    # 4. компоненты (для быстрой диагностики)
+    labeled, ncomp = label(binary)
+
+    if ncomp > 0:
+        # вычисляем размер каждой компоненты
+        sizes = np.array([np.sum(labeled == lab) for lab in range(1, ncomp + 1)])
+        # находим индекс самой большой (нумерация с 1)
+        largest_label = np.argmax(sizes) + 1
+        # создаем маску только крупнейшей компоненты
+        mask_largest = (labeled == largest_label)
+    else:
+        # если ничего не найдено, создаём пустую маску
+        mask_largest = np.zeros_like(sm, dtype=bool)
+
+    sm_largest = sm * mask_largest
+
+    skeleton = skeletonize_3d(mask_largest)
+
+    structure = generate_binary_structure(rank=3, connectivity=3)
+    labeled, ncomp = label(skeleton, structure=structure)
+    if ncomp == 0:
+        return np.zeros_like(skeleton, dtype=bool), np.empty((0, 3), dtype=int)
+
+    # Считаем длины всех ветвей
+    lengths = np.array([np.sum(labeled == i) for i in range(1, ncomp + 1)])
+
+    # Выбираем самую длинную ветвь
+    main_label = np.argmax(lengths) + 1
+
+    # Оставляем только её
+    centerline = (labeled == main_label)
+
+    coords = np.argwhere(centerline)
+
+    return coords
 
 
 def mask_comparison(data_path, type_mask, folder_name):

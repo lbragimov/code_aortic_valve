@@ -132,12 +132,6 @@ def process_markers(image_path, dict_case, output_path, radius, keys_to_need=Non
     # Создаём пустую маску
     mask = np.zeros(shape[::-1], dtype=np.uint8)  # Меняем порядок: Z, Y, X
 
-    # keys_to_need = ['R', 'L', 'N', 'RLC', 'RNC', 'LNC']
-    # keys_to_need = {
-    #     'R': 1, 'L': 2, 'N': 3,
-    #     'RLC': 4, 'RNC': 5, 'LNC': 6
-    # }
-    # keys_to_need = {'GH': 1}
     for key, coord in dict_case.items():
         if key not in keys_to_need:
             continue
