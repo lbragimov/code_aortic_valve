@@ -1,10 +1,13 @@
 import os
+import numpy as np
 import shutil
 import copy
 import SimpleITK as sitk
 from tkinter import messagebox, Tk
 from slicer_project_generator.scripts.utils import json_reader, json_save
 import re
+from data_postprocessing.controller_analysis import load_mask
+from data_postprocessing.mask_analysis import new_spline_from_pixel_coord
 
 # from pyarrow import output_stream
 
@@ -32,6 +35,9 @@ TEMPLATE_MAP = {
     "Sinus_LN.json":        ("LNS - closed",   "Sinus_LN"),
     "Sinus_RL.json":        ("RLS - closed",   "Sinus_RL"),
     "Sinus_RN.json":        ("RNS - closed",   "Sinus_RN"),
+    "GeometricHeight_L_pred.json": ("LGH_p",          "GeometricHeight_L_pred"),
+    "GeometricHeight_N_pred.json": ("NGH_p",          "GeometricHeight_N_pred"),
+    "GeometricHeight_R_pred.json": ("RGH_p",          "GeometricHeight_R_pred"),
 }
 
 def fill_template(case_data, template, key, label_prefix, assoc_node="vtkMRMLScalarVolumeNode1"):
@@ -41,7 +47,7 @@ def fill_template(case_data, template, key, label_prefix, assoc_node="vtkMRMLSca
         temp_point["id"] = str(n)
         temp_point["label"] = f"{label_prefix}_{n}"
         temp_point["associatedNodeID"] = assoc_node
-        temp_point["position"] = point
+        temp_point["position"] = point.tolist() if isinstance(point, np.ndarray) else point
         points_list.append(temp_point)
     template["markups"][0]["controlPoints"] = points_list
     template["markups"][0]["lastUsedControlPointNumber"] = len(points_list)
@@ -139,6 +145,7 @@ def mrml_generator(file_path, nii_img_path, output_file_path):
 
 class ProjectGenerator:
     def __init__(self, case_name, output_folder, original_img_folder, original_aorta_mask_folder, case_data,
+                 gh_lines_pred_mask_file=None,
                  base_path="cases"):
         self.case_name = case_name
         self.output_folder = output_folder
@@ -148,6 +155,23 @@ class ProjectGenerator:
         # self.base_path = base_path
         self.templates_folder = "templates"
         self.attentions = []
+        self.gh_lines_pred_mask_file = gh_lines_pred_mask_file
+        self.gh_pred_data = None
+
+    def _gh_pred_data_generate(self):
+        if self.gh_lines_pred_mask_file:
+            gh_dict = {}
+            keys_gh = {1: 'RGH_p', 2: 'LGH_p', 3: 'NGH_p'}
+            masks_pred, levels_pred = load_mask(self.gh_lines_pred_mask_file, False)
+            for label in range(1, levels_pred+1):
+                mask_pred = (masks_pred == label).astype(np.uint8)
+                new_coords_pred = new_spline_from_pixel_coord(
+                    mask_pred,
+                    os.path.join(self.original_img_folder, self.case_name + ".nii.gz"))
+                gh_dict[keys_gh[label]] = new_coords_pred
+        else:
+            gh_dict = {}
+        return gh_dict
 
     def check_and_prepare_folder(self, case_folder_path):
         """Проверяет наличие папки и при необходимости очищает её."""
@@ -188,17 +212,21 @@ class ProjectGenerator:
 
         for filename in os.listdir(self.templates_folder):
             if filename.endswith(".mrml"):
-                mrml_generator(os.path.join(self.templates_folder, filename),
-                               os.path.join(self.original_img_folder, self.case_name + ".nii.gz"),
-                               os.path.join(case_folder_path, filename))
+                if bool(self.gh_pred_data) == ("_pred" in filename[:-5]):
+                    mrml_generator(os.path.join(self.templates_folder, filename),
+                                   os.path.join(self.original_img_folder, self.case_name + ".nii.gz"),
+                                   os.path.join(case_folder_path, filename))
                 continue
             elif filename.endswith(".json"):
                 template = json_reader(os.path.join(self.templates_folder, filename))
                 if filename in TEMPLATE_MAP:
                     key, label_prefix = TEMPLATE_MAP[filename]
-                    if key not in self.case_data:
+                    if key in self.case_data:
+                        new_json = fill_template(self.case_data, template, key, label_prefix)
+                    elif key in self.gh_pred_data:
+                        new_json = fill_template(self.gh_pred_data, template, key, label_prefix)
+                    else:
                         continue
-                    new_json = fill_template(self.case_data, template, key, label_prefix)
                 elif filename == 'RefPoints.json':
                     new_json = ref_points(self.case_data, template)
                 else:
@@ -206,8 +234,9 @@ class ProjectGenerator:
                 json_save(new_json, os.path.join(case_folder_path, filename))
 
     def generate(self):
+        self.gh_pred_data = self._gh_pred_data_generate()
+
         case_folder_path = os.path.join(self.output_folder, self.case_name)
-        print("hi")
 
         if not self.check_and_prepare_folder(case_folder_path):
             return None
@@ -225,17 +254,3 @@ class ProjectGenerator:
         root.destroy()
 
         return case_folder_path
-
-        # output_file = f"{self.case_name}_project.xml"
-
-#         # пока простейший xml
-#         xml_content = f"""<?xml version="1.0"?>
-# <Project>
-#     <Case>{self.case_name}</Case>
-#     <Path>{case_path}</Path>
-# </Project>
-# """
-#         with open(output_file, "w", encoding="utf-8") as f:
-#             f.write(xml_content)
-#
-#         return output_file
