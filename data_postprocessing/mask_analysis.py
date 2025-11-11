@@ -15,8 +15,7 @@ def load_new_coords_org(mask_path, label, coord_org, original_mask):
         org_mask = sitk.ReadImage(str(mask_path))
         org_map_all = sitk.GetArrayFromImage(org_mask)
         binary_mask_org = (org_map_all == label).astype(np.uint8)
-        voxels_org = extract_centerline_from_heatmap(heatmap=binary_mask_org)
-        return new_spline_from_pixel_coord(voxels_org, str(mask_path))
+        return new_spline_from_pixel_coord(binary_mask_org, str(mask_path))
     else:
         return new_spline_from_world_coord(coord_org)
 

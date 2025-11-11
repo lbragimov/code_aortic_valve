@@ -54,7 +54,7 @@ def gh_lines_analysis(data_path,
         "p": "Slo. path.",
         "n": "Slo. norm."
     }
-    metrics_name = ["RMSD", "MED", "SD"]
+    metrics_name = ["RMSD", "MED", "SD", "LengthDiff"]
     keys_to_need = {1: 'RGH', 2: 'LGH', 3: 'NGH'}
 
     if os.path.exists(per_case_csv):
@@ -71,6 +71,7 @@ def gh_lines_analysis(data_path,
             rmsd_metric = []
             med_metric = []
             sd_metric = []
+            ld_metric = []
             metrics = {}
             case_name = file_path.name[:-4] if probabilities_map else file_path.name[:-7]
             first_char = case_name[0]
@@ -90,11 +91,13 @@ def gh_lines_analysis(data_path,
                 rmsd_metric.append(metrics["RMSD"])
                 med_metric.append(metrics["MED"])
                 sd_metric.append(metrics["SD"])
+                ld_metric.append(metrics["LengthDiff"])
             metrics["case"] = case_name
             metrics["group"] = first_char
             metrics["RMSD"] = np.mean(rmsd_metric)
             metrics["MED"] = np.mean(med_metric)
             metrics["SD"] = np.mean(sd_metric)
+            metrics["LengthDiff"] = np.mean(ld_metric)
             per_case_data.append(metrics)
 
         # Сохраняем метрики по кейсам
@@ -110,25 +113,29 @@ def gh_lines_analysis(data_path,
          round(df["RMSD"].mean(numeric_only=True), 2),
          round(df["MED"].mean(numeric_only=True), 2),
          round(df["SD"].mean(numeric_only=True), 2),
+         round(df["LengthDiff"].mean(numeric_only=True), 2),
          int(len(df["group"]))],
         ["German\npathology",
          round(df[df['group'] == "g"]["RMSD"].mean(numeric_only=True), 2),
          round(df[df['group'] == "g"]["MED"].mean(numeric_only=True), 2),
          round(df[df['group'] == "g"]["SD"].mean(numeric_only=True), 2),
+         round(df[df['group'] == "g"]["LengthDiff"].mean(numeric_only=True), 2),
          int(len(df[df['group'] == "g"]))],
         ["Slovenian\npathology",
          round(df[df['group'] == "p"]["RMSD"].mean(numeric_only=True), 2),
          round(df[df['group'] == "p"]["MED"].mean(numeric_only=True), 2),
          round(df[df['group'] == "p"]["SD"].mean(numeric_only=True), 2),
+         round(df[df['group'] == "p"]["LengthDiff"].mean(numeric_only=True), 2),
          int(len(df[df['group'] == "p"]))],
         ["Slovenian\nnormal",
          round(df[df['group'] == "n"]["RMSD"].mean(numeric_only=True), 2),
          round(df[df['group'] == "n"]["MED"].mean(numeric_only=True), 2),
          round(df[df['group'] == "n"]["SD"].mean(numeric_only=True), 2),
+         round(df[df['group'] == "n"]["LengthDiff"].mean(numeric_only=True), 2),
          int(len(df[df['group'] == "n"]))],
     ]
     columns = ["Type", "Root Mean Square\nDistancer, mm", "Mean Euclidean\nDistance, mm",
-               "Standard Deviation\nof Distances, mm", "Number of\nimages"]
+               "Standard Deviation\nof Distances, mm", "Mean Length\nDifference, mm", "Number of\nimages"]
 
     results_table_path = os.path.join(result_folder_path, f"landmark_errors_{folder_name}.png")
     plot_table(data_table, columns, results_table_path)

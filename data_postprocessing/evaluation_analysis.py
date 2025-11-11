@@ -22,10 +22,22 @@ def compute_metrics_gh_line(coord_org, coord_pred):
         distances = np.linalg.norm(A - B, axis=1)
         return np.std(distances)
 
+    def _polyline_length(A):
+        """Вычисление длины ломаной по соседним точкам."""
+        diffs = np.diff(A, axis=0)
+        return np.sum(np.linalg.norm(diffs, axis=1))
+
+    def _length_difference(A, B):
+        """Разница длин двух ломаных линий."""
+        len_A = _polyline_length(A)
+        len_B = _polyline_length(B)
+        return abs(len_A - len_B)
+
     return {
         "RMSD": _rmsd(coord_org, coord_pred),
         "MED": _mean_euclidean_distance(coord_org, coord_pred),
-        "SD": _std_distance(coord_org, coord_pred)
+        "SD": _std_distance(coord_org, coord_pred),
+        "LengthDiff": _length_difference(coord_org, coord_pred)
     }
 
 
