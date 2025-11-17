@@ -167,7 +167,7 @@ class ProjectGenerator:
                 mask_pred = (masks_pred == label).astype(np.uint8)
                 new_coords_pred = new_spline_from_pixel_coord(
                     mask_pred,
-                    os.path.join(self.original_img_folder, self.case_name + ".nii.gz"))
+                    self.gh_lines_pred_mask_file)
                 gh_dict[keys_gh[label]] = new_coords_pred
         else:
             gh_dict = {}

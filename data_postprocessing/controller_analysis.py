@@ -82,6 +82,7 @@ def gh_lines_analysis(data_path,
                     mask_pred = masks_pred["probabilities"][label]
                 else:
                     mask_pred = (masks_pred == label).astype(np.uint8)
+                # temp = dict_cases[case_name][keys_to_need[label]]
                 new_coords_org = load_new_coords_org(mask_path=original_mask_path,
                                                      label=label,
                                                      coord_org=dict_cases[case_name][keys_to_need[label]],
