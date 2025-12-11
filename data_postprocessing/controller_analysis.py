@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 import SimpleITK as sitk
 from typing import Dict, List
-from data_postprocessing.evaluation_analysis import compute_metrics_gh_line
+from data_postprocessing.evaluation_analysis import compute_metrics_gh_line, compute_metrics_gh_line_v2
 from data_postprocessing.montecarlo import LandmarkingMonteCarlo
 from data_postprocessing.mask_analysis import (mask_comparison, LandmarkCentersCalculator,
                                                new_spline_from_pixel_coord, load_new_coords_org)
@@ -17,6 +17,7 @@ from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
 from data_postprocessing.metrics_config import metric_to_landmarks
 from data_postprocessing.geometric_metrics import controller_metrics
+from data_postprocessing.vtk_analysis import CenterlineExtractor
 
 
 def load_mask(file_path, probabilities_map=True):
@@ -31,22 +32,34 @@ def load_mask(file_path, probabilities_map=True):
         return mask_array, labels
 
 
+def load_labels_mask_sitk(file_path, label):
+    mask_img = sitk.ReadImage(file_path)
+    masks_array = sitk.GetArrayFromImage(mask_img)
+    mask_binary = (masks_array == label).astype(np.uint8)
+
+    mask_sitk = sitk.GetImageFromArray(mask_binary)
+    mask_sitk.SetOrigin(mask_img.GetOrigin())
+    mask_sitk.SetSpacing(mask_img.GetSpacing())
+    mask_sitk.SetDirection(mask_img.GetDirection())
+
+    return mask_sitk
+
+
 def gh_lines_analysis(data_path,
                       result_path,
                       folder_name,
                       dict_cases,
                       probabilities_map=True,
-                      original_mask=False):
+                      original_mask=False,
+                      points2points=False,
+                      curve2points=False):
 
     date_str = datetime.now().strftime("%d_%m_%y")
     result_folder_path = os.path.join(result_path, f"{folder_name}_{date_str}")
     os.makedirs(result_folder_path, exist_ok=True)
-    per_case_csv = os.path.join(str(result_folder_path), "per_case_metrics.csv")
-
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     result_mask_folder = os.path.join(nnUNet_folder, "nnUNet_test", folder_name)
     original_mask_folder = os.path.join(nnUNet_folder, "original_mask", folder_name)
-
 
     group_label_map = {
         "all": "All",
@@ -54,94 +67,159 @@ def gh_lines_analysis(data_path,
         "p": "Slo. path.",
         "n": "Slo. norm."
     }
-    metrics_name = ["RMSD", "MED", "SD", "LengthDiff"]
     keys_to_need = {1: 'RGH', 2: 'LGH', 3: 'NGH'}
 
-    if os.path.exists(per_case_csv):
-        # Загружаем данные из файлов
-        add_info_logging("Using cached metrics from CSV files", "work_logger")
-        df = pd.read_csv(per_case_csv)
-    else:
-        per_case_data = []
+    if points2points:
+        per_case_csv = os.path.join(str(result_folder_path), "per_case_metrics.csv")
+        metrics_name = ["RMSD", "MED", "SD", "LengthDiff"]
 
-        ext = "*.npz" if probabilities_map else "*.nii.gz"
-        files = list(Path(result_mask_folder).glob(ext))
+        if os.path.exists(per_case_csv):
+            # Загружаем данные из файлов
+            add_info_logging("Using cached metrics from CSV files", "work_logger")
+            df = pd.read_csv(per_case_csv)
+        else:
+            per_case_data = []
 
-        for file_path in files:
-            rmsd_metric = []
-            med_metric = []
-            sd_metric = []
-            ld_metric = []
-            metrics = {}
-            case_name = file_path.name[:-4] if probabilities_map else file_path.name[:-7]
-            first_char = case_name[0]
-            masks_pred, levels_pred = load_mask(file_path, probabilities_map)
-            original_mask_path = os.path.join(original_mask_folder, case_name + ".nii.gz")
-            for label in range(1, levels_pred):
-                if probabilities_map:
-                    mask_pred = masks_pred["probabilities"][label]
-                else:
-                    mask_pred = (masks_pred == label).astype(np.uint8)
-                # temp = dict_cases[case_name][keys_to_need[label]]
-                new_coords_org = load_new_coords_org(mask_path=original_mask_path,
-                                                     label=label,
-                                                     coord_org=dict_cases[case_name][keys_to_need[label]],
-                                                     original_mask=original_mask)
-                new_coords_pred = new_spline_from_pixel_coord(mask_pred, str(original_mask_path))
-                metrics = compute_metrics_gh_line(new_coords_org, new_coords_pred)
-                rmsd_metric.append(metrics["RMSD"])
-                med_metric.append(metrics["MED"])
-                sd_metric.append(metrics["SD"])
-                ld_metric.append(metrics["LengthDiff"])
-            metrics["case"] = case_name
-            metrics["group"] = first_char
-            metrics["RMSD"] = np.mean(rmsd_metric)
-            metrics["MED"] = np.mean(med_metric)
-            metrics["SD"] = np.mean(sd_metric)
-            metrics["LengthDiff"] = np.mean(ld_metric)
-            per_case_data.append(metrics)
+            ext = "*.npz" if probabilities_map else "*.nii.gz"
+            files = list(Path(result_mask_folder).glob(ext))
 
-        # Сохраняем метрики по кейсам
-        df = pd.DataFrame(per_case_data)
-        df.to_csv(per_case_csv, index=False)
+            for file_path in files:
+                rmsd_metric = []
+                med_metric = []
+                sd_metric = []
+                ld_metric = []
+                metrics = {}
+                case_name = file_path.name[:-4] if probabilities_map else file_path.name[:-7]
+                first_char = case_name[0]
+                masks_pred, levels_pred = load_mask(file_path, probabilities_map)
+                original_mask_path = os.path.join(original_mask_folder, case_name + ".nii.gz")
+                for label in range(1, levels_pred):
+                    if probabilities_map:
+                        mask_pred = masks_pred["probabilities"][label]
+                    else:
+                        mask_pred = (masks_pred == label).astype(np.uint8)
+                    new_coords_org = load_new_coords_org(mask_path=original_mask_path,
+                                                         label=label,
+                                                         coord_org=dict_cases[case_name][keys_to_need[label]],
+                                                         original_mask=original_mask)
+                    new_coords_pred = new_spline_from_pixel_coord(mask_pred, str(original_mask_path))
+                    temp_metrics = compute_metrics_gh_line(new_coords_org, new_coords_pred)
+                    rmsd_metric.append(temp_metrics["RMSD"])
+                    med_metric.append(temp_metrics["MED"])
+                    sd_metric.append(temp_metrics["SD"])
+                    ld_metric.append(temp_metrics["LengthDiff"])
+                metrics["case"] = case_name
+                metrics["group"] = first_char
+                metrics["RMSD"] = np.mean(rmsd_metric)
+                metrics["MED"] = np.mean(med_metric)
+                metrics["SD"] = np.mean(sd_metric)
+                metrics["LengthDiff"] = np.mean(ld_metric)
+                per_case_data.append(metrics)
 
-    for metric_name in metrics_name:
-        data_for_plot = df[['group', metric_name]].dropna(how='any')
-        plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
-                              os.path.join(str(result_folder_path), "geometric_height_comparison"))
-    data_table = [
-        ["All",
-         round(df["RMSD"].mean(numeric_only=True), 2),
-         round(df["MED"].mean(numeric_only=True), 2),
-         round(df["SD"].mean(numeric_only=True), 2),
-         round(df["LengthDiff"].mean(numeric_only=True), 2),
-         int(len(df["group"]))],
-        ["German\npathology",
-         round(df[df['group'] == "g"]["RMSD"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "g"]["MED"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "g"]["SD"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "g"]["LengthDiff"].mean(numeric_only=True), 2),
-         int(len(df[df['group'] == "g"]))],
-        ["Slovenian\npathology",
-         round(df[df['group'] == "p"]["RMSD"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "p"]["MED"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "p"]["SD"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "p"]["LengthDiff"].mean(numeric_only=True), 2),
-         int(len(df[df['group'] == "p"]))],
-        ["Slovenian\nnormal",
-         round(df[df['group'] == "n"]["RMSD"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "n"]["MED"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "n"]["SD"].mean(numeric_only=True), 2),
-         round(df[df['group'] == "n"]["LengthDiff"].mean(numeric_only=True), 2),
-         int(len(df[df['group'] == "n"]))],
-    ]
-    columns = ["Type", "Root Mean Square\nDistancer, mm", "Mean Euclidean\nDistance, mm",
-               "Standard Deviation\nof Distances, mm", "Mean Length\nDifference, mm", "Number of\nimages"]
+            # Сохраняем метрики по кейсам
+            df = pd.DataFrame(per_case_data)
+            df.to_csv(per_case_csv, index=False)
 
-    results_table_path = os.path.join(result_folder_path, f"landmark_errors_{folder_name}.png")
-    plot_table(data_table, columns, results_table_path)
+        for metric_name in metrics_name:
+            data_for_plot = df[['group', metric_name]].dropna(how='any')
+            plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
+                                  os.path.join(str(result_folder_path), "geometric_height_comparison"))
+        data_table = [
+            ["All",
+             round(df["RMSD"].mean(numeric_only=True), 2),
+             round(df["MED"].mean(numeric_only=True), 2),
+             round(df["SD"].mean(numeric_only=True), 2),
+             round(df["LengthDiff"].mean(numeric_only=True), 2),
+             int(len(df["group"]))],
+            ["German\npathology",
+             round(df[df['group'] == "g"]["RMSD"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "g"]["MED"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "g"]["SD"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "g"]["LengthDiff"].mean(numeric_only=True), 2),
+             int(len(df[df['group'] == "g"]))],
+            ["Slovenian\npathology",
+             round(df[df['group'] == "p"]["RMSD"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "p"]["MED"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "p"]["SD"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "p"]["LengthDiff"].mean(numeric_only=True), 2),
+             int(len(df[df['group'] == "p"]))],
+            ["Slovenian\nnormal",
+             round(df[df['group'] == "n"]["RMSD"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "n"]["MED"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "n"]["SD"].mean(numeric_only=True), 2),
+             round(df[df['group'] == "n"]["LengthDiff"].mean(numeric_only=True), 2),
+             int(len(df[df['group'] == "n"]))],
+        ]
+        columns = ["Type", "Root Mean Square\nDistancer, mm", "Mean Euclidean\nDistance, mm",
+                   "Standard Deviation\nof Distances, mm", "Mean Length\nDifference, mm", "Number of\nimages"]
 
-    add_info_logging("Analysis completed", "work_logger")
+        results_table_path = os.path.join(result_folder_path, f"landmark_errors_{folder_name}.png")
+        plot_table(data_table, columns, results_table_path)
+
+    if curve2points:
+        per_case_csv_2 = os.path.join(str(result_folder_path), "per_case_metrics_2.csv")
+        metrics_name_2 = ["ASD"]
+
+        if os.path.exists(per_case_csv_2):
+            # Загружаем данные из файлов
+            add_info_logging("Using cached metrics from CSV files", "work_logger")
+            df_2 = pd.read_csv(per_case_csv_2)
+        else:
+            per_case_data_2 = []
+
+            ext = "*.npz" if probabilities_map else "*.nii.gz"
+            files = list(Path(result_mask_folder).glob(ext))
+            vtk_curve_extractor = CenterlineExtractor()
+
+            for file_path in files:
+                asd_metric = []
+                metrics_2 = {}
+                case_name = file_path.name[:-4] if probabilities_map else file_path.name[:-7]
+                first_char = case_name[0]
+                masks_pred, levels_pred = load_mask(file_path, probabilities_map)
+                for label in range(1, levels_pred):
+                    if probabilities_map:
+                        mask_pred = masks_pred["probabilities"][label]
+                    else:
+                        mask_pred = (masks_pred == label).astype(np.uint8)
+                    mask_sitk = load_labels_mask_sitk(file_path, label)
+                    vtk_curve_pred = vtk_curve_extractor.run(mask_pred, mask_sitk)
+                    temp_metrics_2 = compute_metrics_gh_line_v2(dict_cases[case_name][keys_to_need[label]], vtk_curve_pred)
+                    asd_metric.append(temp_metrics_2["ASD"])
+                metrics_2["case"] = case_name
+                metrics_2["group"] = first_char
+                metrics_2["ASD"] = np.mean(asd_metric)
+                per_case_data_2.append(metrics_2)
+
+            # Сохраняем метрики по кейсам
+            df_2 = pd.DataFrame(per_case_data_2)
+            df_2.to_csv(per_case_csv_2, index=False)
+
+        for metric_name in metrics_name_2:
+            data_for_plot = df_2[['group', metric_name]].dropna(how='any')
+            plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
+                                  os.path.join(str(result_folder_path), "geometric_height_comparison_2"))
+        data_table_2 = [
+            ["All",
+             round(df_2["ASD"].mean(numeric_only=True), 2),
+             int(len(df["group"]))],
+            ["German\npathology",
+             round(df_2[df_2['group'] == "g"]["ASD"].mean(numeric_only=True), 2),
+             int(len(df_2[df_2['group'] == "g"]))],
+            ["Slovenian\npathology",
+             round(df_2[df_2['group'] == "p"]["ASD"].mean(numeric_only=True), 2),
+             int(len(df_2[df_2['group'] == "p"]))],
+            ["Slovenian\nnormal",
+             round(df_2[df_2['group'] == "n"]["ASD"].mean(numeric_only=True), 2),
+             int(len(df_2[df_2['group'] == "n"]))],
+        ]
+        columns_2 = ["Type", "Average Surface\nDistance, mm", "Number of\nimages"]
+
+        results_table_path_2 = os.path.join(result_folder_path, f"landmark_errors_2_{folder_name}.png")
+        plot_table(data_table_2, columns_2, results_table_path_2)
+
+    if points2points or curve2points:
+        add_info_logging("Analysis completed", "work_logger")
 
 
 def mask_analysis(data_path, result_path, type_mask, folder_name):

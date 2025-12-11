@@ -1,3 +1,4 @@
+import vtk
 import numpy as np
 import SimpleITK as sitk
 from sklearn.metrics import jaccard_score, f1_score
@@ -39,6 +40,17 @@ def compute_metrics_gh_line(coord_org, coord_pred):
         "SD": _std_distance(coord_org, coord_pred),
         "LengthDiff": _length_difference(coord_org, coord_pred)
     }
+
+
+def compute_metrics_gh_line_v2(coord_org, vtk_curve_pred):
+    distances = []
+    implicit = vtk.vtkImplicitPolyDataDistance()
+    implicit.SetInput(vtk_curve_pred)
+    pts = np.array(vtk_curve_pred.GetPoints().GetData())
+    for p in coord_org:
+        d = np.sqrt(np.sum((pts - p) ** 2, axis=1)).min()
+        distances.append(d)
+    return {"ASD": np.mean(distances)}
 
 
 class landmarking_locked:

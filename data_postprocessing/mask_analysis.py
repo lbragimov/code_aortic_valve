@@ -59,6 +59,7 @@ def new_spline_from_pixel_coord(mask, nii_path, n_samples=10, smoothing=10.0):
     points: np.ndarray (N,3) — точки в мировых координатах
     n_samples: количество точек для равномерного сэмплирования
     """
+    mask = np.swapaxes(mask, 0, -1)
     pixel_points = extract_centerline_from_heatmap(mask)
     image = sitk.ReadImage(nii_path)
     points = _voxel_to_world_batch(pixel_points, image)

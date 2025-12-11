@@ -548,7 +548,8 @@ def controller(data_path, cpus):
         num = controller_dump["number_gh_lines"]
         name = controller_dump["name_gh_lines"]
         gh_lines_analysis(data_path, result_folder, folder_name=f"Dataset{num}_{name}",
-                          dict_cases=dict_all_case, probabilities_map=False, original_mask=True)
+                          dict_cases=dict_all_case, probabilities_map=False, original_mask=True,
+                          points2points=True, curve2points=True)
         controller_dump["analys_result_gh_lines"] = True
         yaml_save(controller_dump, controller_path)
 
