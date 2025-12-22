@@ -26,6 +26,7 @@ from data_visualization.markers import (slices_with_markers, process_markers, fi
                                         process_mask_gh_lines)
 from models.controller_nnUnet import process_nnunet
 from experiments.nnUnet_experiments import experiment_training
+from models.controller_GNN import process_gnn
 
 # from optimization.parallelization import division_processes
 
@@ -67,12 +68,14 @@ def controller(data_path, cpus):
     txt_points_folder = os.path.join(data_path, "txt_points")
     stl_aorta_segment_folder = os.path.join(data_path, "stl_aorta_segment")
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
+    gnn_folder = os.path.join(data_path, "gnn_folder")
     mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
     mask_6_landmarks_folder = os.path.join(data_path, "mask_6_landmarks")
     mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark")
     mask_gh_lines_folder = os.path.join(data_path, "mask_gh_lines")
 
     json_marker_folder = os.path.join(data_path, "json_markers_info")
+    json_info_folder = os.path.join(data_path, "json_info")
     json_duplication_g_h_path = os.path.join(data_path, "json_duplication_geometric_heights")
     json_land_mask_coord_path = os.path.join(data_path, "json_landmarks_mask_coord")
 
@@ -375,6 +378,16 @@ def controller(data_path, cpus):
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
                        create_ds=True, training_mod=True, predicting_mod=True)
         controller_dump["nnUNet_gh_lines_train"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("gnn_metrics_train"):
+        num = controller_dump["number_6_landmarks"]
+        name = controller_dump["name_6_landmarks"]
+        result_nnunet_landmarks_folder = os.path.join(nnUNet_folder, "nnUNet_test", f"Dataset{num}_{name}")
+        process_gnn(result_6_nnunet_folder=result_nnunet_landmarks_folder, gnn_folder=gnn_folder,
+                    train_test_lists=train_test_lists, json_info_folder=json_info_folder,
+                    create_ds=False, training_mod=False, testing_mod=True)
+        controller_dump["gnn_metrics_train"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump["duplication_geometric_heights"]:

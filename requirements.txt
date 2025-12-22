@@ -11,6 +11,7 @@ open3d
 vtk
 torchvision
 torch
+torch_geometric
 psutil
 medpy
 pyvista
