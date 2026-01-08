@@ -274,7 +274,7 @@ class MorphoGNN_SampleGenerator:
                     probs = wts / wts.sum()
 
                 idx = rng.choice(len(pts), p=probs)
-                sampled[renaming[lm]] = pts[idx]  # .tolist()
+                sampled[lm] = pts[idx]  # .tolist()
             sets.append(sampled)
 
         return sets
@@ -345,12 +345,12 @@ class MorphoGNN_SampleGenerator:
         center_by_case = {}
 
         renaming = {}
-        renaming['R_land'] = 'R'
-        renaming['L_land'] = 'L'
-        renaming['N_land'] = 'N'
-        renaming['RLC_land'] = 'RLC'
-        renaming['RNC_land'] = 'RNC'
-        renaming['LNC_land'] = 'LNC'
+        renaming['R'] = 'R_land'
+        renaming['L'] = 'L_land'
+        renaming['N'] = 'N_land'
+        renaming['RLC'] = 'RLC_land'
+        renaming['RNC'] = 'RNC_land'
+        renaming['LNC'] = 'LNC_land'
 
         for case, lm_dict in bank.items():
             if case not in allowed_cases:
@@ -362,7 +362,7 @@ class MorphoGNN_SampleGenerator:
                 pts = np.asarray(payload["candidate_points"], dtype=float)
                 if len(pts) == 0:
                     raise ValueError(f"Case {case}, landmark {lm_name} has no candidates.")
-                sample[renaming[lm_name]] = pts[0]  # FIRST candidate = center-of-mass
+                sample[lm_name] = pts[0]  # FIRST candidate = center-of-mass
 
             metr = landmarking_computeMeasurements_simplified(sample)
             center_by_case[case] = metr.get_all_metrics()

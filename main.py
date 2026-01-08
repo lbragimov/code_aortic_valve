@@ -380,14 +380,14 @@ def controller(data_path, cpus):
         controller_dump["nnUNet_gh_lines_train"] = True
         yaml_save(controller_dump, controller_path)
 
-    if not controller_dump.get("gnn_metrics_train"):
+    if not controller_dump.get("gnn_metrics_train_test"):
         num = controller_dump["number_6_landmarks"]
         name = controller_dump["name_6_landmarks"]
         result_nnunet_landmarks_folder = os.path.join(nnUNet_folder, "nnUNet_test", f"Dataset{num}_{name}")
         process_gnn(result_6_nnunet_folder=result_nnunet_landmarks_folder, gnn_folder=gnn_folder,
                     train_test_lists=train_test_lists, json_info_folder=json_info_folder,
                     create_ds=False, training_mod=False, testing_mod=True)
-        controller_dump["gnn_metrics_train"] = True
+        controller_dump["gnn_metrics_train_test"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump["duplication_geometric_heights"]:

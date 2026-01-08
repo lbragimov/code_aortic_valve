@@ -17,7 +17,7 @@ duplication_geometric_heights: true
 experiment: true
 find_and_create_mask_gh_landmark: true
 find_geometric_heights: true
-gnn_metrics_train: true
+gnn_metrics_train_test: true
 json_landmarks_mask_coord: true
 mask_6_landmarks: true
 mask_aorta_segment: true
