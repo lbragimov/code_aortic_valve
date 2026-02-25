@@ -132,7 +132,7 @@ def _plot_group(df, parameter_keys, save_path, title):
     group_spacing = 0.4  # расстояние между группами
     width_per_group = 0.5  # ширина на одну пару (в дюймах)
     base_margin = 1.2  # боковые поля
-    fixed_height = 6
+    fixed_height = 5
 
     for m in parameter_keys.keys():
         labels.append(parameter_keys[m][0])  # берём label
@@ -197,7 +197,7 @@ def _plot_group(df, parameter_keys, save_path, title):
     ax.set_xticklabels(labels=labels)#, rotation=45, ha="right")
 
     # ax.set_ylabel("Absolute Error")
-    ax.set_title(title)
+    # ax.set_title(title)
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
