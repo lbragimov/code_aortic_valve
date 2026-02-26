@@ -147,8 +147,8 @@ def _plot_group(df, parameter_keys, save_path, title):
         if len(gnn_vals) == 0 and len(center_vals) == 0:
             continue
 
-        data.append(gnn_vals)
         data.append(center_vals)
+        data.append(gnn_vals)
 
         temp1= parameter_keys[m][0]
         temp = parameter_keys[m][1]
@@ -185,9 +185,9 @@ def _plot_group(df, parameter_keys, save_path, title):
     # --- покраска ---
     for i, patch in enumerate(box["boxes"]):
         if i % 2 == 0:
-            patch.set_facecolor("#4C72B0")  # GNN
-        else:
             patch.set_facecolor("#DD8452")  # Center
+        else:
+            patch.set_facecolor("#4C72B0")  # GNN
 
     # --- разделительные линии ---
     for sep in separator_positions[:-1]:
@@ -195,8 +195,8 @@ def _plot_group(df, parameter_keys, save_path, title):
 
     # --- легенда ---
     legend_elements = [
-        Patch(facecolor="#4C72B0", label="GNN"),
-        Patch(facecolor="#DD8452", label="Center of mass")
+        Patch(facecolor="#DD8452", label="Center of mass"),
+        Patch(facecolor="#4C72B0", label="GNN")
     ]
     ax.legend(handles=legend_elements)
 
@@ -226,38 +226,38 @@ def creat_box_plot(result_path, file_name):
     # measurements = sorted(df["measurement"].unique())
 
     length_par_dict ={
-        'IC_R': ["lm1","Right intercommissural distance"],
-        'IC_L': ["lm2", "Left intercommissural distance"],
-        'IC_N': ["lm3", "Non-coronary intercommissural distance"],
-        'IC_distance': ["lm4", "Mean intercommissural distance"],
-        'BR_perimeter': ["lm5", "Basal ring perimeter"],
-        'BR_max': ["lm6", "Maximum basal ring diameter"],
-        'BR_min': ["lm7", "Minimum basal ring diameter"],
-        'BR_diameter': ["lm8", "Mean basal ring diameter"],
-        'RL_comm_height': ["lm9", "Commissural height between right and left leaflets"],
-        'RN_comm_height': ["lm10", "Commissural height between right and non-coronary leaflets"],
-        'LN_comm_height': ["lm11", "Commissural height between left and non-coronary leaflets"],
-        'mean_comm_heigh': ["lm12", "Mean commissural height"],
-        'ST_perimeter': ["lm13", "Sino-tubular junction perimeter"],
-        'ST_max': ["lm14", "Maximum STJ diameter"],
-        'ST_min': ["lm15", "Minimum STJ diameter"],
-        'ST_diameter': ["lm16", "Mean STJ diameter"],
-        'commissural_diameter': ["lm17", "Commissural diameter"],
-        'centroid_valve_height': ["lm18", "Centroid valve height"]
+        'BR_perimeter': ["BR_per", "Basal ring perimeter"],
+        'BR_max': ["BR_max", "Maximum basal ring diameter"],
+        'BR_min': ["BR_min", "Minimum basal ring diameter"],
+        'BR_diameter': ["BR_avg", "Mean basal ring diameter"],
+        'IC_R': ["IC_R","Right intercommissural distance"],
+        'IC_L': ["IC_L", "Left intercommissural distance"],
+        'IC_N': ["IC_N", "Non-coronary intercommissural distance"],
+        'IC_distance': ["IC_avg", "Mean intercommissural distance"],
+        'RL_comm_height': ["CH_RL", "Commissural height between right and left leaflets"],
+        'RN_comm_height': ["CH_RN", "Commissural height between right and non-coronary leaflets"],
+        'LN_comm_height': ["CH_LN", "Commissural height between left and non-coronary leaflets"],
+        'mean_comm_heigh': ["CH_avg", "Mean commissural height"],
+        'ST_perimeter': ["ST_per", "Sino-tubular junction perimeter"],
+        'ST_max': ["ST_max", "Maximum STJ diameter"],
+        'ST_min': ["ST_min", "Minimum STJ diameter"],
+        'ST_diameter': ["ST_avg", "Mean STJ diameter"],
+        'commissural_diameter': ["CD", "Commissural diameter"],
+        'centroid_valve_height': ["CVH", "Centroid valve height"]
     }
 
     angle_par_dict = {
-        'R_flat_angle': ["am1", "Right leaflet flat angle"],
-        'L_flat_angle': ["am2", "Left leaflet flat angle"],
-        'N_flat_angle': ["am3", "Non-coronary leaflet flat angle"],
-        'R_vertical_angle': ["am4", "Right leaflet vertical angle"],
-        'L_vertical_angle': ["am5", "Left leaflet vertical angle"],
-        'N_vertical_angle': ["am6", "Non-coronary leaflet vertical angle"],
-        'mean_vertical_angle': ["am7", "Mean vertical leaflet angle"],
-        'RL_angle': ["am8", "Angle between right and left leaflets"],
-        'RN_angle': ["am9", "Angle between right and non-coronary leaflets"],
-        'LN_angle': ["am10", "Angle between left and non-coronary leaflets"],
-        'BR_C_plane_angle': ["am11", "Angle between the basal ring plane and the commissural plane"]
+        'RL_angle': ["LA_RL", "Angle between right and left leaflets"],
+        'RN_angle': ["LA_RN", "Angle between right and non-coronary leaflets"],
+        'LN_angle': ["LA_LN", "Angle between left and non-coronary leaflets"],
+        'R_flat_angle': ["FA_R", "Right leaflet flat angle"],
+        'L_flat_angle': ["FA_L", "Left leaflet flat angle"],
+        'N_flat_angle': ["FA_N", "Non-coronary leaflet flat angle"],
+        'R_vertical_angle': ["VA_R", "Right leaflet vertical angle"],
+        'L_vertical_angle': ["VA_L", "Left leaflet vertical angle"],
+        'N_vertical_angle': ["VA_N", "Non-coronary leaflet vertical angle"],
+        'mean_vertical_angle': ["VA_avg", "Mean vertical leaflet angle"],
+        'BR_C_plane_angle': ["BCA", "Angle between the basal ring plane and the commissural plane"]
     }
     # 'mean_commissural_angle': "Mean commissural angle",
 
@@ -290,6 +290,7 @@ def creat_box_plot(result_path, file_name):
 
 if __name__ == "__main__":
 
-    result_path = r'C:\Users\Kamil\Aortic_valve\data\gnn_folder\results'
+    # result_path = r'C:\Users\Kamil\Aortic_valve\data\gnn_folder\results'
+    result_path = r'D:\science\Aortic_valve\GNN\results'
     file_name = "gnn_vs_center_comparison.csv"
     creat_box_plot(result_path, file_name)
