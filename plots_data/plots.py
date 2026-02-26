@@ -150,6 +150,13 @@ def _plot_group(df, parameter_keys, save_path, title):
         data.append(gnn_vals)
         data.append(center_vals)
 
+        temp1= parameter_keys[m][0]
+        temp = parameter_keys[m][1]
+        gnn_mean = gnn_vals.mean()
+        gnn_sd = gnn_vals.std()
+        center_mean = center_vals.mean()
+        center_sd = center_vals.std()
+
         positions.append(pos)
         positions.append(pos + pair_spacing)
 
@@ -168,10 +175,11 @@ def _plot_group(df, parameter_keys, save_path, title):
         positions=positions,
         widths=box_widths,
         patch_artist=True,
-        showmeans=False,
+        showmeans=True,
         meanline=True,
         showfliers=False,
-        medianprops = dict(color="black", linewidth=1.5)
+        meanprops=dict(color="black", linewidth=1.5),
+        medianprops = dict(color="none")
     )
 
     # --- покраска ---
