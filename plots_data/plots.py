@@ -130,7 +130,7 @@ def _plot_group(df, parameter_keys, save_path, title):
     box_widths = 0.2 # ширина бара
     pair_spacing = 0.3  # расстояние внутри пары
     group_spacing = 0.4  # расстояние между группами
-    width_per_group = 0.5  # ширина на одну пару (в дюймах)
+    width_per_group = 0.6  # ширина на одну пару (в дюймах)
     base_margin = 1.2  # боковые поля
     fixed_height = 5
 
@@ -204,7 +204,7 @@ def _plot_group(df, parameter_keys, save_path, title):
     ax.set_xticks(group_centers)
     ax.set_xticklabels(labels=labels)#, rotation=45, ha="right")
 
-    # ax.set_ylabel("Absolute Error")
+    ax.set_ylabel(title)
     # ax.set_title(title)
 
     plt.tight_layout()
@@ -271,12 +271,12 @@ def creat_box_plot(result_path, file_name):
     _plot_group(df,
                 length_par_dict,
                 plot_length_img_path,
-               "Length Measurements, mm")
+               "MAE, mm")
 
     _plot_group(df,
                 angle_par_dict,
                 plot_angle_img_path,
-               "Angle Measurements, °")
+               "MAE, °")
 
     _create_summary_table_plot(df, length_par_dict,
                                length_table_path,
@@ -290,7 +290,7 @@ def creat_box_plot(result_path, file_name):
 
 if __name__ == "__main__":
 
-    # result_path = r'C:\Users\Kamil\Aortic_valve\data\gnn_folder\results'
-    result_path = r'D:\science\Aortic_valve\GNN\results'
+    result_path = r'C:\Users\Kamil\Aortic_valve\data\gnn_folder\results'
+    # result_path = r'D:\science\Aortic_valve\GNN\results'
     file_name = "gnn_vs_center_comparison.csv"
     creat_box_plot(result_path, file_name)
