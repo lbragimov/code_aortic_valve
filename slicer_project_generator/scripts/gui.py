@@ -16,10 +16,10 @@ def ask_add_gh_results(folder_path):
     def _on_mousewheel(event):
         canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-    # при прокрутке колесом — обновляем положение ползунка
-    def on_scroll(*args):
-        canvas.yview(*args)
-        scrollbar.set(*args)
+    # # при прокрутке колесом — обновляем положение ползунка
+    # def on_scroll(*args):
+    #     canvas.yview(*args)
+    #     scrollbar.set(*args)
 
     # кнопки
     def confirm():
@@ -81,7 +81,7 @@ def ask_add_gh_results(folder_path):
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
-    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    canvas.bind("<MouseWheel>", _on_mousewheel)
 
     # создаем чекбоксы
     vars_ = []
@@ -92,7 +92,7 @@ def ask_add_gh_results(folder_path):
         chk.pack(anchor="w", pady=2)
         vars_.append((var, f))
 
-    canvas.configure(yscrollcommand=on_scroll)
+    canvas.configure(yscrollcommand=scrollbar.set)
 
     button_frame = tk.Frame(root)
     button_frame.pack(pady=10)

@@ -40,6 +40,8 @@ TEMPLATE_MAP = {
     "GeometricHeight_R_pred.json": ("RGH_p",          "GeometricHeight_R_pred"),
 }
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def fill_template(case_data, template, key, label_prefix, assoc_node="vtkMRMLScalarVolumeNode1"):
     points_list = []
     for n, point in enumerate(case_data[key], start=1):
@@ -153,7 +155,8 @@ class ProjectGenerator:
         self.original_aorta_mask_folder = original_aorta_mask_folder
         self.case_data = case_data
         # self.base_path = base_path
-        self.templates_folder = "templates"
+        self.templates_folder = os.path.join(BASE_DIR, "templates")
+        # self.templates_folder = "templates"
         self.attentions = []
         self.gh_lines_pred_mask_file = gh_lines_pred_mask_file
         self.gh_pred_data = None

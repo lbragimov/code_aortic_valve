@@ -1,6 +1,6 @@
 SimpleITK
 nibabel
-numpy
+numpy==1.26.4
 pandas
 matplotlib
 totalsegmentator
@@ -16,4 +16,5 @@ psutil
 medpy
 pyvista
 pycpd
+scikit-image==0.21.0
 git+https://github.com/gasperpodobnik/MeshMetrics.git

@@ -1,7 +1,7 @@
 import os
-from scripts.gui import CaseSelector
-from scripts.generator import ProjectGenerator
-from scripts.utils import get_available_cases, json_reader
+from slicer_project_generator.scripts.gui import CaseSelector
+from slicer_project_generator.scripts.generator import ProjectGenerator
+from slicer_project_generator.scripts.utils import get_available_cases, json_reader
 
 def main(data_path):
     dict_all_case_path = os.path.join(data_path, "dict_all_case.json")
