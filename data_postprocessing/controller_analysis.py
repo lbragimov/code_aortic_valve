@@ -202,7 +202,7 @@ def gh_lines_analysis(data_path,
         data_table_2 = [
             ["All",
              round(df_2["ASD"].mean(numeric_only=True), 2),
-             int(len(df["group"]))],
+             int(len(df_2["group"]))],
             ["German\npathology",
              round(df_2[df_2['group'] == "g"]["ASD"].mean(numeric_only=True), 2),
              int(len(df_2[df_2['group'] == "g"]))],

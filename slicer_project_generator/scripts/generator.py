@@ -6,8 +6,9 @@ import SimpleITK as sitk
 from tkinter import messagebox, Tk
 from slicer_project_generator.scripts.utils import json_reader, json_save
 import re
-from data_postprocessing.controller_analysis import load_mask
+from data_postprocessing.controller_analysis import load_mask, load_labels_mask_sitk
 from data_postprocessing.mask_analysis import new_spline_from_pixel_coord
+from data_postprocessing.vtk_analysis import CenterlineExtractor
 
 # from pyarrow import output_stream
 
@@ -176,6 +177,35 @@ class ProjectGenerator:
             gh_dict = {}
         return gh_dict
 
+    def _gh_pred_data_generate_2(self, n_samples=10):
+        if self.gh_lines_pred_mask_file:
+            gh_dict = {}
+            keys_gh = {1: 'RGH_p', 2: 'LGH_p', 3: 'NGH_p'}
+            masks_pred, levels_pred = load_mask(self.gh_lines_pred_mask_file, False)
+            vtk_curve_extractor = CenterlineExtractor()
+
+            for label in range(1, levels_pred + 1):
+                mask_pred = (masks_pred == label).astype(np.uint8)
+                mask_sitk = load_labels_mask_sitk(self.gh_lines_pred_mask_file, label)
+                segments = vtk_curve_extractor.run(mask_pred, mask_sitk)
+
+                pts_vtk = segments.GetPoints()
+                n_pts = pts_vtk.GetNumberOfPoints()
+                pts = np.array([pts_vtk.GetPoint(i) for i in range(n_pts)])
+
+                d = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+                t = np.concatenate([[0], np.cumsum(d)])
+                t /= t[-1]
+                t_new = np.linspace(0, 1, n_samples)
+                new_points = np.column_stack([
+                    np.interp(t_new, t, pts[:, i]) for i in range(3)
+                ])
+
+                gh_dict[keys_gh[label]] = new_points
+        else:
+            gh_dict = {}
+        return gh_dict
+
     def check_and_prepare_folder(self, case_folder_path):
         """Проверяет наличие папки и при необходимости очищает её."""
         root = Tk()
@@ -237,7 +267,7 @@ class ProjectGenerator:
                 json_save(new_json, os.path.join(case_folder_path, filename))
 
     def generate(self):
-        self.gh_pred_data = self._gh_pred_data_generate()
+        self.gh_pred_data = self._gh_pred_data_generate_2()
 
         case_folder_path = os.path.join(self.output_folder, self.case_name)
 
