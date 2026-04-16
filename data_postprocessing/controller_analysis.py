@@ -45,14 +45,16 @@ def load_labels_mask_sitk(file_path, label):
     return mask_sitk
 
 
-def gh_lines_analysis(data_path,
-                      result_path,
-                      folder_name,
-                      dict_cases,
-                      probabilities_map=True,
-                      original_mask=False,
-                      points2points=False,
-                      curve2points=False):
+def curve_lines_analysis(data_path,
+                         result_path,
+                         folder_name,
+                         dict_cases,
+                         keys_to_need,
+                         name_result_folder,
+                         probabilities_map=True,
+                         original_mask=False,
+                         points2points=False,
+                         curve2points=False):
 
     date_str = datetime.now().strftime("%d_%m_%y")
     result_folder_path = os.path.join(result_path, f"{folder_name}_{date_str}")
@@ -123,7 +125,7 @@ def gh_lines_analysis(data_path,
         for metric_name in metrics_name:
             data_for_plot = df[['group', metric_name]].dropna(how='any')
             plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
-                                  os.path.join(str(result_folder_path), "geometric_height_comparison"))
+                                  os.path.join(str(result_folder_path), name_result_folder))
         data_table = [
             ["All",
              round(df["RMSD"].mean(numeric_only=True), 2),
@@ -198,7 +200,7 @@ def gh_lines_analysis(data_path,
         for metric_name in metrics_name_2:
             data_for_plot = df_2[['group', metric_name]].dropna(how='any')
             plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
-                                  os.path.join(str(result_folder_path), "geometric_height_comparison_2"))
+                                  os.path.join(str(result_folder_path), name_result_folder, "_2"))
         data_table_2 = [
             ["All",
              round(df_2["ASD"].mean(numeric_only=True), 2),

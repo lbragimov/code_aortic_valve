@@ -49,7 +49,7 @@ def _world_to_voxel(coord, image):
     return np.round(voxel_coord).astype(int)
 
 
-def process_mask_gh_lines(image_path, dict_case, output_path, radius, keys_to_need=None, step_vox=0.5):
+def process_mask_curve_lines(image_path, dict_case, output_path, radius, keys_to_need=None, step_vox=0.5):
     """
     Creates a mask with multiple curves, where each curve has its own mask value.
 

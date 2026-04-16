@@ -37,6 +37,8 @@ class nnUnet_trainer:
     def train(self, task_id, fold=0, network="3d_fullres"):
 
         add_info_logging(f"{torch.device(type='cuda', index=2)}", "work_logger")
+        #env = os.environ.copy()
+        #env["CUDA_VISIBLE_DEVICES"] = ""  # пустая строка = нет GPU = CPU режим
 
         # Define the task ID and fold
         command = [
