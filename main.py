@@ -27,6 +27,7 @@ from data_visualization.markers import (slices_with_markers, process_markers, fi
 from models.controller_nnUnet import process_nnunet
 from experiments.nnUnet_experiments import experiment_training
 from models.controller_GNN import process_gnn
+from data_preprocessing.oblique_slice_extractor import find_global_2d_size, extract_2d_slice_pair
 
 # from optimization.parallelization import division_processes
 
@@ -70,6 +71,9 @@ def controller(data_path, cpus):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     gnn_folder = os.path.join(data_path, "gnn_folder")
     mask_aorta_segment_folder = os.path.join(data_path, "mask_aorta_segment")
+    mask_aorta_segment_crop_folder = os.path.join(data_path, "mask_aorta_segment_crop")
+    image_br_2d_folder = os.path.join(data_path, "image_basal_ring_2d")
+    mask_br_2d_folder = os.path.join(data_path, "mask_basal_ring_2d")
     mask_6_landmarks_folder = os.path.join(data_path, "mask_6_landmarks")
     mask_gh_landmark_folder = os.path.join(data_path, "mask_gh_landmark")
     mask_gh_lines_folder = os.path.join(data_path, "mask_gh_lines")
@@ -302,6 +306,77 @@ def controller(data_path, cpus):
                           output_image_path=str(os.path.join(image_crop_folder, case)),
                           size=global_size)
         controller_dump["crop_images"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("crop_mask_aorta_segment"):
+        clear_folder(mask_aorta_segment_crop_folder)
+
+        for case in os.listdir(mask_aorta_segment_folder):
+            mask_path = str(os.path.join(mask_aorta_segment_folder, case))
+            cropped_image(mask_image_path=mask_path,
+                          input_image_path=mask_path,
+                          output_image_path=str(os.path.join(mask_aorta_segment_crop_folder, case)),
+                          size=global_size)
+        controller_dump["crop_mask_aorta_segment"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("extract_2d_slices"):
+
+        if not controller_dump.get("crop_br_2d_size"):
+            global_2d_size = find_global_2d_size(
+                mask_crop_folder=mask_aorta_segment_crop_folder,
+                dict_all_case=dict_all_case,
+                initial_size=512,
+                padding=10
+            )
+            controller_dump["crop_br_2d_size"] = global_2d_size
+            yaml_save(controller_dump, controller_path)
+        else:
+            global_2d_size = controller_dump["crop_br_2d_size"]
+
+        clear_folder(image_br_2d_folder)
+        clear_folder(mask_br_2d_folder)
+
+        for case_name, points_dict in dict_all_case.items():
+            image_3d_path = os.path.join(image_crop_folder, f"{case_name}.nii.gz")
+            mask_3d_path = os.path.join(mask_aorta_segment_crop_folder, f"{case_name}.nii.gz")
+
+            if not os.path.isfile(image_3d_path) or not os.path.isfile(mask_3d_path):
+                add_info_logging(f"Skipping {case_name}: 3D file not found.", "work_logger")
+                continue
+
+            extract_2d_slice_pair(
+                image_3d_path=image_3d_path,
+                mask_3d_path=mask_3d_path,
+                image_2d_path=os.path.join(image_br_2d_folder, f"{case_name}.nii.gz"),
+                mask_2d_path=os.path.join(mask_br_2d_folder, f"{case_name}.nii.gz"),
+                r=points_dict['R'][0], l=points_dict['L'][0], n=points_dict['N'][0],
+                size_hw=global_2d_size
+            )
+
+        controller_dump["extract_2d_slices"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("nnUNet_br_2d_train"):
+        dict_dataset = {
+            "channel_names": {0: "CT"},
+            "labels": {'background': 0, 'aortic_valve': 1},
+            "file_ending": ".nii.gz"
+        }
+        num = controller_dump["number_br_2d"]
+        name = controller_dump["name_br_2d"]
+        process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{num}_{name}", id_case=num,
+                       folder_image_path=image_br_2d_folder, folder_mask_path=mask_br_2d_folder,
+                       dict_dataset=dict_dataset, train_test_lists=train_test_lists,
+                       create_ds=True, training_mod=True, predicting_mod=True)
+        controller_dump["nnUNet_br_2d_train"] = True
+        yaml_save(controller_dump, controller_path)
+
+    if not controller_dump.get("analys_result_br_2d"):
+        num = controller_dump["number_br_2d"]
+        name = controller_dump["name_br_2d"]
+        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name=f"Dataset{num}_{name}")
+        controller_dump["analys_result_br_2d"] = True
         yaml_save(controller_dump, controller_path)
 
     if not controller_dump.get("mask_6_landmarks"):

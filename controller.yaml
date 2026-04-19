@@ -38,3 +38,5 @@ number_aorta_segment: 421
 number_ci_lines: 425
 number_gh_landmark: 423
 number_gh_lines: 424
+number_br_2d: 426
+name_br_2d: 2DBasalRing
