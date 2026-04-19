@@ -702,7 +702,7 @@ if __name__ == "__main__":
         # data_path = "C:/Users/Kamil/Aortic_valve/data/temp"
         # data_path = "D:/science/Aortic_valve/data/"
     elif current_os == "Linux":
-        data_path = "/home/kamili/data/data_aortic_valve/"
+        data_path = "/home/kamili/aortic_valve/data/"
     else:
         data_path = None
 
