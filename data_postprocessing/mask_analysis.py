@@ -156,6 +156,39 @@ def extract_centerline_from_heatmap(
     return coords
 
 
+def extract_boundary_curve_world(mask_array, mask_sitk):
+    """
+    Extracts a face-connected closed boundary contour from an oblique 2D mask
+    stored as a single-slice nii.gz (shape: 1 x H x W).
+    find_contours traces edges between pixels — each contour point is face-adjacent
+    to its neighbors, no diagonal connections.
+    Returns np.ndarray of shape (N, 3) in world coordinates (mm).
+    """
+    from skimage.measure import find_contours
+
+    origin = np.array(mask_sitk.GetOrigin())
+    spacing = np.array(mask_sitk.GetSpacing())
+    direction = np.array(mask_sitk.GetDirection()).reshape(3, 3)
+
+    slice_2d = (mask_array[0] > 0).astype(np.uint8)  # single oblique slice
+    contours = find_contours(slice_2d, level=0.5)
+    if not contours:
+        return np.empty((0, 3))
+
+    # longest contour = outer boundary of the mask region
+    contour = max(contours, key=len)
+
+    # find_contours returns sub-pixel (row=Y, col=X) at pixel edges
+    # direction matrix maps oblique pixel coords back to 3D world
+    world_points = []
+    for row, col in contour:
+        idx = np.array([col, row, 0.0])  # (X, Y, Z=0) — single slice
+        world = origin + direction @ (idx * spacing)
+        world_points.append(world)
+
+    return np.array(world_points)
+
+
 def mask_comparison(data_path, type_mask, folder_name):
     nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
     result_mask_folder = os.path.join(nnUNet_folder, "nnUNet_test", folder_name)

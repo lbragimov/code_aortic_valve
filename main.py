@@ -20,7 +20,7 @@ from data_preprocessing.crop_nii import cropped_image, find_global_size
 # from data_postprocessing.evaluation_analysis import landmarking_testing
 from data_postprocessing.controller_analysis import (landmarks_analysis, experiment_analysis, mask_analysis,
                                                      find_morphometric_parameters, LandmarkCentersCalculator,
-                                                     curve_lines_analysis)
+                                                     curve_lines_analysis, basal_ring_analysis)
 from data_postprocessing.coherent_point_drift import create_new_gh_json, find_new_curv
 from data_visualization.markers import (slices_with_markers, process_markers, find_mean_gh_landmark,
                                         process_mask_curve_lines)
@@ -375,7 +375,7 @@ def controller(data_path, cpus):
     if not controller_dump.get("analys_result_br_2d"):
         num = controller_dump["number_br_2d"]
         name = controller_dump["name_br_2d"]
-        mask_analysis(data_path, result_folder, type_mask="aortic_valve", folder_name=f"Dataset{num}_{name}")
+        basal_ring_analysis(data_path, result_folder, folder_name=f"Dataset{num}_{name}", dict_cases=dict_all_case)
         controller_dump["analys_result_br_2d"] = True
         yaml_save(controller_dump, controller_path)
 

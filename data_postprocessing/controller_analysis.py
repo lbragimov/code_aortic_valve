@@ -11,7 +11,8 @@ from typing import Dict, List
 from data_postprocessing.evaluation_analysis import compute_metrics_gh_line, compute_metrics_gh_line_v2
 from data_postprocessing.montecarlo import LandmarkingMonteCarlo
 from data_postprocessing.mask_analysis import (mask_comparison, LandmarkCentersCalculator,
-                                               new_spline_from_pixel_coord, load_new_coords_org)
+                                               new_spline_from_pixel_coord, load_new_coords_org,
+                                               extract_boundary_curve_world)
 from data_postprocessing.plotting_graphs import summarize_and_plot, plot_group_comparison, plot_table
 from data_preprocessing.text_worker import add_info_logging
 from models.controller_nnUnet import process_nnunet
@@ -222,6 +223,73 @@ def curve_lines_analysis(data_path,
 
     if points2points or curve2points:
         add_info_logging("Analysis completed", "work_logger")
+
+
+def basal_ring_analysis(data_path, result_path, folder_name, dict_cases):
+    date_str = datetime.now().strftime("%d_%m_%y")
+    result_folder_path = os.path.join(result_path, f"{folder_name}_{date_str}")
+    os.makedirs(result_folder_path, exist_ok=True)
+
+    nnUNet_folder = os.path.join(data_path, "nnUNet_folder")
+    result_mask_folder = os.path.join(nnUNet_folder, "nnUNet_test", folder_name)
+
+    per_case_csv = os.path.join(str(result_folder_path), "per_case_metrics_br.csv")
+
+    group_label_map = {
+        "all": "All",
+        "g": "Ger. path.",
+        "p": "Slo. path.",
+        "n": "Slo. norm."
+    }
+
+    if os.path.exists(per_case_csv):
+        add_info_logging("Using cached metrics from CSV files", "work_logger")
+        df = pd.read_csv(per_case_csv)
+    else:
+        per_case_data = []
+        files = list(Path(result_mask_folder).glob("*.nii.gz"))
+
+        for file_path in files:
+            case_name = file_path.name[:-7]
+            first_char = case_name[0]
+
+            if case_name not in dict_cases or "BR - closed" not in dict_cases[case_name]:
+                add_info_logging(f"Missing BR - closed for case: {case_name}", "work_logger")
+                continue
+
+            mask_sitk = sitk.ReadImage(str(file_path))
+            mask_array = sitk.GetArrayFromImage(mask_sitk)
+
+            pred_boundary = extract_boundary_curve_world(mask_array, mask_sitk)
+            if len(pred_boundary) < 2:
+                add_info_logging(f"Empty predicted boundary for case: {case_name}", "work_logger")
+                continue
+
+            gt_points = np.array(dict_cases[case_name]["BR - closed"])
+
+            # For each GT point find nearest predicted boundary point (curve2points approach)
+            distances = [np.sqrt(np.sum((pred_boundary - p) ** 2, axis=1)).min() for p in gt_points]
+            asd = float(np.mean(distances))
+
+            per_case_data.append({"case": case_name, "group": first_char, "ASD": round(asd, 3)})
+
+        df = pd.DataFrame(per_case_data)
+        df.to_csv(per_case_csv, index=False)
+
+    for metric_name in ["ASD"]:
+        data_for_plot = df[['group', metric_name]].dropna(how='any')
+        plot_group_comparison('group', metric_name, group_label_map, data_for_plot,
+                              os.path.join(str(result_folder_path), "basal_ring_comparison"))
+
+    data_table = [
+        ["All", round(df["ASD"].mean(numeric_only=True), 2), int(len(df["group"]))],
+        ["German\npathology", round(df[df['group'] == "g"]["ASD"].mean(numeric_only=True), 2), int(len(df[df['group'] == "g"]))],
+        ["Slovenian\npathology", round(df[df['group'] == "p"]["ASD"].mean(numeric_only=True), 2), int(len(df[df['group'] == "p"]))],
+        ["Slovenian\nnormal", round(df[df['group'] == "n"]["ASD"].mean(numeric_only=True), 2), int(len(df[df['group'] == "n"]))],
+    ]
+    columns = ["Type", "Average Surface\nDistance, mm", "Number of\nimages"]
+    plot_table(data_table, columns, os.path.join(result_folder_path, f"br_errors_{folder_name}.png"))
+    add_info_logging("Basal ring analysis completed", "work_logger")
 
 
 def mask_analysis(data_path, result_path, type_mask, folder_name):
