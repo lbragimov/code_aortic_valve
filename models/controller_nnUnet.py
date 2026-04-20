@@ -55,7 +55,8 @@ def _copy_img(input_imgs_path, output_folder, rename=False):
 
 def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
                    folder_mask_path, dict_dataset, train_test_lists, create_ds=False,
-                   training_mod=False, predicting_mod=False, save_probabilities=True):
+                   training_mod=False, predicting_mod=False, save_probabilities=True,
+                   network="3d_fullres"):
 
     folder = Path(folder)
 
@@ -93,7 +94,7 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
     if training_mod:
         model_nnUnet = nnUnet_trainer(str(folder))
         model_nnUnet.preprocessing(task_id=id_case)
-        model_nnUnet.train(task_id=id_case, fold="all")
+        model_nnUnet.train(task_id=id_case, fold="all", network=network)
 
     if predicting_mod:
         input_folder = Path(folder / "nnUNet_raw" / ds_folder_name / "imagesTs")
@@ -102,4 +103,5 @@ def process_nnunet(folder, ds_folder_name, id_case, folder_image_path,
         model_nnUnet.predicting(input_folder=str(input_folder),
                                 output_folder=str(output_folder),
                                 task_id=id_case, fold="all",
-                                save_probabilities=save_probabilities)
+                                save_probabilities=save_probabilities,
+                                network=network)

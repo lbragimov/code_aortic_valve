@@ -368,7 +368,7 @@ def controller(data_path, cpus):
         process_nnunet(folder=nnUNet_folder, ds_folder_name=f"Dataset{num}_{name}", id_case=num,
                        folder_image_path=image_br_2d_folder, folder_mask_path=mask_br_2d_folder,
                        dict_dataset=dict_dataset, train_test_lists=train_test_lists,
-                       create_ds=True, training_mod=True, predicting_mod=True)
+                       create_ds=True, training_mod=True, predicting_mod=True, network="2d")
         controller_dump["nnUNet_br_2d_train"] = True
         yaml_save(controller_dump, controller_path)
 
