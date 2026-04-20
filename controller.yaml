@@ -1,5 +1,6 @@
 analys_result_6_landmarks: true
 analys_result_aorta_segment: true
+analys_result_br_2d: true
 analys_result_gh_landmark: true
 analys_result_gh_lines: true
 calc_morphometric: true
@@ -8,13 +9,18 @@ convert_resample_dicom: true
 create_dict_all_case: true
 create_new_train_test_lists: true
 create_train_test_lists: true
+crop_br_2d_size:
+- 154
+- 144
 crop_images: true
 crop_img_size:
 - 180
 - 246
 - 196
+crop_mask_aorta_segment: true
 duplication_geometric_heights: true
 experiment: true
+extract_2d_slices: true
 find_and_create_mask_gh_landmark: true
 find_geometric_heights: true
 gnn_metrics_train_test: true
@@ -25,18 +31,19 @@ mask_ci_lines: true
 mask_gh_lines: true
 name_6_landmarks: SixAortaLandmarks
 name_aorta_segment: AortaSegment
+name_br_2d: 2DBasalRing
 name_ci_lines: CILines
 name_gh_landmark: GhLandmark
 name_gh_lines: GhLines
 nnUNet_6_landmarks_train: true
 nnUNet_aorta_segment_train: true
+nnUNet_br_2d_train: true
 nnUNet_ci_lines_train: true
 nnUNet_gh_landmark_train: true
 nnUNet_gh_lines_train: true
 number_6_landmarks: 422
 number_aorta_segment: 421
+number_br_2d: 426
 number_ci_lines: 425
 number_gh_landmark: 423
 number_gh_lines: 424
-number_br_2d: 426
-name_br_2d: 2DBasalRing
