@@ -178,15 +178,13 @@ def extract_boundary_curve_world(mask_array, mask_sitk):
     # longest contour = outer boundary of the mask region
     contour = max(contours, key=len)
 
-    # find_contours returns sub-pixel (row=Y, col=X) at pixel edges
-    # direction matrix maps oblique pixel coords back to 3D world
-    world_points = []
-    for row, col in contour:
-        idx = np.array([col, row, 0.0])  # (X, Y, Z=0) — single slice
-        world = origin + direction @ (idx * spacing)
-        world_points.append(world)
+    # Vectorized conversion: (row=Y, col=X) → world coords
+    # idx_array shape (N,3): columns = (X=col, Y=row, Z=0)
+    coords = np.array(contour)  # (N, 2)
+    idx_array = np.column_stack([coords[:, 1], coords[:, 0], np.zeros(len(coords))])
+    world_points = (idx_array * spacing) @ direction.T + origin  # (N, 3)
 
-    return np.array(world_points)
+    return world_points
 
 
 def mask_comparison(data_path, type_mask, folder_name):

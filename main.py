@@ -664,8 +664,9 @@ def controller(data_path, cpus):
         curve_lines_analysis(data_path, result_folder, folder_name=f"Dataset{num}_{name}",
                              dict_cases=dict_all_case, keys_to_need={1: 'RGH', 2: 'LGH', 3: 'NGH'},
                              name_result_folder="geometric_height_comparison",
+                             spline_smoothing=0.5,
                              probabilities_map=False, original_mask=True,
-                             points2points=True, curve2points=True)
+                             points2points=False, curve2points=True)
         controller_dump["analys_result_gh_lines"] = True
         yaml_save(controller_dump, controller_path)
 
@@ -675,8 +676,9 @@ def controller(data_path, cpus):
         curve_lines_analysis(data_path, result_folder, folder_name=f"Dataset{num}_{name}",
                              dict_cases=dict_all_case, keys_to_need = {1: 'RCI', 2: 'LCI', 3: 'NCI'},
                              name_result_folder="cusp_insertion_comparison",
+                             spline_smoothing=0.1,
                              probabilities_map=False, original_mask=True,
-                             points2points=True, curve2points=True)
+                             points2points=False, curve2points=True)
         controller_dump["analys_result_ci_lines"] = True
         yaml_save(controller_dump, controller_path)
 

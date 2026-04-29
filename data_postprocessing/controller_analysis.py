@@ -52,6 +52,7 @@ def curve_lines_analysis(data_path,
                          dict_cases,
                          keys_to_need,
                          name_result_folder,
+                         spline_smoothing=1.0,
                          probabilities_map=True,
                          original_mask=False,
                          points2points=False,
@@ -70,18 +71,17 @@ def curve_lines_analysis(data_path,
         "p": "Slo. path.",
         "n": "Slo. norm."
     }
-    keys_to_need = {1: 'RGH', 2: 'LGH', 3: 'NGH'}
 
     if points2points:
-        per_case_csv = os.path.join(str(result_folder_path), "per_case_metrics.csv")
+        per_case_p2p_csv = os.path.join(str(result_folder_path), "per_case_p2p_metrics.csv")
         metrics_name = ["RMSD", "MED", "SD", "LengthDiff"]
 
-        if os.path.exists(per_case_csv):
+        if os.path.exists(per_case_p2p_csv):
             # Загружаем данные из файлов
             add_info_logging("Using cached metrics from CSV files", "work_logger")
-            df = pd.read_csv(per_case_csv)
+            df = pd.read_csv(per_case_p2p_csv)
         else:
-            per_case_data = []
+            per_case_p2p_data = []
 
             ext = "*.npz" if probabilities_map else "*.nii.gz"
             files = list(Path(result_mask_folder).glob(ext))
@@ -117,11 +117,11 @@ def curve_lines_analysis(data_path,
                 metrics["MED"] = np.mean(med_metric)
                 metrics["SD"] = np.mean(sd_metric)
                 metrics["LengthDiff"] = np.mean(ld_metric)
-                per_case_data.append(metrics)
+                per_case_p2p_data.append(metrics)
 
             # Сохраняем метрики по кейсам
-            df = pd.DataFrame(per_case_data)
-            df.to_csv(per_case_csv, index=False)
+            df = pd.DataFrame(per_case_p2p_data)
+            df.to_csv(per_case_p2p_csv, index=False)
 
         for metric_name in metrics_name:
             data_for_plot = df[['group', metric_name]].dropna(how='any')
@@ -156,23 +156,25 @@ def curve_lines_analysis(data_path,
         columns = ["Type", "Root Mean Square\nDistancer, mm", "Mean Euclidean\nDistance, mm",
                    "Standard Deviation\nof Distances, mm", "Mean Length\nDifference, mm", "Number of\nimages"]
 
-        results_table_path = os.path.join(result_folder_path, f"landmark_errors_{folder_name}.png")
-        plot_table(data_table, columns, results_table_path)
+        results_table_p2p_path = os.path.join(result_folder_path, f"landmark_errors_p2p_{folder_name}.png")
+        plot_table(data_table, columns, results_table_p2p_path)
 
     if curve2points:
-        per_case_csv_2 = os.path.join(str(result_folder_path), "per_case_metrics_2.csv")
-        metrics_name_2 = ["ASD"]
+        per_case_c2p_csv = os.path.join(str(result_folder_path), "per_case_c2p_metrics.csv")
+        not_found_csv = os.path.join(str(result_folder_path), "not_found_curves.csv")
+        metrics_name_2 = ["MPCD"]
 
-        if os.path.exists(per_case_csv_2):
-            # Загружаем данные из файлов
+        if os.path.exists(per_case_c2p_csv):
             add_info_logging("Using cached metrics from CSV files", "work_logger")
-            df_2 = pd.read_csv(per_case_csv_2)
+            df_2 = pd.read_csv(per_case_c2p_csv)
+            df_nf = pd.read_csv(not_found_csv) if os.path.exists(not_found_csv) else pd.DataFrame()
         else:
-            per_case_data_2 = []
+            per_case_c2p_data = []
+            not_found_data = []
 
             ext = "*.npz" if probabilities_map else "*.nii.gz"
             files = list(Path(result_mask_folder).glob(ext))
-            vtk_curve_extractor = CenterlineExtractor()
+            vtk_curve_extractor = CenterlineExtractor(spline_smoothing=spline_smoothing)
 
             for file_path in files:
                 asd_metric = []
@@ -187,16 +189,32 @@ def curve_lines_analysis(data_path,
                         mask_pred = (masks_pred == label).astype(np.uint8)
                     mask_sitk = load_labels_mask_sitk(file_path, label)
                     vtk_curve_pred = vtk_curve_extractor.run(mask_pred, mask_sitk)
+                    if vtk_curve_pred.GetNumberOfPoints() == 0:
+                        add_info_logging(
+                            f"Curve not found: case={case_name}, label={keys_to_need[label]}",
+                            "work_logger"
+                        )
+                        not_found_data.append({
+                            "case": case_name,
+                            "group": first_char,
+                            "label": keys_to_need[label]
+                        })
+                        asd_metric.append(np.nan)
+                        continue
                     temp_metrics_2 = compute_metrics_gh_line_v2(dict_cases[case_name][keys_to_need[label]], vtk_curve_pred)
-                    asd_metric.append(temp_metrics_2["ASD"])
+                    asd_metric.append(temp_metrics_2["MPCD"])
                 metrics_2["case"] = case_name
                 metrics_2["group"] = first_char
-                metrics_2["ASD"] = np.mean(asd_metric)
-                per_case_data_2.append(metrics_2)
+                asd_arr = np.array(asd_metric, dtype=float)
+                metrics_2["MPCD"] = float(np.nanmean(asd_arr)) if not np.all(np.isnan(asd_arr)) else np.nan
+                per_case_c2p_data.append(metrics_2)
 
-            # Сохраняем метрики по кейсам
-            df_2 = pd.DataFrame(per_case_data_2)
-            df_2.to_csv(per_case_csv_2, index=False)
+            df_2 = pd.DataFrame(per_case_c2p_data)
+            df_2.to_csv(per_case_c2p_csv, index=False)
+
+            df_nf = pd.DataFrame(not_found_data)
+            if not df_nf.empty:
+                df_nf.to_csv(not_found_csv, index=False)
 
         for metric_name in metrics_name_2:
             data_for_plot = df_2[['group', metric_name]].dropna(how='any')
@@ -204,22 +222,39 @@ def curve_lines_analysis(data_path,
                                   os.path.join(str(result_folder_path), name_result_folder, "_2"))
         data_table_2 = [
             ["All",
-             round(df_2["ASD"].mean(numeric_only=True), 2),
+             round(df_2["MPCD"].mean(numeric_only=True), 2),
              int(len(df_2["group"]))],
             ["German\npathology",
-             round(df_2[df_2['group'] == "g"]["ASD"].mean(numeric_only=True), 2),
+             round(df_2[df_2['group'] == "g"]["MPCD"].mean(numeric_only=True), 2),
              int(len(df_2[df_2['group'] == "g"]))],
             ["Slovenian\npathology",
-             round(df_2[df_2['group'] == "p"]["ASD"].mean(numeric_only=True), 2),
+             round(df_2[df_2['group'] == "p"]["MPCD"].mean(numeric_only=True), 2),
              int(len(df_2[df_2['group'] == "p"]))],
             ["Slovenian\nnormal",
-             round(df_2[df_2['group'] == "n"]["ASD"].mean(numeric_only=True), 2),
+             round(df_2[df_2['group'] == "n"]["MPCD"].mean(numeric_only=True), 2),
              int(len(df_2[df_2['group'] == "n"]))],
         ]
-        columns_2 = ["Type", "Average Surface\nDistance, mm", "Number of\nimages"]
+        columns_2 = ["Type", "Mean Point-to-Curve\nDistance, mm", "Number of\nimages"]
+        results_table_c2p_path = os.path.join(result_folder_path, f"landmark_errors_c2p_{folder_name}.png")
+        plot_table(data_table_2, columns_2, results_table_c2p_path)
 
-        results_table_path_2 = os.path.join(result_folder_path, f"landmark_errors_2_{folder_name}.png")
-        plot_table(data_table_2, columns_2, results_table_path_2)
+        if not df_nf.empty:
+            label_names = list(keys_to_need.values())
+            groups = ["g", "p", "n"]
+            group_display = {"g": "German\npathology", "p": "Slovenian\npathology", "n": "Slovenian\nnormal"}
+            total_cases = len(df_2)
+            nf_table = [["All"] + [int((df_nf["label"] == lbl).sum()) for lbl in label_names] + [total_cases]]
+            for grp in groups:
+                grp_total = int((df_2["group"] == grp).sum())
+                nf_table.append(
+                    [group_display[grp]] +
+                    [int(((df_nf["label"] == lbl) & (df_nf["group"] == grp)).sum()) for lbl in label_names] +
+                    [grp_total]
+                )
+            nf_columns = ["Type"] + [f"Not found\n{lbl}" for lbl in label_names] + ["Total\nimages"]
+            nf_table_path = os.path.join(result_folder_path, f"not_found_curves_{folder_name}.png")
+            plot_table(nf_table, nf_columns, nf_table_path)
+            add_info_logging(f"Not found curves total: {len(df_nf)}", "work_logger")
 
     if points2points or curve2points:
         add_info_logging("Analysis completed", "work_logger")

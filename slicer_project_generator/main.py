@@ -9,6 +9,8 @@ def main(data_path):
     original_img_folder = os.path.join(data_path, "image_nii")
     original_aorta_mask_folder = os.path.join(data_path, "mask_aorta_segment")
     gh_lines_pred_mask_folder = os.path.join(data_path, "nnUNet_folder", "nnUNet_test", "Dataset424_GhLines")
+    ci_lines_pred_mask_folder = os.path.join(data_path, "nnUNet_folder", "nnUNet_test", "Dataset425_CiLines")
+    br_2d_pred_mask_folder = os.path.join(data_path, "nnUNet_folder", "nnUNet_test", "Dataset426_BasalRing2d")
     dict_all_case = json_reader(dict_all_case_path)
     # get a list of cases
     cases = list(dict_all_case.keys())
@@ -21,13 +23,19 @@ def main(data_path):
         print("Case not selected, exit...")
         return
 
+    def _pred_file(folder):
+        path = os.path.join(folder, selected_case + ".nii.gz")
+        return path if os.path.exists(path) else None
+
     # generate the project
     generator = ProjectGenerator(case_name=selected_case,
                                  output_folder=output_folder,
                                  original_img_folder=original_img_folder,
                                  original_aorta_mask_folder=original_aorta_mask_folder,
                                  case_data=dict_all_case[selected_case],
-                                 gh_lines_pred_mask_file=gh_lines_pred_mask_file)
+                                 gh_lines_pred_mask_file=gh_lines_pred_mask_file,
+                                 ci_lines_pred_mask_file=_pred_file(ci_lines_pred_mask_folder),
+                                 br_2d_pred_mask_file=_pred_file(br_2d_pred_mask_folder))
     project_file = generator.generate()
 
     print(f"Project created: {project_file}")

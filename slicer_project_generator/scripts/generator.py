@@ -7,7 +7,7 @@ from tkinter import messagebox, Tk
 from slicer_project_generator.scripts.utils import json_reader, json_save
 import re
 from data_postprocessing.controller_analysis import load_mask, load_labels_mask_sitk
-from data_postprocessing.mask_analysis import new_spline_from_pixel_coord
+from data_postprocessing.mask_analysis import extract_boundary_curve_world
 from data_postprocessing.vtk_analysis import CenterlineExtractor
 
 # from pyarrow import output_stream
@@ -39,6 +39,10 @@ TEMPLATE_MAP = {
     "GeometricHeight_L_pred.json": ("LGH_p",          "GeometricHeight_L_pred"),
     "GeometricHeight_N_pred.json": ("NGH_p",          "GeometricHeight_N_pred"),
     "GeometricHeight_R_pred.json": ("RGH_p",          "GeometricHeight_R_pred"),
+    "BasalRing_pred.json":         ("BR_p",           "BasalRing_pred"),
+    "CuspInsertion_L_pred.json":   ("LCI_p",          "CuspInsertion_L_pred"),
+    "CuspInsertion_N_pred.json":   ("NCI_p",          "CuspInsertion_N_pred"),
+    "CuspInsertion_R_pred.json":   ("RCI_p",          "CuspInsertion_R_pred"),
 }
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -149,62 +153,59 @@ def mrml_generator(file_path, nii_img_path, output_file_path):
 class ProjectGenerator:
     def __init__(self, case_name, output_folder, original_img_folder, original_aorta_mask_folder, case_data,
                  gh_lines_pred_mask_file=None,
+                 ci_lines_pred_mask_file=None,
+                 br_2d_pred_mask_file=None,
                  base_path="cases"):
         self.case_name = case_name
         self.output_folder = output_folder
         self.original_img_folder = original_img_folder
         self.original_aorta_mask_folder = original_aorta_mask_folder
         self.case_data = case_data
-        # self.base_path = base_path
         self.templates_folder = os.path.join(BASE_DIR, "templates")
-        # self.templates_folder = "templates"
         self.attentions = []
         self.gh_lines_pred_mask_file = gh_lines_pred_mask_file
+        self.ci_lines_pred_mask_file = ci_lines_pred_mask_file
+        self.br_2d_pred_mask_file = br_2d_pred_mask_file
         self.gh_pred_data = None
 
-    def _gh_pred_data_generate(self):
-        if self.gh_lines_pred_mask_file:
-            gh_dict = {}
-            keys_gh = {1: 'RGH_p', 2: 'LGH_p', 3: 'NGH_p'}
-            masks_pred, levels_pred = load_mask(self.gh_lines_pred_mask_file, False)
-            for label in range(1, levels_pred+1):
-                mask_pred = (masks_pred == label).astype(np.uint8)
-                new_coords_pred = new_spline_from_pixel_coord(
-                    mask_pred,
-                    self.gh_lines_pred_mask_file)
-                gh_dict[keys_gh[label]] = new_coords_pred
-        else:
-            gh_dict = {}
-        return gh_dict
+    def _curve_pred_data_generate(self, mask_file, keys, n_samples=20, spline_smoothing=0.1):
+        if not mask_file or not os.path.exists(mask_file):
+            return {}
+        result = {}
+        masks_pred, levels_pred = load_mask(mask_file, False)
+        vtk_curve_extractor = CenterlineExtractor(spline_smoothing=spline_smoothing)
+        for label in range(1, levels_pred + 1):
+            if label not in keys:
+                continue
+            mask_pred = (masks_pred == label).astype(np.uint8)
+            mask_sitk = load_labels_mask_sitk(mask_file, label)
+            segments = vtk_curve_extractor.run(mask_pred, mask_sitk)
+            if segments.GetNumberOfPoints() == 0:
+                continue
+            pts = np.array([segments.GetPoints().GetPoint(i)
+                            for i in range(segments.GetNumberOfPoints())])
+            if len(pts) < 2:
+                continue
+            t = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))])
+            t /= t[-1]
+            t_new = np.linspace(0, 1, n_samples)
+            result[keys[label]] = np.column_stack([np.interp(t_new, t, pts[:, i]) for i in range(3)])
+        return result
 
-    def _gh_pred_data_generate_2(self, n_samples=10):
-        if self.gh_lines_pred_mask_file:
-            gh_dict = {}
-            keys_gh = {1: 'RGH_p', 2: 'LGH_p', 3: 'NGH_p'}
-            masks_pred, levels_pred = load_mask(self.gh_lines_pred_mask_file, False)
-            vtk_curve_extractor = CenterlineExtractor()
-
-            for label in range(1, levels_pred + 1):
-                mask_pred = (masks_pred == label).astype(np.uint8)
-                mask_sitk = load_labels_mask_sitk(self.gh_lines_pred_mask_file, label)
-                segments = vtk_curve_extractor.run(mask_pred, mask_sitk)
-
-                pts_vtk = segments.GetPoints()
-                n_pts = pts_vtk.GetNumberOfPoints()
-                pts = np.array([pts_vtk.GetPoint(i) for i in range(n_pts)])
-
-                d = np.linalg.norm(np.diff(pts, axis=0), axis=1)
-                t = np.concatenate([[0], np.cumsum(d)])
-                t /= t[-1]
-                t_new = np.linspace(0, 1, n_samples)
-                new_points = np.column_stack([
-                    np.interp(t_new, t, pts[:, i]) for i in range(3)
-                ])
-
-                gh_dict[keys_gh[label]] = new_points
-        else:
-            gh_dict = {}
-        return gh_dict
+    def _br_pred_data_generate(self, n_samples=20):
+        if not self.br_2d_pred_mask_file or not os.path.exists(self.br_2d_pred_mask_file):
+            return {}
+        mask_sitk = sitk.ReadImage(self.br_2d_pred_mask_file)
+        mask_array = sitk.GetArrayFromImage(mask_sitk)
+        boundary_points = extract_boundary_curve_world(mask_array, mask_sitk)
+        if len(boundary_points) < 4:
+            return {}
+        # Remove duplicate endpoint if find_contours closed the contour
+        if np.allclose(boundary_points[0], boundary_points[-1], atol=1e-3):
+            boundary_points = boundary_points[:-1]
+        # endpoint=False: equal spacing without repeating start point at closure
+        indices = np.round(np.linspace(0, len(boundary_points), n_samples, endpoint=False)).astype(int)
+        return {'BR_p': boundary_points[indices]}
 
     def check_and_prepare_folder(self, case_folder_path):
         """Проверяет наличие папки и при необходимости очищает её."""
@@ -267,7 +268,14 @@ class ProjectGenerator:
                 json_save(new_json, os.path.join(case_folder_path, filename))
 
     def generate(self):
-        self.gh_pred_data = self._gh_pred_data_generate_2()
+        self.gh_pred_data = self._curve_pred_data_generate(
+            self.gh_lines_pred_mask_file,
+            {1: 'RGH_p', 2: 'LGH_p', 3: 'NGH_p'},
+            n_samples=10, spline_smoothing=1.0
+        )
+        self.gh_pred_data.update(self._curve_pred_data_generate(
+            self.ci_lines_pred_mask_file, {1: 'RCI_p', 2: 'LCI_p', 3: 'NCI_p'}))
+        self.gh_pred_data.update(self._br_pred_data_generate())
 
         case_folder_path = os.path.join(self.output_folder, self.case_name)
 

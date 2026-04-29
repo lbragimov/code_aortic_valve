@@ -5,3 +5,4 @@ venv/*
 __pycache__
 *.nrrd
 temporaty_functionality/
+test_data/
